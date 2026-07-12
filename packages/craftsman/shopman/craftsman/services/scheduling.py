@@ -535,4 +535,10 @@ def _validate_downstream_deficit(order, new_quantity: Decimal, *, force: bool) -
     except CraftError:
         raise
     except Exception:
-        pass  # graceful
+        # Degradação graciosa: o adjust não pode falhar por causa do check de
+        # déficit downstream, mas a perda do check precisa ficar visível.
+        logger.warning(
+            "downstream deficit check falhou para WorkOrder %s; adjust segue sem o check",
+            getattr(order, "ref", "?"),
+            exc_info=True,
+        )

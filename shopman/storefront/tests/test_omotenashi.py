@@ -1,13 +1,12 @@
-"""Tests for the omotenashi infrastructure: context, copy resolver, model, tags."""
+"""Tests for the omotenashi infrastructure: context, copy resolver, model."""
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
-from django.template import Context, Template
 from django.utils import timezone
 
 from shopman.shop.models import OmotenashiCopy
@@ -221,44 +220,6 @@ def test_whatsapp_welcome_copy_does_not_claim_unsaved_state(db):
 def test_whatsapp_login_cta_does_not_claim_otp_code(db):
     entry = resolve_copy("LOGIN_PHONE_CTA_WA", moment=MOMENT_MANHA, audience=AUDIENCE_ANON)
     assert "código" not in entry.title.lower()
-
-
-# ── Template tag ───────────────────────────────────────────────────────
-
-
-def test_omotenashi_tag_renders_message(db, rf, shop_7_to_19):
-    request = rf.get("/")
-    with patch("django.utils.timezone.localtime", return_value=_freeze(8)):
-        ctx = OmotenashiContext.from_request(request)
-    tpl = Template(
-        "{% load omotenashi_tags %}{% omotenashi 'CART_EMPTY' as e %}{{ e.message }}"
-    )
-    out = tpl.render(Context({"omotenashi_ctx": ctx}))
-    assert "fresquinho" in out.lower()
-
-
-def test_human_time_filter():
-    tpl = Template("{% load omotenashi_tags %}{{ when|human_time }}")
-    now = timezone.now()
-    assert tpl.render(Context({"when": now})) == "agora"
-    assert tpl.render(Context({"when": now - timedelta(minutes=3)})) == "há 3 min"
-    assert tpl.render(Context({"when": now - timedelta(hours=5)})) == "há 5 h"
-    assert tpl.render(Context({"when": now - timedelta(days=1)})) == "ontem"
-    assert tpl.render(Context({"when": None})) == ""
-
-
-def test_human_eta_tag_with_timedelta():
-    tpl = Template("{% load omotenashi_tags %}{% human_eta v %}")
-    assert tpl.render(Context({"v": timedelta(minutes=12)})) == "em 12 min"
-    assert tpl.render(Context({"v": timedelta(hours=1, minutes=30)})) == "em 1h30"
-
-
-def test_human_eta_tag_with_future_datetime_today():
-    tpl = Template("{% load omotenashi_tags %}{% human_eta v %}")
-    # +2h guarantees ≥60 min so we never hit the "em X min" branch
-    later = timezone.localtime() + timedelta(hours=2)
-    out = tpl.render(Context({"v": later}))
-    assert "por volta das" in out or "amanhã" in out
 
 
 # ── Birthday detection ─────────────────────────────────────────────────

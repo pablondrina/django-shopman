@@ -18,7 +18,7 @@ The minimum-order progress and upsell read-models drained to
 from __future__ import annotations
 
 import logging
-from datetime import time, timedelta
+from datetime import time
 
 from django.utils import timezone
 from shopman.guestman.contrib.insights import InsightService
@@ -26,7 +26,6 @@ from shopman.guestman.contrib.insights import InsightService
 logger = logging.getLogger(__name__)
 
 DEFAULT_STOREFRONT_CHANNEL_REF = "web"
-_FRESH_WINDOW_MINUTES_DEFAULT = 60  # "fresh from the oven" lookback fallback
 
 
 _HAPPY_HOUR_INACTIVE: dict = {
@@ -62,73 +61,6 @@ def popular_skus(limit: int = 5) -> set[str]:
     except Exception as e:
         logger.warning("popular_skus_failed: %s", e, exc_info=True)
         return set()
-
-
-def fresh_window_minutes() -> int:
-    """Resolve the "fresh from the oven" window (minutes) from shop defaults.
-
-    Shop-global policy (the lookup is not channel-scoped), mirroring how
-    ``minimum_order_q`` lives in ``shop.defaults``. Defaults to 60.
-    """
-    try:
-        from shopman.shop.models import Shop
-
-        shop = Shop.load()
-        raw = (shop.defaults or {}).get("fresh_window_minutes") if shop else None
-        return int(raw) if raw else _FRESH_WINDOW_MINUTES_DEFAULT
-    except Exception:
-        logger.debug("fresh_window_minutes degraded; using default", exc_info=True)
-        return _FRESH_WINDOW_MINUTES_DEFAULT
-
-
-def fresh_from_oven_skus(limit: int = 6) -> list[dict]:
-    """SKUs that recently entered saleable stock from production — data only.
-
-    Queries Stockman Moves created by ``StockPlanning.realize()`` — the
-    credit side whose reason starts with "Recebido de produção" — within the
-    configured fresh window (``fresh_window_minutes``).
-
-    Returns a list of dicts ordered by most-recent first::
-
-        [{"sku": "CROISSANT", "latest": datetime, "minutes_ago": 12.4}, ...]
-
-    ``minutes_ago`` is the raw elapsed age; the Presentation buckets it (15-min
-    rounding) and renders the freshness label. Returns an empty list when
-    Stockman is unavailable or nothing was produced recently.
-    """
-    try:
-        from django.db.models import Max, Sum
-        from shopman.stockman.models import Move
-
-        max_age_minutes = fresh_window_minutes()
-        cutoff = timezone.now() - timedelta(minutes=max_age_minutes)
-        rows = (
-            Move.objects.filter(
-                timestamp__gte=cutoff,
-                quant__position__is_saleable=True,
-                reason__istartswith="Recebido de produção",
-                delta__gt=0,
-            )
-            .values("quant__sku")
-            .annotate(latest=Max("timestamp"), total=Sum("delta"))
-            .order_by("-latest")[:limit]
-        )
-
-        now = timezone.now()
-        result = []
-        for row in rows:
-            minutes_ago = (now - row["latest"]).total_seconds() / 60
-            if minutes_ago > max_age_minutes:
-                continue
-            result.append({
-                "sku": row["quant__sku"],
-                "latest": row["latest"],
-                "minutes_ago": minutes_ago,
-            })
-        return result
-    except Exception as e:
-        logger.warning("fresh_from_oven_failed: %s", e, exc_info=True)
-        return []
 
 
 def happy_hour_state() -> dict:

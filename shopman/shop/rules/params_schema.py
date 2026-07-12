@@ -26,15 +26,15 @@ class RuleParam:
 
 @dataclass(frozen=True)
 class RuleParamSchema:
-    code: str
+    ref: str
     title: str
     params: tuple[RuleParam, ...]
 
 
-# Chave = RuleConfig.code (sem prefixo — é o que get_channel_rule_params matcheia).
+# Chave = RuleConfig.ref (sem prefixo — é o que get_channel_rule_params matcheia).
 RULE_PARAM_SCHEMAS: dict[str, RuleParamSchema] = {
     "happy_hour": RuleParamSchema(
-        code="happy_hour",
+        ref="happy_hour",
         title="Happy hour — janela de desconto",
         params=(
             RuleParam("discount_percent", PERCENT, "Desconto (%)",
@@ -46,7 +46,7 @@ RULE_PARAM_SCHEMAS: dict[str, RuleParamSchema] = {
         ),
     ),
     "d1_discount": RuleParamSchema(
-        code="d1_discount",
+        ref="d1_discount",
         title="Desconto D-1 — produto da véspera",
         params=(
             RuleParam("discount_percent", PERCENT, "Desconto (%)",
@@ -54,7 +54,7 @@ RULE_PARAM_SCHEMAS: dict[str, RuleParamSchema] = {
         ),
     ),
     "employee_discount": RuleParamSchema(
-        code="employee_discount",
+        ref="employee_discount",
         title="Desconto funcionário",
         params=(
             RuleParam("discount_percent", PERCENT, "Desconto (%)",
@@ -64,5 +64,5 @@ RULE_PARAM_SCHEMAS: dict[str, RuleParamSchema] = {
 }
 
 
-def schema_for(code: str | None) -> RuleParamSchema | None:
-    return RULE_PARAM_SCHEMAS.get(code or "")
+def schema_for(ref: str | None) -> RuleParamSchema | None:
+    return RULE_PARAM_SCHEMAS.get(ref or "")

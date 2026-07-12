@@ -15,7 +15,6 @@ export default defineNuxtConfig({
     public: {
       djangoPublicBaseUrl:
         process.env.NUXT_PUBLIC_DJANGO_BASE_URL || process.env.NUXT_DJANGO_BASE_URL || "http://127.0.0.1:8000",
-      operatorLoginNextPath: process.env.NUXT_HUB_LOGIN_NEXT_PATH || "/central/",
       // A Central é a casa: o rail começa colapsado (o operador abre se quiser).
       railDefaultState: "collapsed",
     },

@@ -71,26 +71,26 @@ def get_active_rules(channel=None, stage=None):
     return rules
 
 
-def get_rule_params(code: str) -> dict:
-    """Return params dict for the active RuleConfig with `code`.
+def get_rule_params(ref: str) -> dict:
+    """Return params dict for the active RuleConfig with `ref`.
 
     Uses the same 1-hour in-process cache as ``get_active_rules()``.
     Returns ``{}`` if the rule is not found or DB is unavailable.
     """
     try:
         for rc in get_active_rules():
-            if rc.code == code:
+            if rc.ref == ref:
                 return rc.params or {}
     except Exception:
-        logger.debug("rules.engine: could not load params for rule=%s", code, exc_info=True)
+        logger.debug("rules.engine: could not load params for rule=%s", ref, exc_info=True)
     return {}
 
 
-def get_channel_rule_params(code: str, channel_ref: str | None) -> dict | None:
-    """Return params for an *enabled* RuleConfig ``code`` applicable to ``channel_ref``.
+def get_channel_rule_params(ref: str, channel_ref: str | None) -> dict | None:
+    """Return params for an *enabled* RuleConfig ``ref`` applicable to ``channel_ref``.
 
     This is the rule-driven execution gate for pricing modifiers: a modifier
-    calls it with its own ``code`` and the channel being priced. The return
+    calls it with its own ``ref`` and the channel being priced. The return
     distinguishes three cases:
 
     - ``dict`` — the rule is enabled and applies here; use these params.
@@ -103,7 +103,7 @@ def get_channel_rule_params(code: str, channel_ref: str | None) -> dict | None:
     """
     try:
         for rc in get_active_rules():
-            if rc.code != code:
+            if rc.ref != ref:
                 continue
             channels = list(rc.channels.all())
             if not channels:
@@ -112,7 +112,7 @@ def get_channel_rule_params(code: str, channel_ref: str | None) -> dict | None:
                 return rc.params or {}
             return None
     except Exception:
-        logger.debug("rules.engine: channel rule lookup failed for rule=%s", code, exc_info=True)
+        logger.debug("rules.engine: channel rule lookup failed for rule=%s", ref, exc_info=True)
     return None
 
 
@@ -229,8 +229,8 @@ def _safe_load(rule_config):
         # rule_path aponta para uma regra removida ou fora da whitelist — condição
         # de configuração esperada (ex.: RuleConfig órfão), não um crash. Aviso
         # conciso, sem traceback; tracebacks ficam só para erros inesperados.
-        logger.warning("rules.engine: skipping rule %s — %s", rule_config.code, exc)
+        logger.warning("rules.engine: skipping rule %s — %s", rule_config.ref, exc)
         return None
     except Exception:
-        logger.warning("rules.engine: Failed to load rule %s", rule_config.code, exc_info=True)
+        logger.warning("rules.engine: Failed to load rule %s", rule_config.ref, exc_info=True)
         return None

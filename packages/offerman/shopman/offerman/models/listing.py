@@ -1,5 +1,6 @@
 """Listing and ListingItem models."""
 
+import logging
 import uuid as uuid_lib
 from decimal import Decimal
 
@@ -8,6 +9,8 @@ from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from simple_history.models import HistoricalRecords
+
+logger = logging.getLogger(__name__)
 
 
 class Listing(models.Model):
@@ -149,7 +152,14 @@ class ListingItem(models.Model):
                     if old["is_published"] != self.is_published or old["is_sellable"] != self.is_sellable:
                         availability_changed_flag = True
             except Exception:
-                pass
+                # Sem o snapshot antigo, price_changed/availability_changed não
+                # disparam neste save — perda operacional que precisa ser visível.
+                logger.warning(
+                    "listing_item.save: falha ao ler estado anterior de %s; "
+                    "sinais de mudança não dispararão neste save",
+                    self.pk,
+                    exc_info=True,
+                )
         super().save(*args, **kwargs)
         if old_price_q is not None:
             from shopman.offerman.signals import price_changed

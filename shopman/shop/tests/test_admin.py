@@ -555,7 +555,7 @@ class TestRuleConfigTypedParams:
     @pytest.fixture
     def happy_hour_rule(self, db):
         return RuleConfig.objects.create(
-            code="happy_hour",
+            ref="happy_hour",
             rule_path="shopman.shop.rules.pricing.HappyHourRule",
             label="Hora da Xepa",
             params={"discount_percent": 25, "start": "17:30", "end": "18:00"},
@@ -575,7 +575,7 @@ class TestRuleConfigTypedParams:
         from shopman.shop.admin.rules import RuleConfigForm
 
         data = {
-            "code": "happy_hour",
+            "ref": "happy_hour",
             "rule_path": "shopman.shop.rules.pricing.HappyHourRule",
             "label": "Hora da Xepa",
             "enabled": "on",
@@ -593,14 +593,14 @@ class TestRuleConfigTypedParams:
         from shopman.shop.admin.rules import RuleConfigForm
 
         rule = RuleConfig.objects.create(
-            code="employee_discount",
+            ref="employee_discount",
             rule_path="shopman.shop.rules.pricing.EmployeeRule",
             label="Desconto Funcionário",
             params={"discount_percent": 20, "group": "staff"},
             priority=60,
         )
         data = {
-            "code": "employee_discount",
+            "ref": "employee_discount",
             "rule_path": "shopman.shop.rules.pricing.EmployeeRule",
             "label": "Desconto Funcionário",
             "enabled": "on",
@@ -616,7 +616,7 @@ class TestRuleConfigTypedParams:
         from shopman.shop.admin.rules import RuleConfigForm
 
         data = {
-            "code": "happy_hour",
+            "ref": "happy_hour",
             "rule_path": "shopman.shop.rules.pricing.HappyHourRule",
             "label": "Hora da Xepa",
             "enabled": "on",
@@ -633,7 +633,7 @@ class TestRuleConfigTypedParams:
         from shopman.shop.admin.rules import RuleConfigForm
 
         rule = RuleConfig.objects.create(
-            code="business_hours",
+            ref="business_hours",
             rule_path="shopman.shop.rules.validation.BusinessHoursRule",
             label="Horário de Funcionamento",
             params={},

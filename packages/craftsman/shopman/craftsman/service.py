@@ -32,8 +32,6 @@ class CraftService(CraftPlanning, CraftExecution, CraftQueries):
     Models encapsulate invariants. Services orchestrate effects.
     """
 
-Craft = CraftService
-
 # Module-level alias — all methods are @classmethod.
 # Allows: from shopman.craftsman.service import craft
 craft = CraftService

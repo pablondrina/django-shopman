@@ -22,7 +22,7 @@ from shopman.shop.models import RuleConfig
 from shopman.shop.rules.params_schema import PERCENT, TIME, schema_for
 
 # Campos tipados de params declarados no nível da classe (união entre schemas);
-# o __init__ mantém só os relevantes ao ``code`` da regra.
+# o __init__ mantém só os relevantes à ``ref`` da regra.
 PARAM_FIELD_PREFIX = "param_"
 
 
@@ -84,7 +84,7 @@ class RuleConfigForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._schema = schema_for(getattr(self.instance, "code", None))
+        self._schema = schema_for(getattr(self.instance, "ref", None))
         if self._schema is None:
             # Regra sem schema → edita params como JSON; remove os campos tipados.
             for param_name in ("discount_percent", "start", "end"):
@@ -141,16 +141,16 @@ class RuleConfigAdmin(ModelAdmin):
     # Prioridade de avaliação = lista arrastável (menor = avaliada primeiro).
     ordering_field = "priority"
     hide_ordering_field = True
-    list_display = ("label", "code", "enabled", "rule_type_display", "params_summary")
+    list_display = ("label", "ref", "enabled", "rule_type_display", "params_summary")
     list_filter = ("enabled", RuleTypeFilter)
-    search_fields = ("label", "code")
+    search_fields = ("label", "ref")
     list_editable = ("enabled",)
     ordering = ("priority",)
     filter_horizontal = ("channels",)
     actions = ["enable_rules", "disable_rules"]
 
     def get_fieldsets(self, request, obj=None):
-        schema = schema_for(getattr(obj, "code", None)) if obj else None
+        schema = schema_for(getattr(obj, "ref", None)) if obj else None
         if schema is not None:
             param_fields = tuple(_param_field_name(p.name) for p in schema.params)
             params_section = (
@@ -172,7 +172,7 @@ class RuleConfigAdmin(ModelAdmin):
                 },
             )
         return [
-            (None, {"fields": ("code", "label", "rule_path", "enabled", "priority")}),
+            (None, {"fields": ("ref", "label", "rule_path", "enabled", "priority")}),
             params_section,
             ("Canais", {
                 "fields": ("channels",),

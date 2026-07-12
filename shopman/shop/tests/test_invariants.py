@@ -467,7 +467,6 @@ class TestNoBareExceptPass:
         focused_files = list((PROJECT_ROOT / "storefront" / "projections").glob("*.py"))
         focused_files.extend([
             PROJECT_ROOT / "storefront" / "services" / "pickup_slots.py",
-            FRAMEWORK_ROOT / "templatetags" / "storefront_tags.py",
             FRAMEWORK_ROOT / "modifiers.py",
         ])
         focused_files.extend((FRAMEWORK_ROOT / "rules").glob("*.py"))
@@ -564,7 +563,6 @@ class TestNoGetElementByIdInTemplates:
     - IntersectionObserver callbacks (menu scroll spy) — no Alpine equivalent
     - _design_tokens*.html / _tokens.html — FOUC-prevention scripts run pre-Alpine
     - stock_error_modal.html — HTMX oob-swap sink pattern
-    - partials/_bottom_nav.html — cross-fragment badge update (HTMX target)
     """
 
     ALL_TEMPLATES = _template_files(
@@ -587,8 +585,6 @@ class TestNoGetElementByIdInTemplates:
         "stock_error_modal.html",
         "_catalog_item_grid.html",
         "product_detail.html",
-        # Cross-fragment cart badge update
-        "_bottom_nav.html",
     }
 
     def test_no_get_element_by_id(self):

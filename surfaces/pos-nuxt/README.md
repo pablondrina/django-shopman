@@ -28,10 +28,8 @@ The POS does not own credentials. Backstage endpoints use the canonical Django
 session and require a staff user with `backstage.operate_pos`.
 
 When the session is missing or unauthorized, the Nuxt surface links to
-the Django admin login on the Django public base URL. Production defaults can
-return to `/pos/`; local development returns to `/admin/` so the operator can
-log in, keep the POS tab open, and click "Já entrei". Override the return path
-with `NUXT_POS_LOGIN_NEXT_PATH` when a deployment serves the POS somewhere else.
+the Django admin login on the Django public base URL so the operator can
+log in, keep the tab open, and click "Já entrei".
 
 For local development, keep Django and Nuxt on the same hostname, such as
 `127.0.0.1`, so Django session and CSRF cookies are visible to both ports.
