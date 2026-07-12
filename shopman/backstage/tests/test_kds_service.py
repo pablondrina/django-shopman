@@ -25,24 +25,6 @@ def ticket(db):
 
 
 @pytest.mark.django_db
-def test_check_ticket_item_delegates_to_core(ticket, monkeypatch):
-    core = Mock()
-    monkeypatch.setattr(kds.kds_core, "toggle_ticket_item", core)
-
-    result = kds.check_ticket_item(ticket_pk=ticket.pk, index=0, actor="kds:op")
-
-    assert result.pk == ticket.pk
-    core.assert_called_once_with(ticket, index=0, actor="kds:op")
-
-
-@pytest.mark.django_db
-def test_check_ticket_item_raises_for_missing_ticket():
-    # Tipo específico: a camada HTTP mapeia KDSTicketNotFound para 404.
-    with pytest.raises(KDSTicketNotFound):
-        kds.check_ticket_item(ticket_pk=999999, index=0, actor="kds:op")
-
-
-@pytest.mark.django_db
 def test_set_ticket_item_checked_is_idempotent(ticket, monkeypatch):
     core = Mock()
     monkeypatch.setattr(kds.kds_core, "toggle_ticket_item", core)

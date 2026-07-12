@@ -15,13 +15,6 @@ def _get_ticket(ticket_pk: int):
     return ticket
 
 
-def check_ticket_item(*, ticket_pk: int, index: int, actor: str):
-    ticket = _get_ticket(ticket_pk)
-    if not kds_core.toggle_ticket_item(ticket, index=index, actor=actor):
-        raise KDSError("Ticket não está aberto.")
-    return ticket
-
-
 def set_ticket_item_checked(*, ticket_pk: int, index: int, checked: bool, actor: str):
     ticket = _get_ticket(ticket_pk)
     if not 0 <= index < len(ticket.items):
