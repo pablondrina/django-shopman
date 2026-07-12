@@ -286,7 +286,7 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) =>
           >
         </button>
         <NuxtLink
-          to="/retirada"
+          to="/pickup"
           class="grid size-9 place-items-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground"
           aria-label="Tela do cliente"
           title="Tela do cliente"

@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 // E2E do KDS (backend-independente). O mock ramifica pelo cookie `e2e_session` que o BFF
-// encaminha: telas de operador atrás do gate; o painel público `/retirada` renderiza sem
+// encaminha: telas de operador atrás do gate; o painel público `/pickup` renderiza sem
 // sessão. Build com baseURL '/' (produção usa '/kds/'). Login/lock/ações reais rodam
 // contra o Django real (reviewer local) — ver tests/e2e/README. Porta de e2e dedicada
 // (3103) para não reusar o dev server em :3003; mock :8798.
