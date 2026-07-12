@@ -165,6 +165,11 @@ class TestE2E1LocalCheckout(TransactionTestCase):
         self.assertEqual(order.status, Order.Status.CONFIRMED)
         # stock.fulfill called once in on_confirmed
         self.mocks["fulfill"].assert_called_once()
+        # O marcador durável tem que sobreviver à confirmação immediate: o
+        # transition_status ressincroniza a instância do banco e o sealed check
+        # não pode rejeitar o save do _mark_phase_complete (o sweeper depende
+        # do marcador para não re-despachar este pedido).
+        self.assertEqual((order.data or {}).get("lifecycle", {}).get("on_commit"), "done")
 
 
 # ─────────────────────────────────────────────────────────────────────
