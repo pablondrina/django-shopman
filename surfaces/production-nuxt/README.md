@@ -40,4 +40,5 @@ Set `NUXT_DJANGO_BASE_URL` to the Django/BFF origin (default `http://127.0.0.1:8
 - `app/composables/useProductionBoard.ts` — planning read-side + plan/start actions.
 - `app/presentation/production.ts` — pure board shaping (tones, affordances, shortage parsing).
 - `app/types/production.ts` — TS mirror of the Django production projections.
-- `server/utils/djangoProxy.ts` + `server/api/v1/[...path].ts` — Django proxy (CSRF).
+- `server/api/v1/[...path].ts` — Django proxy (CSRF); transporte canônico na layer
+  `operator-kit` (`server/utils/djangoProxy.ts`, auto-importado pelo Nitro).
