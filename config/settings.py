@@ -391,6 +391,13 @@ else:
             "django_ratelimit.W001",
         ]
 
+# django-ratelimit resolve o IP do cliente por este helper, não por REMOTE_ADDR
+# cru. Atrás do load balancer, REMOTE_ADDR é o IP do proxy — todos os clientes
+# cairiam num bucket único e um cliente agressivo bloquearia OTP/login de toda a
+# loja. O helper usa o X-Forwarded-For pelo rightmost TRUSTED_PROXY_DEPTH (o
+# mesmo caminho spoof-safe já usado pelos gates de IP do doorman).
+RATELIMIT_IP_META_KEY = "shopman.shop.services.auth.client_ip"
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 STATIC_URL = "/static/"

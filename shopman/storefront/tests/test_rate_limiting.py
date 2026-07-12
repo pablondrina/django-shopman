@@ -41,6 +41,32 @@ def test_api_otp_request_rate_limited(client: Client):
 
 
 @override_settings(RATELIMIT_ENABLE=True)
+def test_otp_rate_limit_is_per_client_ip_not_shared_proxy_bucket(client: Client):
+    """Atrás do load balancer, dois clientes têm o MESMO REMOTE_ADDR (o proxy).
+    O rate-limit deve isolar por IP real (X-Forwarded-For), senão um cliente
+    agressivo esgota o limite e bloqueia OTP/login de toda a loja.
+    """
+    proxy = "10.0.0.1"  # REMOTE_ADDR compartilhado (o load balancer)
+
+    def _request(*, xff: str):
+        return client.post(
+            "/api/v1/auth/request-code/",
+            data=json.dumps({"phone": "+5511999990010"}),
+            content_type="application/json",
+            REMOTE_ADDR=proxy,
+            HTTP_X_FORWARDED_FOR=xff,
+        )
+
+    # Cliente A esgota o limite de 5/min.
+    for _ in range(5):
+        assert _request(xff="9.9.9.9").status_code != 429
+    assert _request(xff="9.9.9.9").status_code == 429  # A bloqueado
+
+    # Cliente B — mesmo proxy, IP real diferente — não é vítima do bloqueio de A.
+    assert _request(xff="8.8.8.8").status_code != 429
+
+
+@override_settings(RATELIMIT_ENABLE=True)
 def test_api_otp_verify_rate_limited(client: Client):
     """11th OTP verify in the same minute returns 429."""
     payload = json.dumps({"phone": "+5511999990003", "code": "000000"})
