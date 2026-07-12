@@ -183,6 +183,71 @@ class TestOrder(TestCase):
         with pytest.raises(ImmutabilityError):
             order.save(update_fields=["data", "updated_at"])
 
+    # O baseline selado guarda CÓPIAS dos campos JSON, não referências.
+    # Sem isso, mutação in-place (order.snapshot["x"] = ...) deixaria baseline
+    # e campo apontando para o mesmo dict e o sealed check nunca acusaria.
+
+    def test_in_place_snapshot_mutation_raises(self):
+        from shopman.orderman.exceptions import ImmutabilityError
+
+        order = Order.objects.create(
+            ref="ORD-TEST-009",
+            channel_ref=self.channel.ref,
+            snapshot={"items": [{"sku": "PAO", "qty": "2.000"}]},
+            total_q=1000,
+        )
+        order.snapshot["injected"] = True
+        with pytest.raises(ImmutabilityError):
+            order.save(update_fields=["data", "updated_at"])
+
+        fresh = Order.objects.get(pk=order.pk)
+        assert "injected" not in fresh.snapshot
+
+    def test_nested_in_place_snapshot_mutation_raises(self):
+        from shopman.orderman.exceptions import ImmutabilityError
+
+        order = Order.objects.create(
+            ref="ORD-TEST-010",
+            channel_ref=self.channel.ref,
+            snapshot={"items": [{"sku": "PAO", "qty": "2.000"}]},
+            total_q=1000,
+        )
+        order.snapshot["items"][0]["qty"] = "99.000"
+        with pytest.raises(ImmutabilityError):
+            order.save(update_fields=["data", "updated_at"])
+
+    def test_in_place_snapshot_mutation_raises_after_rehydration(self):
+        from shopman.orderman.exceptions import ImmutabilityError
+
+        order = Order.objects.create(
+            ref="ORD-TEST-011",
+            channel_ref=self.channel.ref,
+            snapshot={"items": [{"sku": "PAO", "qty": Decimal("2.000")}]},
+            total_q=1000,
+        )
+        order.transition_status("confirmed", actor="test")
+        order.refresh_from_db()
+
+        order.snapshot["items"].append({"sku": "OUTRO"})
+        with pytest.raises(ImmutabilityError):
+            order.save(update_fields=["data", "updated_at"])
+
+    def test_external_alias_mutation_raises(self):
+        # commit.py monta o snapshot apontando para dicts da Session; mutar o
+        # dict original depois da criação não pode vazar para o Order selado.
+        from shopman.orderman.exceptions import ImmutabilityError
+
+        shared = {"items": [{"sku": "PAO", "qty": "2.000"}]}
+        order = Order.objects.create(
+            ref="ORD-TEST-012",
+            channel_ref=self.channel.ref,
+            snapshot=shared,
+            total_q=1000,
+        )
+        shared["items"].append({"sku": "OUTRO"})
+        with pytest.raises(ImmutabilityError):
+            order.save(update_fields=["data", "updated_at"])
+
 
 @pytest.mark.django_db
 class TestOrderItem(TestCase):

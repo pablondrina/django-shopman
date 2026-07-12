@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import uuid as uuid_lib
 
 from django.db import models, transaction
@@ -147,7 +148,13 @@ class Order(models.Model):
             self._original_status = self.status
         for f in self.SEALED_FIELDS:
             if fields is None or f in fields:
-                self._sealed_snapshot[f] = getattr(self, f)
+                value = getattr(self, f)
+                if isinstance(value, (dict, list)):
+                    # Cópia profunda, não referência: senão mutação in-place
+                    # (order.snapshot["x"] = ...) deixa baseline e campo
+                    # apontando para o mesmo objeto e o sealed check não vê nada.
+                    value = copy.deepcopy(value)
+                self._sealed_snapshot[f] = value
 
     def refresh_from_db(self, using=None, fields=None, **kwargs):
         super().refresh_from_db(using=using, fields=fields, **kwargs)
