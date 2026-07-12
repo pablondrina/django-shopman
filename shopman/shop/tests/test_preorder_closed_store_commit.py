@@ -28,14 +28,14 @@ from decimal import Decimal
 from django.test import TestCase
 from django.utils import timezone
 
-
 SKU = "PREORDER-MINI-BAGUETE"
 
 
 def _make_shop_channel_product():
     from shopman.offerman.models import AvailabilityPolicy, Product
-    from shopman.shop.models import Channel, Shop
     from shopman.stockman.models import Position, PositionKind
+
+    from shopman.shop.models import Channel, Shop
 
     Shop.objects.get_or_create(name="Test Shop", defaults={"brand_name": "Test"})
     channel = Channel.objects.get_or_create(
