@@ -22,6 +22,7 @@ from shopman.shop.projections.types import Action
 from shopman.shop.services import account as account_service
 from shopman.shop.services import auth as auth_service
 from shopman.shop.services import devices as device_service
+from shopman.storefront.api import clean_text
 from shopman.storefront.identity import get_authenticated_customer
 from shopman.storefront.intents.types import AddressIntent
 from shopman.storefront.presentation.account import (
@@ -299,10 +300,10 @@ class ProfileView(APIView):
             return Response({"detail": "Authentication required."}, status=401)
 
         payload = request.data if hasattr(request, "data") else {}
-        first_name = (payload.get("first_name") or "").strip()
-        last_name = (payload.get("last_name") or "").strip()
-        email = (payload.get("email") or "").strip()
-        birthday_raw = (payload.get("birthday") or "").strip()
+        first_name = clean_text(payload.get("first_name"))
+        last_name = clean_text(payload.get("last_name"))
+        email = clean_text(payload.get("email"))
+        birthday_raw = clean_text(payload.get("birthday"))
         if not first_name:
             return Response(
                 {"detail": "Nome é obrigatório.", "field": "first_name"},
@@ -457,7 +458,7 @@ class AddressListView(APIView):
             return Response({"detail": "Authentication required."}, status=401)
 
         payload = request.data if hasattr(request, "data") else {}
-        if not (payload.get("formatted_address") or "").strip():
+        if not clean_text(payload.get("formatted_address")):
             return Response(
                 {"detail": "Endereço é obrigatório.", "field": "formatted_address"},
                 status=status.HTTP_400_BAD_REQUEST,

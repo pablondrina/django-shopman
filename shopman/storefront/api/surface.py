@@ -21,6 +21,7 @@ from rest_framework.views import APIView
 
 from shopman.shop.omotenashi import resolve_copy
 from shopman.shop.services import remote_mutations
+from shopman.storefront.api import clean_text
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
 from shopman.storefront.presentation import (
     build_cart,
@@ -433,7 +434,7 @@ class CartCouponView(APIView):
     def post(self, request):
         from shopman.storefront.cart import CartService
 
-        code = (request.data.get("code") or "").strip() if hasattr(request, "data") else ""
+        code = clean_text(request.data.get("code")) if hasattr(request, "data") else ""
         if not code:
             return Response(
                 {"detail": self.ERROR_MESSAGES["empty_code"], "error_code": "empty_code"},
