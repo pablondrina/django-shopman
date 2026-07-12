@@ -363,6 +363,15 @@ def _build_items(
     # Batch: availability for the storefront scope.
     avail_map = _batch_availability(skus, channel_ref)
 
+    # Bundles nao tem quant proprio: sua disponibilidade e o min() dos
+    # componentes (o mais escasso limita), senao o card mostraria "Disponivel"
+    # com um componente esgotado. Sobrescreve o raw do bundle antes de resolver.
+    bundle_skus = [p.sku for p in products if getattr(p, "is_bundle", False)]
+    if bundle_skus:
+        avail_map.update(
+            catalog_context.bundle_availability_for_skus(bundle_skus, channel_ref=channel_ref)
+        )
+
     result: list[CatalogItemProjection] = []
     for p in products:
         base_q = price_map.get(p.sku) or p.base_price_q

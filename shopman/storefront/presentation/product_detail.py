@@ -249,7 +249,14 @@ def build_product_detail(
     # Session-aware: add the session's own hold back to the promisable qty
     # so the PDP matches the cart's view for the shopper themselves
     # (AVAILABILITY-PLAN §3 max_orderable formula).
-    raw_avail = _availability(product.sku, channel_ref)
+    # Bundle: disponibilidade = min() dos componentes (o mais escasso limita),
+    # nao o quant proprio (que nao existe). Espelha o card do cardapio.
+    if product.is_bundle:
+        raw_avail = catalog_context.bundle_availability_for_skus(
+            [product.sku], channel_ref=channel_ref
+        ).get(product.sku)
+    else:
+        raw_avail = _availability(product.sku, channel_ref)
     session_key = _session_key(request)
     own_hold = int(
         catalog_context.own_holds_by_sku(session_key, [product.sku]).get(product.sku, 0)

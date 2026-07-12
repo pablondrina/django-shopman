@@ -391,6 +391,91 @@ def availability_for_skus(skus: list[str], *, channel_ref: str) -> dict[str, dic
         return {}
 
 
+def bundle_availability_from_components(
+    component_entries: list[tuple[Decimal, dict | None]],
+) -> dict | None:
+    """Synthesize a bundle's raw availability from its components.
+
+    Um bundle so pode ser montado tantas vezes quanto o seu componente MAIS
+    escasso permite: ``min(floor(component_promisable / qty_por_bundle))``.
+    Cada entrada e ``(qty_por_bundle, component_raw_avail)``.
+
+    Regras (espelham ``basic_availability`` no nivel do componente):
+    - componente sem dado de estoque (``None``) ou ``demand_ok`` → nao limita;
+    - qualquer componente pausado → bundle pausado (nao ha como montar);
+    - senao, o componente que rende menos bundles vira o gargalo, e seus flags
+      (``is_planned``) definem se o zero-fisico e PLANNED_OK ou UNAVAILABLE.
+
+    Retorna um dict no mesmo shape do stockman (para ``basic_availability`` /
+    ``_resolve_availability`` resolverem sem caso especial), ou ``None`` quando
+    nenhum componente limita o bundle (→ confia no flag do produto → available).
+    """
+    binding: tuple[int, dict] | None = None
+    for qty_per_bundle, raw in component_entries:
+        if qty_per_bundle is None or qty_per_bundle <= 0:
+            continue
+        if raw is None:
+            continue  # componente sem tracking de estoque: nao e gargalo
+        if raw.get("is_paused", False):
+            return {"is_paused": True, "total_promisable": Decimal("0")}
+        if raw.get("availability_policy", "planned_ok") == "demand_ok":
+            continue  # ilimitado: nao e gargalo
+        promisable = raw.get("total_promisable") or Decimal("0")
+        if not isinstance(promisable, Decimal):
+            promisable = Decimal(str(promisable))
+        bundles = int(promisable // qty_per_bundle)
+        if binding is None or bundles < binding[0]:
+            binding = (bundles, raw)
+
+    if binding is None:
+        return None
+    bundles, raw = binding
+    return {
+        "total_promisable": Decimal(bundles),
+        "availability_policy": "planned_ok",
+        "is_planned": bool(raw.get("is_planned", False)),
+        "is_paused": False,
+    }
+
+
+def bundle_availability_for_skus(
+    bundle_skus: list[str], *, channel_ref: str
+) -> dict[str, dict | None]:
+    """Availability for bundle SKUs, derived from their components' stock.
+
+    Um bundle nao tem quant proprio — sem isto o card resolveria para AVAILABLE
+    (``raw_avail is None`` → "confia no flag"), mostrando "Disponivel" mesmo com
+    um componente esgotado. Expande cada bundle, faz batch da disponibilidade dos
+    componentes e sintetiza o raw via ``bundle_availability_from_components``.
+    """
+    if not bundle_skus:
+        return {}
+    expanded: dict[str, list[dict]] = {}
+    component_skus: set[str] = set()
+    for sku in bundle_skus:
+        try:
+            components = expand_bundle(sku)
+        except Exception:
+            logger.warning("bundle_expand_failed sku=%s", sku, exc_info=True)
+            components = []
+        expanded[sku] = components
+        component_skus.update(str(c.get("sku") or "") for c in components if c.get("sku"))
+
+    comp_avail = availability_for_skus(sorted(component_skus), channel_ref=channel_ref)
+
+    result: dict[str, dict | None] = {}
+    for sku, components in expanded.items():
+        if not components:
+            result[sku] = None
+            continue
+        entries = [
+            (Decimal(str(c.get("qty") or 0)), comp_avail.get(str(c.get("sku") or "")))
+            for c in components
+        ]
+        result[sku] = bundle_availability_from_components(entries)
+    return result
+
+
 def planned_supply_for_skus(skus: list[str], *, horizon_days: int = 2) -> dict[str, int]:
     """Suprimento planejado (fornadas futuras) por SKU até ``horizon_days`` dias.
 
