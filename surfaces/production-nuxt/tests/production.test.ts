@@ -128,8 +128,8 @@ describe("grid helpers", () => {
   });
   it("alertTarget routes production alerts to the stage where they resolve", () => {
     expect(alertTarget({ type: "production_late", order_ref: "WO-1" })).toEqual({ to: "/", q: "WO-1" });
-    expect(alertTarget({ type: "production_stock_short", order_ref: "WO-1" })).toEqual({ to: "/expedicao", q: "WO-1" });
-    expect(alertTarget({ type: "production_forgotten", order_ref: "WO-2" })).toEqual({ to: "/planejamento", q: "WO-2" });
+    expect(alertTarget({ type: "production_stock_short", order_ref: "WO-1" })).toEqual({ to: "/expedite", q: "WO-1" });
+    expect(alertTarget({ type: "production_forgotten", order_ref: "WO-2" })).toEqual({ to: "/plan", q: "WO-2" });
     expect(alertTarget({ type: "production_low_yield", order_ref: "WO-3" })).toBeNull();
     expect(alertTarget({ type: "stock_low", order_ref: "" })).toBeNull();
   });

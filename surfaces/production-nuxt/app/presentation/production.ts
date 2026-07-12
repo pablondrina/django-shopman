@@ -182,9 +182,9 @@ export function alertTarget(alert: {
   if (!alert.order_ref) return null;
   if (alert.type === "production_late") return { to: "/", q: alert.order_ref };
   if (alert.type === "production_stock_short")
-    return { to: "/expedicao", q: alert.order_ref };
+    return { to: "/expedite", q: alert.order_ref };
   if (alert.type === "production_forgotten")
-    return { to: "/planejamento", q: alert.order_ref };
+    return { to: "/plan", q: alert.order_ref };
   return null;
 }
 

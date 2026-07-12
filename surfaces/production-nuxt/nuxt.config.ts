@@ -18,6 +18,15 @@ export default defineNuxtConfig({
     },
   },
 
+  // 301 das rotas pt-br antigas → inglês (vocabulário das lentes da grade: plan/
+  // mise-en-place/expedite + board Solari). Kiosks/tablets têm bookmark das antigas.
+  routeRules: {
+    "/planejamento": { redirect: { to: "/plan", statusCode: 301 } },
+    "/preparacao": { redirect: { to: "/mise-en-place", statusCode: 301 } },
+    "/expedicao": { redirect: { to: "/expedite", statusCode: 301 } },
+    "/painel": { redirect: { to: "/board", statusCode: 301 } },
+  },
+
   modules: [
     '@nuxtjs/color-mode',
     'motion-v/nuxt',

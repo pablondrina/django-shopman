@@ -258,7 +258,7 @@ function refreshAll() {
           <Icon name="lucide:scale" class="size-8" />
           <p class="text-base font-medium">Nada para separar nesta data.</p>
           <NuxtLink
-            to="/planejamento"
+            to="/plan"
             class="text-sm text-primary underline-offset-2 hover:underline"
             >Planejar produção</NuxtLink
           >
@@ -451,7 +451,7 @@ function refreshAll() {
             Nenhum preparo para pesar nesta data.
           </p>
           <NuxtLink
-            to="/planejamento"
+            to="/plan"
             class="text-sm text-primary underline-offset-2 hover:underline"
             >Planejar produção</NuxtLink
           >

@@ -164,7 +164,7 @@ const emptyCopy = computed(() =>
       ? {
           text: "Nada planejado para processar nesta data.",
           cta: "Ir para o Planejamento",
-          to: "/planejamento",
+          to: "/plan",
         }
       : {
           text: "Nada processado para concluir nesta data.",
@@ -1103,7 +1103,7 @@ const headerCount = computed(() => {
             Fechar
           </button>
           <NuxtLink
-            to="/expedicao"
+            to="/expedite"
             class="rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-accent"
           >
             Expedição →
