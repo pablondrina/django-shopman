@@ -13,6 +13,7 @@ libera holds vencidos, limpa sessions/planejamento/D-1. Cobertura:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from datetime import date, timedelta
 from decimal import Decimal
@@ -31,6 +32,25 @@ from shopman.shop.management.commands.maintenance_worker import MAINTENANCE_COMM
 pytestmark = pytest.mark.django_db
 
 WORKER_LOGGER = "shopman.shop.management.commands.maintenance_worker"
+
+
+@contextlib.contextmanager
+def _capture_worker_logs(caplog, level=logging.ERROR):
+    """Captura records do worker mesmo com ``propagate=False`` no logger ``shopman``.
+
+    O ``caplog`` do pytest instala seu handler na raiz; o settings de produção põe
+    ``propagate=False`` no logger ``shopman`` (config/settings.py), então os records
+    do worker param antes da raiz e nunca chegam ao ``caplog``. Anexar o handler do
+    ``caplog`` direto no logger do worker captura independente de propagação — vale
+    igual local e no CI.
+    """
+    worker_logger = logging.getLogger(WORKER_LOGGER)
+    with caplog.at_level(level, logger=WORKER_LOGGER):
+        worker_logger.addHandler(caplog.handler)
+        try:
+            yield
+        finally:
+            worker_logger.removeHandler(caplog.handler)
 
 
 def _run_once():
@@ -208,7 +228,7 @@ def test_task_failure_logs_and_cycle_continues(caplog):
             "shopman.stockman.stock.release_expired",
             side_effect=RuntimeError("boom"),
         ),
-        caplog.at_level(logging.ERROR, logger=WORKER_LOGGER),
+        _capture_worker_logs(caplog),
     ):
         _run_once()
 
@@ -226,7 +246,7 @@ def test_every_task_failing_still_completes_the_cycle(caplog):
             "shopman.shop.management.commands.maintenance_worker.call_command",
             side_effect=RuntimeError("boom"),
         ) as cc,
-        caplog.at_level(logging.ERROR, logger=WORKER_LOGGER),
+        _capture_worker_logs(caplog),
     ):
         _run_once()
 

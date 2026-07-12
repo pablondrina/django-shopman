@@ -204,6 +204,14 @@ make seed              # Popular banco com dados Nelson Boulangerie
 make migrate           # Migrações
 ```
 
+> **`.venv` é o ambiente canônico.** Os alvos do Makefile já usam `.venv/bin/python` quando
+> existe (ver `PYTHON` no Makefile). Para invocar o Django fora do `make`, use sempre
+> `.venv/bin/python manage.py ...` — **nunca** o `python` global. O `python` do pyenv global
+> pode ter editable installs (`pip install -e`) apontando para worktrees antigas/removidas, e aí
+> `python manage.py` quebra com `ModuleNotFoundError: shopman.refs` (os pacotes de `packages/*`
+> resolvem para um caminho que não existe mais). Só o `.venv` da raiz do repo tem os installs
+> corretos. Isso é footgun de dev local; não afeta o deploy (build fresco a partir do git).
+
 ## Core é Sagrado — Regras de Integridade
 
 O `packages/` é um conjunto de 11 apps pip-instaláveis, muito bem desenhado, robusto e flexível.
