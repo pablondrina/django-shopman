@@ -39,12 +39,6 @@ def get_address(customer_ref: str, pk: int):
     return address_service.get_address(customer_ref, pk)
 
 
-def address_belongs_to_other_customer(customer_ref: str, pk: int) -> bool:
-    from shopman.guestman.services import address as address_service
-
-    return address_service.address_belongs_to_other_customer(customer_ref, pk)
-
-
 def add_address(customer_ref: str, intent):
     from shopman.guestman.services import address as address_service
 

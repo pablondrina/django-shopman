@@ -13,6 +13,7 @@ from shopman.utils.phone import normalize_phone
 
 from shopman.shop.services import checkout as checkout_service
 from shopman.shop.services import sessions as session_service
+from shopman.storefront.api import clean_name
 from shopman.storefront.cart import CHANNEL_REF
 from shopman.storefront.services import orders as order_service
 
@@ -73,12 +74,14 @@ class CheckoutView(APIView):
         cart = _cart_data(request)
         if cart.is_empty:
             return Response(
-                {"detail": "Cart is empty."},
+                {"detail": "Sua sacola está vazia."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         session_key = cart.session_key
-        name = serializer.validated_data["name"]
+        # O nome impresso no ticket do KDS: sanitiza controle/bidi (a serializer
+        # ja limita o comprimento em 120) antes de gravar no pedido.
+        name = clean_name(serializer.validated_data["name"], max_length=120)
         phone_raw = serializer.validated_data["phone"]
         notes = serializer.validated_data.get("notes", "")
         fulfillment_type = serializer.validated_data.get("fulfillment_type", "pickup")
@@ -268,7 +271,7 @@ class CheckoutView(APIView):
         gift_data, gift_errors = build_gift_data(
             is_gift=serializer.validated_data.get("is_gift", False),
             fulfillment_type=fulfillment_type,
-            recipient_name=serializer.validated_data.get("recipient_name", ""),
+            recipient_name=clean_name(serializer.validated_data.get("recipient_name", ""), max_length=120),
             recipient_phone=serializer.validated_data.get("recipient_phone", ""),
             gift_message=serializer.validated_data.get("gift_message", ""),
             hide_values=serializer.validated_data.get("gift_hide_values", False),
@@ -441,8 +444,9 @@ def _saved_address_payload(request, address_id: int | None) -> tuple[dict | None
     customer = get_authenticated_customer(request)
     if not customer:
         return None, {"detail": "Entre novamente para usar este endereço.", "field": "saved_address_id"}
-    if account_service.address_belongs_to_other_customer(customer.ref, address_id):
-        return None, {"detail": "Endereço não encontrado.", "field": "saved_address_id"}
+    # get_address já é escopado ao cliente: devolve None tanto para PK inexistente
+    # quanto para PK de outro cliente. Um único 404 uniforme fecha o oráculo de
+    # enumeração (403 vs 404 distinguível revelaria PKs válidos de terceiros).
     address = account_service.get_address(customer.ref, address_id)
     if not address:
         return None, {"detail": "Endereço não encontrado.", "field": "saved_address_id"}

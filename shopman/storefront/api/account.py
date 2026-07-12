@@ -22,7 +22,7 @@ from shopman.shop.projections.types import Action
 from shopman.shop.services import account as account_service
 from shopman.shop.services import auth as auth_service
 from shopman.shop.services import devices as device_service
-from shopman.storefront.api import clean_text
+from shopman.storefront.api import clean_name, clean_text
 from shopman.storefront.identity import get_authenticated_customer
 from shopman.storefront.intents.types import AddressIntent
 from shopman.storefront.presentation.account import (
@@ -276,7 +276,7 @@ class ProfileView(APIView):
     def get(self, request):
         customer = get_authenticated_customer(request)
         if not customer:
-            return Response({"detail": "Authentication required."}, status=401)
+            return Response({"detail": "Entre na sua conta para continuar."}, status=401)
 
         data = {
             "ref": customer.ref,
@@ -297,11 +297,13 @@ class ProfileView(APIView):
 
         customer = get_authenticated_customer(request)
         if not customer:
-            return Response({"detail": "Authentication required."}, status=401)
+            return Response({"detail": "Entre na sua conta para continuar."}, status=401)
 
         payload = request.data if hasattr(request, "data") else {}
-        first_name = clean_text(payload.get("first_name"))
-        last_name = clean_text(payload.get("last_name"))
+        # Nomes vao para o ticket do KDS/pedido: sanitiza controle/bidi e limita
+        # o comprimento antes de persistir (clean_name), nao so ``.strip()``.
+        first_name = clean_name(payload.get("first_name"))
+        last_name = clean_name(payload.get("last_name"))
         email = clean_text(payload.get("email"))
         birthday_raw = clean_text(payload.get("birthday"))
         if not first_name:
@@ -352,7 +354,7 @@ class AccountSummaryView(APIView):
     def get(self, request):
         customer = get_authenticated_customer(request)
         if not customer:
-            return Response({"detail": "Authentication required."}, status=401)
+            return Response({"detail": "Entre na sua conta para continuar."}, status=401)
 
         account = build_account(customer)
         last_order = account.recent_orders[0] if account.recent_orders else None
@@ -440,7 +442,7 @@ class AddressListView(APIView):
     def get(self, request):
         customer = get_authenticated_customer(request)
         if not customer:
-            return Response({"detail": "Authentication required."}, status=401)
+            return Response({"detail": "Entre na sua conta para continuar."}, status=401)
 
         addresses = customer.addresses.order_by("-is_default", "label")
         data = [_serialize_address(addr) for addr in addresses]
@@ -455,7 +457,7 @@ class AddressListView(APIView):
     def post(self, request):
         customer = get_authenticated_customer(request)
         if not customer:
-            return Response({"detail": "Authentication required."}, status=401)
+            return Response({"detail": "Entre na sua conta para continuar."}, status=401)
 
         payload = request.data if hasattr(request, "data") else {}
         if not clean_text(payload.get("formatted_address")):
@@ -512,9 +514,9 @@ class AddressDetailView(APIView):
     def patch(self, request, pk: int):
         customer = get_authenticated_customer(request)
         if not customer:
-            return Response({"detail": "Authentication required."}, status=401)
-        if account_service.address_belongs_to_other_customer(customer.ref, pk):
-            return Response({"detail": "Forbidden."}, status=403)
+            return Response({"detail": "Entre na sua conta para continuar."}, status=401)
+        # get_address é escopado ao cliente (None para PK inexistente OU de outro
+        # cliente) → 404 uniforme, sem oráculo de enumeração 403 vs 404.
         addr = account_service.get_address(customer.ref, pk)
         if not addr:
             return Response({"detail": "Endereço não encontrado."}, status=404)
@@ -539,9 +541,8 @@ class AddressDetailView(APIView):
     def delete(self, request, pk: int):
         customer = get_authenticated_customer(request)
         if not customer:
-            return Response({"detail": "Authentication required."}, status=401)
-        if account_service.address_belongs_to_other_customer(customer.ref, pk):
-            return Response({"detail": "Forbidden."}, status=403)
+            return Response({"detail": "Entre na sua conta para continuar."}, status=401)
+        # 404 uniforme (get_address escopado ao cliente) fecha o oráculo de enumeração.
         if not account_service.get_address(customer.ref, pk):
             return Response({"detail": "Endereço não encontrado."}, status=404)
 
@@ -554,9 +555,8 @@ class AddressDetailView(APIView):
             return Response({"detail": "Use ?action=default."}, status=400)
         customer = get_authenticated_customer(request)
         if not customer:
-            return Response({"detail": "Authentication required."}, status=401)
-        if account_service.address_belongs_to_other_customer(customer.ref, pk):
-            return Response({"detail": "Forbidden."}, status=403)
+            return Response({"detail": "Entre na sua conta para continuar."}, status=401)
+        # 404 uniforme (get_address escopado ao cliente) fecha o oráculo de enumeração.
         if not account_service.get_address(customer.ref, pk):
             return Response({"detail": "Endereço não encontrado."}, status=404)
 
@@ -587,7 +587,7 @@ class OrderHistoryView(APIView):
     def get(self, request):
         customer = get_authenticated_customer(request)
         if not customer:
-            return Response({"detail": "Authentication required."}, status=401)
+            return Response({"detail": "Entre na sua conta para continuar."}, status=401)
 
         filter_param = request.query_params.get("filter") or "todos"
         if filter_param not in {"todos", "ativos", "anteriores"}:
@@ -632,7 +632,7 @@ class FoodPreferenceToggleView(APIView):
     def post(self, request):
         customer = get_authenticated_customer(request)
         if not customer:
-            return Response({"detail": "Authentication required."}, status=401)
+            return Response({"detail": "Entre na sua conta para continuar."}, status=401)
         key = str((request.data if hasattr(request, "data") else {}).get("key") or "").strip()
         valid_keys = {option_key for option_key, _label in FOOD_PREFERENCE_OPTIONS}
         if key not in valid_keys:
@@ -656,7 +656,7 @@ class NotificationPreferenceToggleView(APIView):
     def post(self, request):
         customer = get_authenticated_customer(request)
         if not customer:
-            return Response({"detail": "Authentication required."}, status=401)
+            return Response({"detail": "Entre na sua conta para continuar."}, status=401)
         channel = str((request.data if hasattr(request, "data") else {}).get("channel") or "").strip()
         valid_channels = {key for key, _label, _description in NOTIFICATION_CHANNELS}
         if channel not in valid_channels:
@@ -718,7 +718,7 @@ class AccountDeviceListView(APIView):
     def get(self, request):
         customer_info = getattr(request, "customer", None)
         if customer_info is None:
-            return Response({"detail": "Authentication required."}, status=401)
+            return Response({"detail": "Entre na sua conta para continuar."}, status=401)
         devices = device_service.list_devices(
             customer_id=customer_info.uuid,
             raw_token=request.COOKIES.get(device_service.cookie_name()),
@@ -731,7 +731,7 @@ class AccountDeviceListView(APIView):
     def delete(self, request):
         customer_info = getattr(request, "customer", None)
         if customer_info is None:
-            return Response({"detail": "Authentication required."}, status=401)
+            return Response({"detail": "Entre na sua conta para continuar."}, status=401)
         revoked = device_service.revoke_all(customer_id=customer_info.uuid)
         response = Response({"revoked": revoked})
         response.delete_cookie(device_service.cookie_name())
@@ -747,7 +747,7 @@ class AccountDeviceDetailView(APIView):
     def delete(self, request, device_id: str):
         customer_info = getattr(request, "customer", None)
         if customer_info is None:
-            return Response({"detail": "Authentication required."}, status=401)
+            return Response({"detail": "Entre na sua conta para continuar."}, status=401)
         devices = device_service.list_devices(
             customer_id=customer_info.uuid,
             raw_token=request.COOKIES.get(device_service.cookie_name()),
@@ -771,7 +771,7 @@ class AccountExportView(APIView):
     def get(self, request):
         customer = get_authenticated_customer(request)
         if not customer:
-            return Response({"detail": "Authentication required."}, status=401)
+            return Response({"detail": "Entre na sua conta para continuar."}, status=401)
         if not _step_up_is_fresh(request):
             return _step_up_required_response()
         payload = account_service.export_customer_data(customer)
@@ -795,7 +795,7 @@ class AccountStepUpView(APIView):
     def post(self, request):
         customer = get_authenticated_customer(request)
         if not customer:
-            return Response({"detail": "Authentication required."}, status=401)
+            return Response({"detail": "Entre na sua conta para continuar."}, status=401)
         code = str((request.data or {}).get("code") or "").strip()
         if not code:
             return Response({"detail": "Informe o código de confirmação."}, status=400)
@@ -819,7 +819,7 @@ class AccountDeleteView(APIView):
     def post(self, request):
         customer = get_authenticated_customer(request)
         if not customer:
-            return Response({"detail": "Authentication required."}, status=401)
+            return Response({"detail": "Entre na sua conta para continuar."}, status=401)
         payload = request.data if hasattr(request, "data") else {}
         if not payload.get("acknowledged"):
             return Response({"detail": "Confirme a exclusão antes de continuar."}, status=400)
@@ -848,7 +848,7 @@ class FavoriteListView(APIView):
     def get(self, request):
         customer = get_authenticated_customer(request)
         if not customer:
-            return Response({"detail": "Authentication required."}, status=401)
+            return Response({"detail": "Entre na sua conta para continuar."}, status=401)
 
         from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
         from shopman.storefront.presentation import build_catalog_items_for_skus
@@ -878,7 +878,7 @@ class FavoriteDetailView(APIView):
     def _set(self, request, sku, *, value: bool):
         customer = get_authenticated_customer(request)
         if not customer:
-            return Response({"detail": "Authentication required."}, status=401)
+            return Response({"detail": "Entre na sua conta para continuar."}, status=401)
 
         from shopman.storefront.services import favorites
 

@@ -58,13 +58,6 @@ def get_address(customer_ref: str, address_id: int) -> CustomerAddress | None:
     return cust.addresses.filter(pk=address_id).first()
 
 
-def address_belongs_to_other_customer(customer_ref: str, address_id: int) -> bool:
-    """Check whether an address exists but belongs to another customer."""
-    return CustomerAddress.objects.filter(pk=address_id).exclude(
-        customer__ref=customer_ref
-    ).exists()
-
-
 def find_by_place_id(customer_ref: str, place_id: str) -> CustomerAddress | None:
     """Return an existing address with the same place_id (dedup helper)."""
     if not place_id:
