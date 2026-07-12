@@ -130,9 +130,30 @@ class Order(models.Model):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._original_status = self.status
         self._transition_actor: str | None = None
-        self._sealed_snapshot = {f: getattr(self, f) for f in self.SEALED_FIELDS}
+        self._sealed_snapshot: dict = {}
+        self._recapture_persisted_baseline()
+
+    def _recapture_persisted_baseline(self, fields: set[str] | None = None) -> None:
+        """Re-captura os baselines de status e campos selados.
+
+        Deve rodar sempre que a instância é (re)hidratada com o estado persistido
+        (init, pós-save, refresh_from_db, sync do transition_status). O snapshot
+        passa por round-trip JSON no banco (DecimalEncoder: Decimal → str), então
+        o valor recarregado difere do que estava em memória — sem re-captura, o
+        sealed check rejeitaria qualquer save posterior da instância.
+        """
+        if fields is None or "status" in fields:
+            self._original_status = self.status
+        for f in self.SEALED_FIELDS:
+            if fields is None or f in fields:
+                self._sealed_snapshot[f] = getattr(self, f)
+
+    def refresh_from_db(self, using=None, fields=None, **kwargs):
+        super().refresh_from_db(using=using, fields=fields, **kwargs)
+        self._recapture_persisted_baseline(
+            fields=set(fields) if fields is not None else None
+        )
 
     def __str__(self) -> str:
         if self.handle_ref and self.handle_type:
@@ -237,8 +258,7 @@ class Order(models.Model):
                 setattr(self, ts_field, timezone.now())
 
         super().save(*args, **kwargs)
-        self._original_status = self.status
-        self._sealed_snapshot = {f: getattr(self, f) for f in self.SEALED_FIELDS}
+        self._recapture_persisted_baseline()
 
         if status_changed:
             actor = self._transition_actor or "direct"
@@ -277,11 +297,13 @@ class Order(models.Model):
         order._transition_actor = actor
         order.save()
 
-        # Sync self from the locked row
+        # Sync self from the locked row. A row lockada veio do banco, então o
+        # snapshot dela é a versão JSON-decodificada — re-capturar o baseline,
+        # senão o sealed check rejeita qualquer save posterior desta instância.
         for field in self._meta.get_fields():
             if hasattr(field, "attname"):
                 setattr(self, field.attname, getattr(order, field.attname))
-        self._original_status = order._original_status
+        self._recapture_persisted_baseline()
 
     def emit_event(self, event_type: str, actor: str = "system", payload: dict | None = None) -> OrderEvent:
         """

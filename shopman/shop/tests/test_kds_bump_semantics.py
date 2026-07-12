@@ -104,3 +104,85 @@ def test_precommit_comanda_bump_succeeds_without_order(db):
     assert kds_core.complete_ticket(ticket, actor="kds:op") is True
     ticket.refresh_from_db()
     assert ticket.status == "done"
+
+
+def _order_at(status: str, *, session_key: str, data: dict | None = None) -> Order:
+    return Order.objects.create(
+        ref=f"ORD-{session_key}",
+        channel_ref="pdv",
+        session_key=session_key,
+        status=status,
+        total_q=1000,
+        data=data or {},
+    )
+
+
+def _ticket_for(session_key: str, *, status: str = "pending") -> KDSTicket:
+    instance, _ = KDSInstance.objects.get_or_create(
+        ref="lanches", defaults={"name": "lanches", "type": "prep"}
+    )
+    return KDSTicket.objects.create(
+        session_key=session_key,
+        kds_instance=instance,
+        status=status,
+        items=[{"sku": "A", "name": "Item", "qty": 1, "checked": False}],
+    )
+
+
+def test_bump_with_payment_gate_raises_with_real_reason(db):
+    # "Não aberto" (False) e "gate de pagamento" NÃO são o mesmo estado: o
+    # segundo levanta TicketCompletionBlocked com a razão real, para o operador
+    # nunca ler "Ticket não está aberto" num ticket aberto.
+    Channel.objects.create(ref="pdv", name="PDV")
+    _order_at(
+        Order.Status.CONFIRMED,
+        session_key="sk-kds-gate",
+        data={"payment": {"method": "pix"}},  # sem captura → gate fecha
+    )
+    ticket = _ticket_for("sk-kds-gate")
+
+    with pytest.raises(kds_core.TicketCompletionBlocked, match="Pagamento ainda não foi confirmado"):
+        kds_core.complete_ticket(ticket, actor="kds:op")
+    ticket.refresh_from_db()
+    assert ticket.status == "pending"  # bump não persistiu
+
+
+def test_bump_of_unconfirmed_order_raises_with_real_reason(db):
+    Channel.objects.create(ref="pdv", name="PDV")
+    _order_at(Order.Status.NEW, session_key="sk-kds-new")
+    ticket = _ticket_for("sk-kds-new")
+
+    with pytest.raises(kds_core.TicketCompletionBlocked, match="não foi confirmado"):
+        kds_core.complete_ticket(ticket, actor="kds:op")
+
+
+def test_bump_of_closed_ticket_returns_false(order):
+    ticket = _ticket("lanches", status="cancelled")
+
+    assert kds_core.complete_ticket(ticket, actor="kds:op") is False
+
+
+# ── Expedição por order_id: lock + replay idempotente + not-found ──────────
+
+
+def test_expedition_by_order_id_completes_ready_pickup(db):
+    Channel.objects.create(ref="pdv", name="PDV")
+    order = _order_at(Order.Status.READY, session_key="sk-kds-exp-ready")
+
+    assert kds_core.expedition_action_by_order_id(order.pk, action="complete", actor="kds:op") == Order.Status.COMPLETED
+    order.refresh_from_db()
+    assert order.status == Order.Status.COMPLETED
+
+
+def test_expedition_by_order_id_replay_is_noop_success(db):
+    # Replay (duas estações agindo no mesmo pedido) decidido SOB O LOCK:
+    # pedido já no status alvo = sucesso no-op, nunca "Ação inválida".
+    Channel.objects.create(ref="pdv", name="PDV")
+    order = _order_at(Order.Status.COMPLETED, session_key="sk-kds-exp-replay")
+
+    assert kds_core.expedition_action_by_order_id(order.pk, action="complete", actor="kds:op") == Order.Status.COMPLETED
+
+
+def test_expedition_by_order_id_missing_order_raises_typed_not_found(db):
+    with pytest.raises(kds_core.ExpeditionOrderNotFound):
+        kds_core.expedition_action_by_order_id(999999, action="complete", actor="kds:op")
