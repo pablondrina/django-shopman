@@ -261,7 +261,7 @@ class AdminProductionConsoleTests(TestCase):
         self.assertIn("CIABATTA", str(table["rows"][0]["cols"][1]))
         produced_cell = str(table["rows"][0]["cols"][3])
         self.assertIn("13 un.", produced_cell)
-        self.assertIn("task_alt", produced_cell)
+        self.assertNotIn("task_alt", produced_cell)
 
     def test_admin_production_planning_renders_controlled_planning_page(self) -> None:
         craft.plan(self.recipe, 13, date=date.today())
@@ -367,8 +367,11 @@ class AdminProductionConsoleTests(TestCase):
         self.assertNotIn("production_tabs", response.context)
         self.assertNotContains(response, "Planejadas")
 
-    def test_admin_production_console_mutates_through_shared_production_handler(self) -> None:
+    def test_admin_production_rejects_execution_writes_after_canonical_split(self) -> None:
+        """WP-PE4: execução (planejar, iniciar, concluir, entrada direta) é do
+        Fournil; as páginas de produção do Admin só leem."""
         wo = craft.plan(self.recipe, 13, date=date.today())
+
         response = self.client.post(
             reverse("admin_console_production"),
             {
@@ -378,40 +381,28 @@ class AdminProductionConsoleTests(TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(response["Location"].startswith(reverse("admin_console_production")))
+        self.assertEqual(response.status_code, 405)
         wo.refresh_from_db()
-        self.assertEqual(wo.status, WorkOrder.Status.STARTED)
-
-    def test_admin_production_rejects_planning_writes_after_canonical_split(self) -> None:
-        """WP-PE4: planejar/ajustar planejado é do Fournil; o Admin só lê a matriz."""
-        response = self.client.post(
-            reverse("admin_console_production"),
-            {
-                "action": "set_planned",
-                "recipe": str(self.recipe.pk),
-                "quantity": "13",
-                "target_date": date.today().isoformat(),
-            },
-        )
-
-        self.assertEqual(response.status_code, 302)
-        self.assertFalse(WorkOrder.objects.filter(recipe=self.recipe).exists())
+        self.assertEqual(wo.status, WorkOrder.Status.PLANNED)
 
         planning_response = self.client.post(reverse("admin_console_production_planning"), {})
         self.assertEqual(planning_response.status_code, 405)
 
-    def test_admin_production_produced_action_uses_approved_modal_wrapper(self) -> None:
+    def test_admin_production_produced_cell_is_read_only_state(self) -> None:
+        """WP-PE4: o cell "Produzido" apresenta o estado das OPs abertas;
+        concluir/forçar vive no Fournil."""
         craft.plan(self.recipe, 13, date=date.today())
 
         response = self.client.get(reverse("admin_console_production"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Produzir CIABATTA")
-        self.assertContains(response, "Salvar produzido")
-        self.assertContains(response, 'name="quantity"')
-        self.assertContains(response, 'role="dialog"')
-        self.assertContains(response, "z-[1000]")
+        produced_cell = str(response.context["production_matrix_table"]["rows"][0]["cols"][3])
+        self.assertIn("Planejado", produced_cell)
+        self.assertIn("13 un.", produced_cell)
+        self.assertNotIn("task_alt", produced_cell)
+        self.assertNotContains(response, "Produzir CIABATTA")
+        self.assertNotContains(response, "Salvar produzido")
+        self.assertNotContains(response, "Entrada direta")
 
     def test_admin_production_produced_action_blocks_ambiguous_multiple_open_orders(self) -> None:
         first = craft.plan(self.recipe, 20, date=date.today())

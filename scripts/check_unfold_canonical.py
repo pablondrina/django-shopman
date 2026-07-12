@@ -176,7 +176,6 @@ CANONICAL_ADMIN_SURFACES: tuple[Surface, ...] = (
             'component "unfold/components/tracker.html"',
         ),
         required_controller_markers=(
-            "UnfoldAdminDecimalFieldWidget",
             "UnfoldAdminSelectWidget",
             "UnfoldAdminSingleDateWidget",
             "UnfoldAdminTextInputWidget",
@@ -222,11 +221,10 @@ CANONICAL_ADMIN_SURFACES: tuple[Surface, ...] = (
     ),
 )
 
-# NOTA: a superfície `runtime-production-shortage-modals` foi removida — o modal
-# de escassez de insumos migrou para o wrapper aprovado em
-# `admin_console/production/partials/material_shortage.html`, auditado pela
-# superfície canônica `admin-console-production`. (O de order-shortage migrou
-# para o Fournil no split canônico WP-PE4.)
+# NOTA: a superfície `runtime-production-shortage-modals` foi removida — os
+# modais de escassez migraram para o Fournil junto com a EXECUÇÃO de produção
+# (split canônico WP-PE4): as páginas de produção do Admin são leitura e o
+# Fournil trata escassez/força pelo envelope estruturado da API headless.
 RUNTIME_BACKSTAGE_SURFACES: tuple[Surface, ...] = (
     Surface(
         id="runtime-pos",

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlencode
@@ -15,7 +14,6 @@ from django.http import (
     Http404,
     HttpRequest,
     HttpResponse,
-    HttpResponseForbidden,
     HttpResponseRedirect,
     StreamingHttpResponse,
 )
@@ -27,7 +25,6 @@ from django.views.generic import TemplateView
 from shopman.craftsman.models import Recipe, WorkOrder
 from unfold.views import UnfoldModelAdminViewMixin
 from unfold.widgets import (
-    UnfoldAdminDecimalFieldWidget,
     UnfoldAdminSelectWidget,
     UnfoldAdminSingleDateWidget,
     UnfoldAdminTextInputWidget,
@@ -43,7 +40,6 @@ from shopman.backstage.projections.production import (
 from shopman.backstage.services import production as production_service
 from shopman.backstage.views.production import (
     _report_filters,
-    handle_production_post,
     render_production_surface,
 )
 
@@ -53,7 +49,6 @@ DASHBOARD_TEMPLATE = "admin_console/production/dashboard.html"
 REPORTS_TEMPLATE = "admin_console/production/reports.html"
 WEIGHING_TEMPLATE = "admin_console/production/weighing.html"
 COMMITMENTS_TEMPLATE = "admin_console/production/commitments.html"
-BULK_RESULT_TEMPLATE = "admin_console/production/partials/bulk_create_result.html"
 STATUS_FILTER_PARAM = "status__exact"
 REPORT_KIND_CHOICES = (
     ("history", "Histórico de ordens"),
@@ -182,83 +177,13 @@ class ProductionFilterForm(forms.Form):
         self.fields["base_recipe"].choices = base_recipe_choices
 
 
-class ProductionStartForm(forms.Form):
-    action = forms.CharField(widget=forms.HiddenInput(), initial="start")
-    wo_id = forms.CharField(widget=forms.HiddenInput())
-    target_date = forms.CharField(widget=forms.HiddenInput())
-    position_ref = forms.CharField(widget=forms.HiddenInput(), required=False)
-    operator_ref_filter = forms.CharField(widget=forms.HiddenInput(), required=False)
-    base_recipe = forms.CharField(widget=forms.HiddenInput(), required=False)
-    quantity = forms.DecimalField(
-        label="Quantidade iniciada",
-        min_value=0,
-        widget=UnfoldAdminDecimalFieldWidget(
-            attrs={"step": "0.001", "min": "0.001", "inputmode": "decimal"}
-        ),
-    )
-    position = forms.ChoiceField(
-        label="Destino",
-        required=False,
-        widget=UnfoldAdminSelectWidget(),
-    )
-    operator_ref = forms.CharField(
-        label="Responsável",
-        required=False,
-        widget=UnfoldAdminTextInputWidget(attrs={"placeholder": "Opcional"}),
-    )
-
-    def __init__(self, *args, position_choices=(), **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["position"].choices = position_choices
-
-
-class ProductionFinishForm(forms.Form):
-    action = forms.CharField(widget=forms.HiddenInput(), initial="finish")
-    wo_id = forms.CharField(widget=forms.HiddenInput())
-    target_date = forms.CharField(widget=forms.HiddenInput())
-    position_ref = forms.CharField(widget=forms.HiddenInput(), required=False)
-    operator_ref_filter = forms.CharField(widget=forms.HiddenInput(), required=False)
-    base_recipe = forms.CharField(widget=forms.HiddenInput(), required=False)
-    quantity = forms.DecimalField(
-        label="Quantidade concluída",
-        min_value=0,
-        widget=UnfoldAdminDecimalFieldWidget(
-            attrs={"step": "0.001", "min": "0.001", "inputmode": "decimal"}
-        ),
-    )
-
-
-class ProductionQuickFinishForm(forms.Form):
-    action = forms.CharField(widget=forms.HiddenInput(), initial="quick_finish")
-    target_date = forms.CharField(widget=forms.HiddenInput())
-    position_ref = forms.CharField(widget=forms.HiddenInput(), required=False)
-    operator_ref_filter = forms.CharField(widget=forms.HiddenInput(), required=False)
-    base_recipe = forms.CharField(widget=forms.HiddenInput(), required=False)
-    recipe = forms.ChoiceField(
-        label="Ficha técnica",
-        widget=UnfoldAdminSelectWidget(attrs={"class": "max-w-none"}),
-    )
-    quantity = forms.DecimalField(
-        label="Quantidade concluída",
-        min_value=0,
-        widget=UnfoldAdminDecimalFieldWidget(
-            attrs={"class": "max-w-none", "step": "0.001", "min": "0.001", "inputmode": "decimal"}
-        ),
-    )
-    position = forms.ChoiceField(
-        label="Destino",
-        required=False,
-        widget=UnfoldAdminSelectWidget(attrs={"class": "max-w-none"}),
-    )
-
-    def __init__(self, *args, recipe_choices=(), position_choices=(), **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["recipe"].choices = recipe_choices
-        self.fields["position"].choices = position_choices
-
-
 class ProductionConsoleView(UnfoldModelAdminViewMixin, TemplateView):
-    """Production orders page rendered through the official Unfold custom-page mixin."""
+    """Production orders page rendered through the official Unfold custom-page mixin.
+
+    Leitura do apontamento do dia (split canônico WP-PE4): a EXECUÇÃO
+    (iniciar, concluir, entrada direta, forçar) vive no Fournil — esta página
+    supervisiona e linka para lá. GET-only por design.
+    """
 
     template_name = TEMPLATE
     title = "Produção"
@@ -276,13 +201,6 @@ class ProductionConsoleView(UnfoldModelAdminViewMixin, TemplateView):
         if access is None:
             access = resolve_production_access(self.request.user)
         return access.can_access_board
-
-    def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
-        return handle_production_post(
-            request,
-            self.access,
-            redirect_url_name="admin_console_production",
-        )
 
     def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         return render_production_surface(
@@ -601,7 +519,7 @@ def build_production_console_context(request: HttpRequest, board, context: dict)
         "production_flow_tabs": _production_flow_tabs(board.selected_date, active="production"),
         "production_filter_form": filter_form,
         "production_filter_fields": _form_fields(filter_form, "date", "position_ref", "operator_ref", "base_recipe"),
-        "production_quick_finish_form": _quick_finish_form(board),
+        "production_fournil_url": _fournil_url(),
         "production_reset_url": reverse("admin_console_production"),
         "production_status_tracker": _status_tracker(board),
         "production_matrix_table": production_matrix_table,
@@ -625,7 +543,7 @@ def build_production_planning_context(request: HttpRequest, board, context: dict
         "production_orders_url": _date_query_url("admin_console_production", board.selected_date),
         "production_weighing_url": _production_filter_url("admin_console_production_weighing", board),
         "production_work_orders_today_url": _work_orders_today_url(context["selected_date"]),
-        "production_fournil_planning_url": _fournil_planning_url(),
+        "production_fournil_planning_url": _fournil_url("/planejamento"),
     }
 
 
@@ -639,74 +557,10 @@ def _blind_map_table(weighing) -> dict:
     }
 
 
-def _fournil_planning_url() -> str:
-    """URL do planejamento no Fournil ("" = app não conectado; botão some)."""
+def _fournil_url(path: str = "") -> str:
+    """URL no Fournil ("" = app não conectado; botão some)."""
     base = (getattr(settings, "SHOPMAN_PRODUCTION_BASE_URL", "") or "").strip().rstrip("/")
-    return f"{base}/plan" if base else ""
-
-
-def production_console_bulk_create_view(request: HttpRequest) -> HttpResponse:
-    """Create suggested work orders from the Admin/Unfold production pages."""
-    if request.method != "POST":
-        return HttpResponse("Method not allowed", status=405)
-
-    access = resolve_production_access(request.user)
-    if not (access.can_manage_all or access.can_edit_planned):
-        return HttpResponseForbidden("Você não tem permissão para esta ação.")
-
-    if request.content_type == "application/json":
-        try:
-            body = json.loads(request.body)
-        except (json.JSONDecodeError, ValueError):
-            return _bulk_result(request, error="Dados invalidos", status=400)
-        target_date_str = body.get("date")
-        orders_data = body.get("orders", [])
-    else:
-        target_date_str = request.POST.get("date")
-        recipe_refs = request.POST.getlist("recipe_ref")
-        quantities = request.POST.getlist("quantity")
-        orders_data = [
-            {"recipe_ref": recipe_ref, "quantity": quantity}
-            for recipe_ref, quantity in zip(recipe_refs, quantities, strict=False)
-        ]
-
-    if not orders_data:
-        return _bulk_result(request, error="Nenhuma ordem informada", status=422)
-
-    result = production_service.apply_suggestions(
-        target_date_value=target_date_str,
-        entries=orders_data,
-    )
-    return _bulk_result(
-        request,
-        created=result.created,
-        errors=result.errors,
-        target_date=result.target_date,
-    )
-
-
-def _bulk_result(
-    request: HttpRequest,
-    *,
-    created=None,
-    errors=None,
-    target_date=None,
-    error: str | None = None,
-    status: int = 200,
-) -> HttpResponse:
-    return HttpResponse(
-        render_to_string(
-            BULK_RESULT_TEMPLATE,
-            {
-                "created": created or [],
-                "errors": errors or [],
-                "target_date": target_date,
-                "error": error,
-            },
-            request=request,
-        ),
-        status=status,
-    )
+    return f"{base}{path}" if base else ""
 
 
 def _dashboard_selected_date(request: HttpRequest) -> date:
@@ -1380,55 +1234,27 @@ def _weighing_base_recipe_choices() -> list[tuple[str, str]]:
     return [("", "Todas"), *[(output_sku, f"{name} ({output_sku})") for output_sku, name in recipes]]
 
 
-def _quick_finish_form(board) -> ProductionQuickFinishForm:
-    return ProductionQuickFinishForm(
-        initial={
-            "target_date": board.selected_date,
-            "position_ref": board.selected_position_ref,
-            "operator_ref_filter": board.selected_operator_ref,
-            "base_recipe": board.selected_base_recipe,
-            "position": board.default_position_pk or "",
-        },
-        recipe_choices=[(recipe.pk, f"{recipe.ref} - {recipe.name}") for recipe in board.recipes],
-        position_choices=_position_pk_choices(board),
-    )
-
-
 def _produce_entries(row, board) -> list[dict]:
+    """Estado read-only das OPs abertas na coluna "Produzido" (split canônico
+    WP-PE4: iniciar/concluir/forçar é execução e vive no Fournil)."""
     open_orders = (*row.started_orders, *row.planned_orders)
     if len(open_orders) > 1:
         statuses = ", ".join(f"{item.ref} {item.status_label.lower()}" for item in open_orders)
         return [
             {
                 "blocked": True,
-                "button_label": f"{len(open_orders)} OPs abertas",
-                "button_title": f"{row.output_sku}: {statuses}",
+                "label": f"{len(open_orders)} OPs abertas",
+                "title": f"{row.output_sku}: {statuses}",
                 "resolve_url": _production_filter_url("admin_console_production_planning", board),
             }
         ]
 
     return [
         {
-            "item": item,
-            "button_label": _quantity_display(item.started_qty or item.planned_qty),
-            "button_title": (
+            "label": f"{item.status_label} · {_quantity_display(item.started_qty or item.planned_qty)}",
+            "title": (
                 f"{item.ref} · {item.status_label} · "
                 f"{_quantity_display(item.started_qty or item.planned_qty)}"
-            ),
-            "modal_title": f"Produzir {item.output_sku}",
-            "modal_description": "Informe a quantidade realmente produzida para concluir a OP.",
-            "submit_label": "Salvar produzido",
-            "form_id": f"production-finish-{item.pk}",
-            "form": ProductionFinishForm(
-                initial={
-                    "action": "finish",
-                    "wo_id": item.pk,
-                    "target_date": board.selected_date,
-                    "position_ref": board.selected_position_ref,
-                    "operator_ref_filter": board.selected_operator_ref,
-                    "base_recipe": board.selected_base_recipe,
-                    "quantity": item.started_qty or item.planned_qty,
-                }
             ),
         }
         for item in open_orders
@@ -1445,10 +1271,6 @@ def _production_filter_url(url_name: str, board) -> str:
     query = {key: value for key, value in query.items() if value not in (None, "")}
     base = reverse(url_name)
     return f"{base}?{urlencode(query)}" if query else base
-
-
-def _position_pk_choices(board) -> list[tuple[str | int, str]]:
-    return [("", "Padrão"), *[(position.pk, position.name) for position in board.positions]]
 
 
 def _commitments(request: HttpRequest, item):

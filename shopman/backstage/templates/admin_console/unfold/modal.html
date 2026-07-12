@@ -31,10 +31,6 @@
           {% for field in form_fields|default:form.visible_fields %}
             {% include "unfold/helpers/field.html" with field=field %}
           {% endfor %}
-
-          {% if body_template %}
-            {% include body_template %}
-          {% endif %}
         </form>
 
         {% component "unfold/components/separator.html" %}

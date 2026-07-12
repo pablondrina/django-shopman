@@ -8,14 +8,13 @@
   <script src="{% url 'admin:jsi18n' %}"></script>
   <script src="{% static 'admin/js/core.js' %}"></script>
   {{ production_filter_form.media }}
-  {{ production_quick_finish_form.media }}
 {% endblock %}
 
 {% block content %}
 {% include "unfold/helpers/messages.html" %}
 <main id="production-console-main" role="main">
 {% component "unfold/components/container.html" %}
-  <div class="flex flex-col gap-6" x-data="{ filtersOpen: false, directEntryOpen: false }">
+  <div class="flex flex-col gap-6" x-data="{ filtersOpen: false }">
     <div class="flex flex-col gap-4">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div class="flex flex-col gap-1">
@@ -23,14 +22,14 @@
             Produção
           {% endcomponent %}
           {% component "unfold/components/text.html" with class="text-base-500" %}
-            Produção do dia · {{ production_filter_summary }}
+            Produção do dia · {{ production_filter_summary }} · a execução vive no Fournil
           {% endcomponent %}
         </div>
         <div class="flex flex-wrap gap-2 lg:ml-auto lg:justify-end">
-          {% if production_access.can_edit_finished %}
-            {% component "unfold/components/button.html" with variant="default" size="sm" extra_attrs='type="button" x-on:click="directEntryOpen = true"' %}
-              {% component "unfold/components/icon.html" with class="text-base" %}add_circle{% endcomponent %}
-              Entrada direta
+          {% if production_fournil_url %}
+            {% component "unfold/components/button.html" with href=production_fournil_url variant="primary" size="sm" %}
+              {% component "unfold/components/icon.html" with class="text-base" %}manufacturing{% endcomponent %}
+              Operar no Fournil
             {% endcomponent %}
           {% endif %}
           {% component "unfold/components/button.html" with href=production_work_orders_today_url variant="default" size="sm" %}
@@ -70,10 +69,6 @@
 
       {% include "admin_console/unfold/modal.html" with open_var="filtersOpen" close_action="filtersOpen = false" modal_title="Filtros de produção" modal_description="Ajuste data, posto, operador ou ficha-base." form=production_filter_form form_fields=production_filter_fields form_id="production-filters" form_method="get" form_action=production_reset_url submit_label="Aplicar filtros" cancel_label="Fechar" clear_href=production_reset_url clear_label="Limpar filtros" cancel_attrs='type="button" x-on:click="filtersOpen = false"' %}
     </div>
-
-    {% if production_access.can_edit_finished %}
-      {% include "admin_console/unfold/modal.html" with open_var="directEntryOpen" close_action="directEntryOpen = false" modal_title="Entrada direta" modal_description="Registre produção já concluída somente quando a OP não passou pelo apontamento de início." form=production_quick_finish_form form_id="production-direct-entry" submit_label="Registrar entrada direta" cancel_label="Fechar" cancel_attrs='type="button" x-on:click="directEntryOpen = false"' %}
-    {% endif %}
   </div>
 {% endcomponent %}
 </main>

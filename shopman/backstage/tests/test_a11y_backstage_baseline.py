@@ -7,16 +7,12 @@ def _read(path: str) -> str:
 
 # O KDS e o console de pedidos viraram apps Nuxt dedicados (a11y via vitest +
 # verificação ao vivo); seus checks de template Django foram removidos (Fase 2).
+# Os modais de escassez migraram para o Fournil junto com a execução de
+# produção (split canônico WP-PE4); o wrapper aprovado de modal do Admin
+# carrega os atributos ARIA.
 
 
-def test_production_shortage_modal_is_accessible():
-    # O modal de order-shortage migrou para o Fournil junto com o plan (split
-    # canônico WP-PE4); no Admin resta o de insumos (finish/quick_finish),
-    # que delega ao wrapper aprovado — os atributos ARIA vivem nele.
-    partial = _read("shopman/backstage/templates/admin_console/production/partials/material_shortage.html")
-
-    assert 'include "admin_console/unfold/modal.html"' in partial
-
+def test_admin_modal_wrapper_is_accessible():
     wrapper = _read("shopman/backstage/templates/admin_console/unfold/modal.html")
 
     assert 'role="dialog"' in wrapper

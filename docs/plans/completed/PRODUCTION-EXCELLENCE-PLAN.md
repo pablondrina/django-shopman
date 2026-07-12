@@ -399,6 +399,18 @@ staging.
 > commits na `main`. Pendências não-engenharia: deploy staging + QA físico do
 > Pablo nas telas do fournil. Arquivar em `completed/` após o deploy.
 
+- **2026-07-11 — Split canônico completado no apontamento** (follow-up do
+  WP-PE4, decisão do Pablo): o WP-PE4 tinha aposentado só a ESCRITA de
+  planejamento no Admin; iniciar/concluir/entrada direta continuavam na página
+  "Produção". Removidos com zero residuals: `handle_production_post` + POST do
+  console (agora 405, como o planning), forms de start/finish/quick-finish,
+  modal de escassez HTMX (o Fournil trata escassez/força pelo envelope 409),
+  `bulk_create` do Admin (endpoint sem chamadores), `bulk_plan`/
+  `apply_suggestions` (órfãos) e `suggestion.horizon_days` (config sem
+  consumidor — o horizonte default é client-side no Fournil). Os cells da
+  matriz viraram leitura pura; botão "Operar no Fournil" no header. Admin =
+  CRUD/config/relatórios; execução = Fournil, sem exceções.
+
 - **2026-07-03 — WP-PE5 + WP-PE6 entregues** (frente final): vínculo
   pedido↔produção nas duas pontas (chip + dialog na matriz e no chão, aviso
   no estorno; gestor já tinha); e2e da cadeia completa

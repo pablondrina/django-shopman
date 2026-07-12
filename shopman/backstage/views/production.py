@@ -1,60 +1,27 @@
-"""Quick production registration + bulk create — operator backstage views.
+"""Read-only helpers for the Admin/Unfold production console.
 
-The live floor "KDS de produção" migrated to the dedicated Nuxt app
+The live production floor migrated to the dedicated Nuxt app
 (``surfaces/production-nuxt`` / ``fournil.``) over the headless API at
-``api/v1/backstage/production/*`` (OPERATOR-APPS-PLAN Fase 4). What remains here
-are the SHARED helpers consumed by the Admin/Unfold production console
-(``admin_console/production.py``): ``handle_production_post``,
-``render_production_surface``, ``production_redirect`` and their support.
-
-GET views consume projections from ``shopman.shop.projections.production``.
-POST actions mutate state, then redirect (PRG pattern).
+``api/v1/backstage/production/*`` (OPERATOR-APPS-PLAN Fase 4), and EXECUTION
+(planejar, iniciar, concluir, entrada direta) is exclusive to it — split
+canônico WP-PE4: Admin/Unfold = gestão (leitura, relatórios, pesagem,
+compromissos, auditoria). What remains here are the SHARED read helpers
+consumed by the Admin/Unfold production console
+(``admin_console/production.py``): ``render_production_surface`` and its
+filter parsing support. GET views consume projections from
+``shopman.backstage.projections.production``.
 """
 
 from __future__ import annotations
 
-import logging
 from datetime import date, timedelta
-from urllib.parse import urlencode
 
-from django import forms
-from django.contrib import messages
-from django.http import (
-    HttpResponse,
-    HttpResponseRedirect,
-)
-from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
-from django.urls import reverse
 from django.utils import timezone
 
 from shopman.backstage.projections.production import (
     build_production_board,
 )
-from shopman.backstage.services import production as production_service
-from shopman.backstage.services.production import ProductionStockShortError
-
-logger = logging.getLogger(__name__)
-
-# Shortage modal partial rendered by ``handle_production_post`` on HX-Request
-# (the Admin/Unfold production console). The KDS floor templates moved to the
-# Nuxt app, but this stays — it backs the console's material shortage UX on
-# finish/quick_finish. (Order-coverage shortage only exists no plan, que migrou
-# para o Fournil — split canônico WP-PE4.)
-SHORTAGE_PARTIAL_TEMPLATE = "admin_console/production/partials/material_shortage.html"
-
-
-class ProductionForceFinishForm(forms.Form):
-    """Hidden carrier form the shortage modal resubmits with ``force=1``."""
-
-    action = forms.CharField(widget=forms.HiddenInput())
-    force = forms.CharField(widget=forms.HiddenInput())
-    wo_id = forms.CharField(widget=forms.HiddenInput(), required=False)
-    quantity = forms.CharField(widget=forms.HiddenInput(), required=False)
-    target_date = forms.CharField(widget=forms.HiddenInput(), required=False)
-    position_ref = forms.CharField(widget=forms.HiddenInput(), required=False)
-    operator_ref_filter = forms.CharField(widget=forms.HiddenInput(), required=False)
-    base_recipe = forms.CharField(widget=forms.HiddenInput(), required=False)
 
 
 def _selected_date(request) -> date:
@@ -97,95 +64,6 @@ def _coerce_iso_date(raw: str, *, fallback: date) -> date:
         return fallback
 
 
-def handle_production_post(request, access, *, redirect_url_name: str = "admin_console_production"):
-    """Mutate production through the canonical Craftsman lifecycle."""
-    action = (request.POST.get("action") or "quick_finish").strip()
-    actor = f"production:{request.user.username}"
-
-    try:
-        # Planejar/ajustar planejado saiu do Admin (split canônico WP-PE4):
-        # a matriz do Admin é leitura; a edição vive no Fournil via headless API.
-        if action == "start":
-            if not access.can_edit_started:
-                messages.error(request, "Sem permissão para iniciar produção.")
-            else:
-                wo_ref, quantity = production_service.apply_start(
-                    work_order_id=request.POST.get("wo_id"),
-                    quantity=request.POST.get("quantity", "").strip(),
-                    position_id=request.POST.get("position", "").strip(),
-                    operator_ref=request.POST.get("operator_ref", "").strip(),
-                    note=request.POST.get("note", "").strip(),
-                    actor=actor,
-                )
-                messages.success(request, f"Produção iniciada: {wo_ref} × {quantity}")
-        elif action == "finish":
-            if not access.can_edit_finished:
-                messages.error(request, "Sem permissão para concluir produção.")
-            else:
-                wo_ref, quantity = production_service.apply_finish(
-                    work_order_id=request.POST.get("wo_id"),
-                    quantity=request.POST.get("quantity", "").strip(),
-                    actor=actor,
-                    force=request.POST.get("force") == "1",
-                )
-                if request.POST.get("force") == "1":
-                    messages.warning(request, f"Produção concluída com alerta de insumos: {wo_ref} × {quantity}")
-                else:
-                    messages.success(request, f"Produção concluída: {wo_ref} × {quantity}")
-        elif action == "quick_finish":
-            if not access.can_edit_finished:
-                messages.error(request, "Sem permissão para informar produção concluída.")
-            else:
-                output_sku, wo_ref, quantity = production_service.apply_quick_finish(
-                    recipe_id=request.POST.get("recipe"),
-                    quantity=request.POST.get("quantity", "").strip(),
-                    position_id=request.POST.get("position", "").strip(),
-                    actor=actor,
-                )
-                messages.success(
-                    request,
-                    f"Entrada direta registrada: {output_sku} × {quantity} ({wo_ref})",
-                )
-        else:
-            messages.error(request, "Ação de produção inválida.")
-    except ProductionStockShortError as exc:
-        if request.headers.get("HX-Request"):
-            force_finish_form = ProductionForceFinishForm(
-                auto_id=False,
-                initial={
-                    "action": "finish",
-                    "force": "1",
-                    "wo_id": request.POST.get("wo_id", ""),
-                    "quantity": request.POST.get("quantity", ""),
-                    "target_date": request.POST.get("target_date", ""),
-                    "position_ref": request.POST.get("position_ref", ""),
-                    "operator_ref_filter": request.POST.get("operator_ref_filter", ""),
-                    "base_recipe": request.POST.get("base_recipe", ""),
-                },
-            )
-            return HttpResponse(
-                render_to_string(
-                    SHORTAGE_PARTIAL_TEMPLATE,
-                    {
-                        "force_finish_form": force_finish_form,
-                        "production_shortage_table": {
-                            "headers": ["Insumo", "Falta"],
-                            "rows": [[item.sku, f"Faltam {item.shortage}"] for item in exc.missing],
-                        },
-                    },
-                    request=request,
-                ),
-            )
-        messages.error(request, str(exc))
-    except ValueError as exc:
-        messages.error(request, str(exc))
-    except Exception as exc:
-        logger.exception("Production action failed action=%s", action)
-        messages.error(request, f"Erro ao registrar produção: {exc}")
-
-    return HttpResponseRedirect(production_redirect(request, redirect_url_name=redirect_url_name))
-
-
 def render_production_surface(
     request,
     access,
@@ -209,7 +87,7 @@ def render_production_surface(
     )
 
     context = {
-        "title": "Registro de Produção",
+        "title": "Produção do dia",
         "board": board,
         "recipes": board.recipes,
         "base_recipes": board.base_recipes,
@@ -234,21 +112,3 @@ def render_production_surface(
     if context_callback:
         context.update(context_callback(request, board, context))
     return TemplateResponse(request, template_name, context)
-
-
-def production_redirect(request, *, redirect_url_name: str = "admin_console_production") -> str:
-    params = {}
-    date_value = (request.POST.get("target_date") or request.POST.get("date") or "").strip()
-    if date_value:
-        params["date"] = date_value
-    position_ref = (request.POST.get("position_ref") or "").strip()
-    operator_ref = (request.POST.get("operator_ref_filter") or "").strip()
-    base_recipe = (request.POST.get("base_recipe") or "").strip()
-    if position_ref:
-        params["position_ref"] = position_ref
-    if operator_ref:
-        params["operator_ref"] = operator_ref
-    if base_recipe:
-        params["base_recipe"] = base_recipe
-    base = reverse(redirect_url_name)
-    return f"{base}?{urlencode(params)}" if params else base

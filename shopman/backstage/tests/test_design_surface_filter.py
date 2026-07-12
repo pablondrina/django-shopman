@@ -76,10 +76,10 @@ def test_backstage_production_uses_high_volume_matrix_surface():
     assert ">Sugerido<" not in production
     assert "quantity_display" in admin_console
     assert "per_unit_display" in admin_console
-    assert "admin_console/unfold/modal.html" in cells
-
-    # Split canônico (WP-PE4): a matriz do Admin é LEITURA — planejar/ajustar
-    # planejado vive no Fournil. Nenhuma escrita de planejamento no Admin.
+    # Split canônico (WP-PE4): a matriz do Admin é LEITURA — planejar/ajustar/
+    # iniciar/concluir vive no Fournil. Nenhuma escrita de produção no Admin:
+    # os cells apresentam estado, sem modais de ação.
+    assert "admin_console/unfold/modal.html" not in cells
     planning = (TEMPLATES / "admin_console" / "production" / "planning.html").read_text(encoding="utf-8")
     planning_cell = (
         TEMPLATES / "admin_console" / "production" / "cells" / "planning_planned.html"

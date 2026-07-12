@@ -41,8 +41,6 @@ class ProductionConfig:
         safety_stock_percent: str | None = None
         # Decimal-string (ex: "0.20") — margem sobre (demanda + committed).
         # None = default do Core (CRAFTSMAN["SAFETY_STOCK_PERCENT"]).
-        horizon_days: int = 1
-        # Data-alvo padrão do planejamento (1 = amanhã).
 
         @property
         def high_demand_multiplier_decimal(self) -> Decimal | None:
@@ -168,9 +166,6 @@ class ProductionConfig:
             "production.suggestion.safety_stock_percent",
             minimum=Decimal("0"),
         )
-        if self.suggestion.horizon_days < 0:
-            raise ValueError("production.suggestion.horizon_days deve ser >= 0")
-
         threshold = _require_decimal_or_none(
             self.alerts.low_yield_threshold, "production.alerts.low_yield_threshold"
         )

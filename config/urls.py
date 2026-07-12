@@ -11,7 +11,6 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from shopman.backstage.admin_console.closing import day_closing_console_view
 from shopman.backstage.admin_console.production import (
     production_commitments_view,
-    production_console_bulk_create_view,
     production_console_view,
     production_dashboard_view,
     production_planning_view,
@@ -49,11 +48,6 @@ urlpatterns = [
         "admin/operacao/producao/",
         admin.site.admin_view(production_console_view),
         name="admin_console_production",
-    ),
-    path(
-        "admin/operacao/producao/criar/",
-        admin.site.admin_view(production_console_bulk_create_view),
-        name="admin_console_production_bulk_create",
     ),
     path(
         "admin/operacao/producao/planejamento/",

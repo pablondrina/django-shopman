@@ -18,7 +18,6 @@ from django.utils import timezone
 
 from shopman.backstage.services.exceptions import ProductionError
 from shopman.shop.services import production as production_core
-from shopman.shop.services.production import BulkPlanResult
 
 logger = logging.getLogger(__name__)
 
@@ -208,18 +207,6 @@ def apply_advance_step(*, work_order_id, actor: str) -> int:
     work_order.meta = meta
     work_order.save(update_fields=["meta", "updated_at"])
     return new_index
-
-
-def apply_suggestions(
-    *,
-    target_date_value,
-    entries: list[dict],
-) -> BulkPlanResult:
-    """Create planned work orders from suggestion entries."""
-    return production_core.bulk_plan(
-        target_date_value=target_date_value,
-        entries=entries,
-    )
 
 
 def export_reports_csv(report_kind: str, filters: dict | None = None) -> bytes:

@@ -12,32 +12,12 @@ Este módulo é o gancho explícito do orquestrador: logging estruturado e ponto
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass(frozen=True)
-class BulkPlanEntry:
-    output_sku: str
-    ref: str
-    quantity: Decimal
-    action: str
-
-    def __str__(self) -> str:
-        suffix = self.ref or self.action
-        return f"{self.output_sku} × {self.quantity} ({suffix}, {self.action})"
-
-
-@dataclass(frozen=True)
-class BulkPlanResult:
-    created: list[BulkPlanEntry]
-    errors: list[str]
-    target_date: date
 
 
 def suggest_for(target_date: date, output_skus: list[str] | None = None):
@@ -282,65 +262,6 @@ def finish_work_order(
     return work_order.ref, qty
 
 
-def bulk_plan(
-    *,
-    target_date_value,
-    entries: list[dict],
-    source_ref: str = "dashboard_suggestion",
-) -> BulkPlanResult:
-    """Apply suggestion entries as absolute planned quantities."""
-    from shopman.craftsman.models import Recipe
-
-    target_date = _target_date(target_date_value)
-    position_ref = _default_position_ref()
-    created: list[BulkPlanEntry] = []
-    errors: list[str] = []
-
-    for entry in entries:
-        recipe_ref = entry.get("recipe_ref", "")
-        try:
-            qty = _positive_decimal(entry.get("quantity", 0))
-        except ValueError:
-            errors.append(f"{recipe_ref}: quantidade inválida")
-            continue
-
-        try:
-            recipe = Recipe.objects.get(ref=recipe_ref, is_active=True)
-        except Recipe.DoesNotExist:
-            errors.append(f"{recipe_ref}: receita não encontrada")
-            continue
-
-        try:
-            _, wo_ref, planned_qty, result = set_planned_quantity(
-                recipe_id=recipe.pk,
-                quantity=qty,
-                target_date_value=target_date.isoformat(),
-                position_ref=position_ref,
-                reason=f"Sugestão aplicada: {source_ref}",
-                actor="production:suggestion",
-                source_ref="formula:suggestion",
-            )
-            action = {
-                "created": "criado",
-                "adjusted": "ajustado",
-                "consolidated": "consolidado",
-                "unchanged": "mantido",
-            }.get(result, result)
-            created.append(
-                BulkPlanEntry(
-                    output_sku=recipe.output_sku,
-                    ref=wo_ref,
-                    quantity=planned_qty,
-                    action=action,
-                )
-            )
-        except Exception as exc:
-            errors.append(f"{recipe_ref}: {exc}")
-            logger.exception("bulk_plan failed for %s", recipe_ref)
-
-    return BulkPlanResult(created=created, errors=errors, target_date=target_date)
-
-
 def _merge_committed_order_links(primary, duplicates: list) -> None:
     """Preserve order links when duplicate planned WOs are consolidated."""
     try:
@@ -425,24 +346,6 @@ def _default_position_ref() -> str:
 
     default_pos = Position.objects.filter(is_default=True).first()
     return default_pos.ref if default_pos else ""
-
-
-def _target_date(value) -> date:
-    try:
-        return date.fromisoformat(value) if value else _default_planning_date()
-    except (ValueError, TypeError):
-        return _default_planning_date()
-
-
-def _default_planning_date() -> date:
-    from shopman.shop.production_config import ProductionConfig
-
-    try:
-        horizon_days = ProductionConfig.load().suggestion.horizon_days
-    except Exception:
-        logger.debug("production.default_planning_date degraded", exc_info=True)
-        horizon_days = 1
-    return timezone.localdate() + timedelta(days=horizon_days)
 
 
 def _target_date_or_today(value) -> date:

@@ -819,7 +819,6 @@ mecânica do `LoyaltyConfig`): defaults sensatos, `deep_merge` com
 | `production.suggestion.seasons` | `dict[str, list[int]]` | `production.suggest_for()` (`shop/services/production.py`) | Estações → meses (1-12). O mês da data-alvo resolve a estação; a lista filtra o histórico de demanda do `craft.suggest()`. Vazio = sem filtro sazonal. |
 | `production.suggestion.high_demand_multiplier` | `string` (Decimal) | `production.suggest_for()` | Multiplicador aplicado em sexta/sábado (ex: `"1.2"`). Ausente = desligado. |
 | `production.suggestion.safety_stock_percent` | `string` (Decimal) | `production.suggest_for()` | Margem sobre (demanda média + committed), ex: `"0.20"`. **Ausente = herda `CRAFTSMAN["SAFETY_STOCK_PERCENT"]`** (deploy, default 0.20). |
-| `production.suggestion.horizon_days` | `int` | `bulk_plan` / matriz de planejamento | Data-alvo padrão do planejamento em dias (default `1` = amanhã). |
 | `production.alerts.low_yield_threshold` | `string` (Decimal 0-1) | `maybe_create_low_yield_alert` (`shop/handlers/production_alerts.py`) | Yield (finished/started) abaixo disto → `OperatorAlert production_low_yield`. Default `"0.80"`. |
 | `production.alerts.default_max_started_minutes` | `int` | `production_alerts`, projections de produção | Janela padrão de WO em andamento antes de "atrasada". `Recipe.meta["max_started_minutes"]` sobrescreve por receita. Default `240`. |
 | `production.alerts.late_check_cadence_minutes` | `int` | `ProductionLateCheckHandler` | Cadência do heartbeat `production.late_check`. `0` = desligado. Default `15`. |

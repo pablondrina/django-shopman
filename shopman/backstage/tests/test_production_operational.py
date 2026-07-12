@@ -7,13 +7,10 @@ from decimal import Decimal
 
 import pytest
 from django.contrib.auth.models import User
-from django.test import RequestFactory
-from django.urls import reverse
 from django.utils import timezone
 from shopman.craftsman import craft
 from shopman.craftsman.models import Recipe, WorkOrder
 
-from shopman.backstage.admin_console.production import production_console_bulk_create_view
 from shopman.backstage.models import OperatorAlert
 from shopman.backstage.projections.production import (
     build_production_dashboard,
@@ -21,23 +18,16 @@ from shopman.backstage.projections.production import (
     build_work_order_card,
     resolve_production_access,
 )
-from shopman.backstage.services.production import MissingMaterial, ProductionStockShortError
 from shopman.shop.handlers.production_alerts import (
     check_late_started_orders,
     create_stock_short_alert,
     maybe_create_low_yield_alert,
 )
-from shopman.shop.models import Shop
 
 
 @pytest.fixture
 def superuser(db):
     return User.objects.create_superuser("admin", "admin@test.com", "pass")
-
-
-@pytest.fixture
-def rf():
-    return RequestFactory()
 
 
 @pytest.fixture
@@ -162,56 +152,3 @@ def test_stock_short_alert_created_once(recipe):
     )
 
     assert OperatorAlert.objects.filter(type="production_stock_short").count() == 1
-
-
-@pytest.mark.django_db
-def test_admin_bulk_create_work_orders_accepts_htmx_form(recipe, rf, superuser):
-    request = rf.post(
-        reverse("admin_console_production_bulk_create"),
-        {
-            "date": date.today().isoformat(),
-            "recipe_ref": [recipe.ref],
-            "quantity": ["12"],
-        },
-    )
-    request.user = superuser
-    request.session = {}
-
-    response = production_console_bulk_create_view(request)
-
-    assert response.status_code == 200
-    assert WorkOrder.objects.filter(recipe=recipe, quantity=Decimal("12")).exists()
-    assert recipe.output_sku.encode() in response.content
-
-
-@pytest.mark.django_db
-def test_finish_action_returns_material_shortage_partial(client, recipe, superuser, monkeypatch):
-    # The HX material-shortage partial is now rendered by the SHARED
-    # ``handle_production_post`` through the Admin/Unfold production console
-    # (the live floor moved to the fournil. Nuxt app, which gets the structured
-    # JSON envelope instead). This guards the console's shortage UX.
-    Shop.objects.create(name="Loja Produção")
-    work_order = craft.plan(recipe, 10, date=date.today(), position_ref="forno")
-    client.force_login(superuser)
-
-    def block_finish(**kwargs):
-        raise ProductionStockShortError(
-            work_order_ref=work_order.ref,
-            missing=[MissingMaterial(sku="FARINHA", needed=Decimal("5"), available=Decimal("2"))],
-        )
-
-    monkeypatch.setattr(
-        "shopman.backstage.views.production.production_service.apply_finish",
-        block_finish,
-    )
-
-    response = client.post(
-        reverse("admin_console_production"),
-        {"action": "finish", "wo_id": work_order.pk, "quantity": "10"},
-        HTTP_HX_REQUEST="true",
-    )
-
-    assert response.status_code == 200
-    assert b"Insumos insuficientes" in response.content
-    assert b"FARINHA" in response.content
-    assert b'name="force" value="1"' in response.content

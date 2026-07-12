@@ -915,4 +915,7 @@ class TestProductionBackstageRoutes:
         assert reverse("admin_console_production") == "/admin/operacao/producao/"
         assert reverse("admin_console_production_dashboard") == "/admin/operacao/producao/painel/"
         assert reverse("admin_console_production_reports") == "/admin/operacao/producao/relatorios/"
-        assert reverse("admin_console_production_bulk_create") == "/admin/operacao/producao/criar/"
+        # Criação em lote saiu do Admin junto com a execução (split canônico
+        # WP-PE4): planejar é do Fournil via api/v1/backstage/production/plan/.
+        with pytest.raises(NoReverseMatch):
+            reverse("admin_console_production_bulk_create")

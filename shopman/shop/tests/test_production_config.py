@@ -26,7 +26,6 @@ class TestDefaults:
         assert config.suggestion.seasons == {}
         assert config.suggestion.high_demand_multiplier is None
         assert config.suggestion.safety_stock_percent is None
-        assert config.suggestion.horizon_days == 1
         assert config.alerts.low_yield_threshold == "0.80"
         assert config.alerts.default_max_started_minutes == 240
         assert config.alerts.late_check_cadence_minutes == 15
@@ -122,7 +121,6 @@ class TestValidation:
             ({"suggestion": {"high_demand_multiplier": "abc"}}, "high_demand_multiplier"),
             ({"suggestion": {"high_demand_multiplier": "-1"}}, "high_demand_multiplier"),
             ({"suggestion": {"safety_stock_percent": "x"}}, "safety_stock_percent"),
-            ({"suggestion": {"horizon_days": -1}}, "horizon_days"),
             ({"alerts": {"low_yield_threshold": "1.5"}}, "low_yield_threshold"),
             ({"alerts": {"low_yield_threshold": "nope"}}, "low_yield_threshold"),
             ({"alerts": {"default_max_started_minutes": 0}}, "default_max_started_minutes"),
