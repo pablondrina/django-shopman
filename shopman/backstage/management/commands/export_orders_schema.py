@@ -1,0 +1,82 @@
+"""Generate the order-queue contract mirror consumed by the orders-nuxt surface.
+
+The contract's single source of truth is the projection dataclasses in
+``shopman.backstage.projections.order_queue`` (plus the shared item/timeline
+types in ``shopman.shop.projections.types``). The gestor used to hand-sync
+those shapes in TypeScript — a fragile manual mirror. This command renders
+them into a generated TypeScript module, so the surface imports (and narrows)
+them instead of re-declaring them.
+
+A drift test (``test_orders_schema_export``) regenerates the file in-memory
+and compares it to disk, failing loudly when the two diverge. Run::
+
+    python manage.py export_orders_schema
+
+after touching the projection dataclasses.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from django.conf import settings
+from django.core.management.base import BaseCommand
+
+from shopman.backstage.contracts import render_contract_module, run_contract_export
+from shopman.backstage.projections.order_queue import (
+    AwaitingWorkOrderProjection,
+    OperatorOrderProjection,
+    OrderCardProjection,
+    OrderQueueProjection,
+    TwoZoneQueueProjection,
+)
+from shopman.shop.projections.types import OrderItemProjection, TimelineEventProjection
+
+#: Generated artifact, relative to the repository root (``BASE_DIR``).
+OUTPUT_RELATIVE_PATH = Path("surfaces/orders-nuxt/app/generated/ordersContract.ts")
+
+#: Every dataclass exported to the surface, dependencies first.
+CONTRACT_DATACLASSES = (
+    OrderItemProjection,
+    TimelineEventProjection,
+    AwaitingWorkOrderProjection,
+    OrderCardProjection,
+    OperatorOrderProjection,
+    OrderQueueProjection,
+    TwoZoneQueueProjection,
+)
+
+
+def output_path() -> Path:
+    return Path(settings.BASE_DIR) / OUTPUT_RELATIVE_PATH
+
+
+def render_orders_contract_ts() -> str:
+    """Render the generated TypeScript contract mirror (deterministic)."""
+    return render_contract_module(
+        source=(
+            "shopman/backstage/projections/order_queue.py"
+            " + shopman/shop/projections/types.py"
+        ),
+        command="export_orders_schema",
+        dataclasses=CONTRACT_DATACLASSES,
+    )
+
+
+class Command(BaseCommand):
+    help = "Generate the order-queue contract mirror (TypeScript) from the projections."
+
+    def add_arguments(self, parser) -> None:
+        parser.add_argument(
+            "--check",
+            action="store_true",
+            help="Exit non-zero if the generated file is stale (do not write).",
+        )
+
+    def handle(self, *args, **options) -> None:
+        run_contract_export(
+            self,
+            relative_path=OUTPUT_RELATIVE_PATH,
+            rendered=render_orders_contract_ts(),
+            check=bool(options.get("check")),
+        )
