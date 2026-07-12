@@ -202,6 +202,52 @@ class CartService:
         return CartService.summary_from_session(session, include_items=include_items)
 
     @staticmethod
+    def _customer_eligible_for_promo(request: HttpRequest, promo) -> bool:
+        """True se o cliente atual satisfaz o alvo POR CLIENTE da promoção.
+
+        Só valida restrições que dependem de QUEM é o cliente — ``customer_segments``
+        (grupo/RFM) e ``birthday_only`` — porque, se não batem, o desconto seria
+        sempre 0. Restrições por item/contexto (``skus``, ``collections``,
+        ``fulfillment_types``) NÃO são checadas aqui: elas só afetam QUAIS itens
+        recebem desconto, não a elegibilidade do cliente ao cupom. Espelha a
+        semântica de ``DiscountModifier._matches`` para esses dois eixos.
+        """
+        from django.utils import timezone as tz
+
+        segments = list(getattr(promo, "customer_segments", None) or [])
+        birthday_only = bool(getattr(promo, "birthday_only", False))
+        if not segments and not birthday_only:
+            return True  # cupom aberto a todos
+
+        from shopman.storefront.identity import get_authenticated_customer
+
+        customer = get_authenticated_customer(request)
+        if customer is None:
+            return False  # alvo exige identidade; visitante anônimo não qualifica
+
+        if segments:
+            group_ref = customer.group.ref if getattr(customer, "group", None) else ""
+            try:
+                rfm_segment = customer.insight.rfm_segment or ""
+            except Exception:
+                # Sem insight calculado (OneToOne ausente) o cliente so casa por
+                # grupo; segmento RFM fica vazio. Degrada sem bloquear o cupom.
+                logger.debug("coupon_eligibility_insight_missing", exc_info=True)
+                rfm_segment = ""
+            if group_ref not in segments and rfm_segment not in segments:
+                return False
+
+        if birthday_only:
+            birthday = getattr(customer, "birthday", None)
+            if not birthday:
+                return False
+            today = tz.localdate()
+            if not (birthday.month == today.month and birthday.day == today.day):
+                return False
+
+        return True
+
+    @staticmethod
     def apply_coupon(request: HttpRequest, code: str) -> dict:
         """Validate and apply a coupon code to the cart session."""
         from shopman.storefront.models import Coupon
@@ -226,6 +272,13 @@ class CartService:
         now = tz.now()
         if not promo.is_active or now < promo.valid_from or now > promo.valid_until:
             return {"ok": False, "error": "coupon_expired"}
+
+        # Alvo por QUEM é o cliente (segmento/grupo ou aniversário): se ele não se
+        # qualifica, o DiscountModifier nunca aplicaria desconto (_matches falha).
+        # Recusar no gate em vez de gravar um cupom mudo (desconto 0) no carrinho
+        # sem aviso — ex.: FUNCIONARIO (customer_segments=["staff"]) para não-staff.
+        if not CartService._customer_eligible_for_promo(request, promo):
+            return {"ok": False, "error": "coupon_not_eligible"}
 
         session = cart_mutations.apply_coupon_code(
             session_key=session_key,
