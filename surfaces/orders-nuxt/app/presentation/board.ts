@@ -133,7 +133,7 @@ export function confirmationRemainingLabel(deadlineIso: string, nowMs: number): 
 // ── Zones (Entrada / Preparo / Saída) ──────────────────────────────────────
 
 export interface ZoneView {
-  key: "entrada" | "preparo" | "saida";
+  key: "intake" | "prep" | "expedition";
   title: string;
   subtitle: string;
   icon: string;
@@ -142,37 +142,37 @@ export interface ZoneView {
 }
 
 /** Group the two-zone queue projection into the three action columns the board
- *  renders. Saída merges retirada + delivery (ready) + delivery-in-transit. */
+ *  renders. Expedition merges pickup + delivery (ready) + delivery-in-transit. */
 export function zonesView(queue: TwoZoneQueueProjection): ZoneView[] {
-  const saida = [
-    ...queue.saida_retirada,
-    ...queue.saida_delivery,
-    ...queue.saida_delivery_transit,
+  const expedition = [
+    ...queue.expedition_pickup,
+    ...queue.expedition_delivery,
+    ...queue.expedition_delivery_transit,
   ];
   return [
     {
-      key: "entrada",
+      key: "intake",
       title: "Entrada",
       subtitle: "Novos — confirmar ou recusar",
       icon: "lucide:inbox",
-      cards: queue.entrada,
-      count: queue.entrada.length,
+      cards: queue.intake,
+      count: queue.intake.length,
     },
     {
-      key: "preparo",
+      key: "prep",
       title: "Preparo",
       subtitle: "Confirmados e em preparo",
       icon: "lucide:cooking-pot",
-      cards: queue.preparo,
-      count: queue.preparo.length,
+      cards: queue.prep,
+      count: queue.prep.length,
     },
     {
-      key: "saida",
+      key: "expedition",
       title: "Saída",
       subtitle: "Retirada, coleta e entrega",
       icon: "lucide:package-check",
-      cards: saida,
-      count: saida.length,
+      cards: expedition,
+      count: expedition.length,
     },
   ];
 }

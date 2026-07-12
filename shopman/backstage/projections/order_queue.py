@@ -173,16 +173,17 @@ class OrderQueueProjection:
 
 @dataclass(frozen=True)
 class TwoZoneQueueProjection:
-    """Operator queue grouped by action area: Entrada, Preparo and Saída."""
+    """Operator queue grouped by action area: intake, prep and expedition
+    (rendered as the Entrada, Preparo and Saída columns)."""
 
-    entrada: tuple[OrderCardProjection, ...]
+    intake: tuple[OrderCardProjection, ...]
     preparing_count: int
-    preparo: tuple[OrderCardProjection, ...]
-    saida_retirada: tuple[OrderCardProjection, ...]
-    saida_delivery: tuple[OrderCardProjection, ...]
-    saida_delivery_transit: tuple[OrderCardProjection, ...]
-    saida_delivery_count: int
-    saida_count: int
+    prep: tuple[OrderCardProjection, ...]
+    expedition_pickup: tuple[OrderCardProjection, ...]
+    expedition_delivery: tuple[OrderCardProjection, ...]
+    expedition_delivery_transit: tuple[OrderCardProjection, ...]
+    expedition_delivery_count: int
+    expedition_count: int
     total_count: int
 
 
@@ -419,26 +420,28 @@ def build_two_zone_queue() -> TwoZoneQueueProjection:
 
     new_orders = [o for o in all_orders if o.status == "new"]
     deadlines = _confirmation_deadlines([o.ref for o in new_orders])
-    entrada = tuple(_build_card(o, deadline=deadlines.get(o.ref)) for o in new_orders)
-    preparo = tuple(_build_card(o) for o in all_orders if o.status in ("confirmed", "preparing"))
-    preparing_count = len(preparo)
+    intake = tuple(_build_card(o, deadline=deadlines.get(o.ref)) for o in new_orders)
+    prep = tuple(_build_card(o) for o in all_orders if o.status in ("confirmed", "preparing"))
+    preparing_count = len(prep)
 
     ready_orders = [o for o in all_orders if o.status == "ready"]
-    saida_retirada = tuple(_build_card(o) for o in ready_orders if not _is_delivery(o))
-    saida_delivery = tuple(_build_card(o) for o in ready_orders if _is_delivery(o))
-    saida_delivery_transit = tuple(
+    expedition_pickup = tuple(_build_card(o) for o in ready_orders if not _is_delivery(o))
+    expedition_delivery = tuple(_build_card(o) for o in ready_orders if _is_delivery(o))
+    expedition_delivery_transit = tuple(
         _build_card(o) for o in all_orders if o.status in ("dispatched", "delivered")
     )
 
     return TwoZoneQueueProjection(
-        entrada=entrada,
+        intake=intake,
         preparing_count=preparing_count,
-        preparo=preparo,
-        saida_retirada=saida_retirada,
-        saida_delivery=saida_delivery,
-        saida_delivery_transit=saida_delivery_transit,
-        saida_delivery_count=len(saida_delivery) + len(saida_delivery_transit),
-        saida_count=len(saida_retirada) + len(saida_delivery) + len(saida_delivery_transit),
+        prep=prep,
+        expedition_pickup=expedition_pickup,
+        expedition_delivery=expedition_delivery,
+        expedition_delivery_transit=expedition_delivery_transit,
+        expedition_delivery_count=len(expedition_delivery) + len(expedition_delivery_transit),
+        expedition_count=len(expedition_pickup)
+        + len(expedition_delivery)
+        + len(expedition_delivery_transit),
         total_count=len(all_orders),
     )
 
