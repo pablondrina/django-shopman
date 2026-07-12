@@ -8,11 +8,14 @@ morava no caminho HTMX morto (``_validate_preorder``), com falsa cobertura.
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta
+from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 import pytest
 from django.utils import timezone
 
+from shopman.shop.services.business_calendar import BusinessCalendarState
 from shopman.storefront.tests.api.test_storefront_surface import _seed_surface
 
 pytestmark = pytest.mark.django_db
@@ -66,3 +69,37 @@ def test_delivery_date_beyond_preorder_window_is_rejected(client):
     body = resp.json()
     assert body["field"] == "delivery_date"
     assert "máxima" in body["detail"]
+
+
+def test_today_after_close_is_rejected(client):
+    """Dia operante mas já encerrado (eixo de HORA): pedido para HOJE à noite não
+    vira pedido impossível. is_open_on é cego à hora — o gate confia no
+    ``after_close`` do current_business_state.
+    """
+    _seed_surface()
+    _add_item(client)
+
+    today = timezone.localdate()
+    tz = ZoneInfo("America/Sao_Paulo")
+    after_close_state = BusinessCalendarState(
+        is_open=False,
+        opens_at="07:00",
+        closes_at="18:00",
+        message="Já encerramos hoje.",
+        closure_source="after_close",
+        resolved_at=datetime(today.year, today.month, today.day, 22, 0, tzinfo=tz),
+    )
+
+    with (
+        patch("shopman.shop.services.business_calendar.is_open_on", return_value=True),
+        patch(
+            "shopman.shop.services.business_calendar.current_business_state",
+            return_value=after_close_state,
+        ),
+    ):
+        resp = _checkout(client, today.isoformat())
+
+    assert resp.status_code == 400, resp.content
+    body = resp.json()
+    assert body["field"] == "delivery_date"
+    assert "encerramos" in body["detail"]
