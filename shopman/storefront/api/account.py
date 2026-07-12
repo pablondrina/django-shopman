@@ -76,11 +76,6 @@ def _step_up_required_response() -> Response:
     )
 
 
-def _client_ip(request) -> str:
-    forwarded = (request.META.get("HTTP_X_FORWARDED_FOR") or "").split(",")[0].strip()
-    return forwarded or request.META.get("REMOTE_ADDR", "") or ""
-
-
 def _fmt_dt(value) -> str:
     if not value:
         return ""
@@ -670,7 +665,10 @@ class NotificationPreferenceToggleView(APIView):
             account_service.toggle_notification_consent(
                 customer.ref,
                 channel,
-                ip_address=_client_ip(request),
+                # IP para o registro de consentimento (LGPD) resolvido pelo
+                # helper canônico: rightmost do X-Forwarded-For respeitando
+                # TRUSTED_PROXY_DEPTH — o leftmost é forjável pelo cliente.
+                ip_address=auth_service.client_ip(request),
             )
         )
         return Response({

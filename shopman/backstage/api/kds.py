@@ -24,7 +24,7 @@ from shopman.backstage.projections.kds import (
     build_kds_ticket,
 )
 from shopman.backstage.services import kds as kds_service
-from shopman.backstage.services.exceptions import KDSError
+from shopman.backstage.services.exceptions import KDSError, KDSOrderNotFound, KDSTicketNotFound
 
 from .permissions import HasBackstagePermission, IsBackstageOperator
 from .projections import projection_data
@@ -95,6 +95,8 @@ class KDSTicketItemView(APIView):
                 checked=checked,
                 actor=_actor(request),
             )
+        except KDSTicketNotFound as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_404_NOT_FOUND)
         except KDSError as exc:
             logger.debug("kds_ticket_item_update_failed ticket_pk=%s", ticket_pk, exc_info=True)
             return Response({"detail": str(exc) or "Falha ao atualizar item."}, status=status.HTTP_400_BAD_REQUEST)
@@ -116,6 +118,8 @@ class KDSTicketDoneView(APIView):
     def post(self, request, ticket_pk: int):
         try:
             kds_service.mark_ticket_done(ticket_pk=ticket_pk, actor=_actor(request))
+        except KDSTicketNotFound as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_404_NOT_FOUND)
         except KDSError as exc:
             logger.debug("kds_ticket_done_failed ticket_pk=%s", ticket_pk, exc_info=True)
             return Response({"detail": str(exc) or "Falha ao marcar como pronto."}, status=status.HTTP_400_BAD_REQUEST)
@@ -136,6 +140,8 @@ class KDSTicketRecallView(APIView):
     def post(self, request, ticket_pk: int):
         try:
             kds_service.recall_ticket(ticket_pk=ticket_pk, actor=_actor(request))
+        except KDSTicketNotFound as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_404_NOT_FOUND)
         except KDSError as exc:
             logger.debug("kds_ticket_recall_failed ticket_pk=%s", ticket_pk, exc_info=True)
             return Response({"detail": str(exc) or "Falha ao reabrir."}, status=status.HTTP_400_BAD_REQUEST)
@@ -156,6 +162,8 @@ class KDSTicketAcknowledgeView(APIView):
     def post(self, request, ticket_pk: int):
         try:
             kds_service.acknowledge_ticket(ticket_pk=ticket_pk, actor=_actor(request))
+        except KDSTicketNotFound as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_404_NOT_FOUND)
         except KDSError as exc:
             logger.debug("kds_ticket_ack_failed ticket_pk=%s", ticket_pk, exc_info=True)
             return Response({"detail": str(exc) or "Falha ao dar baixa."}, status=status.HTTP_400_BAD_REQUEST)
@@ -178,11 +186,13 @@ class KDSExpeditionActionView(APIView):
         if action not in {"dispatch", "complete"}:
             return Response({"detail": "Ação inválida."}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            kds_service.expedition_action_idempotent(
+            kds_service.expedition_action(
                 order_id=order_pk,
                 action=action,
                 actor=_actor(request),
             )
+        except KDSOrderNotFound as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_404_NOT_FOUND)
         except KDSError as exc:
             logger.debug(
                 "kds_expedition_action_failed order_pk=%s action=%s",

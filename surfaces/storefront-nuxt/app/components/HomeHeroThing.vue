@@ -109,7 +109,9 @@ function goToSlide (index: number) {
 }
 
 function handleTouchEnd (event: TouchEvent) {
-  const dx = event.changedTouches[0]?.screenX - touchStartX.value
+  const endX = event.changedTouches[0]?.screenX
+  if (endX === undefined) return
+  const dx = endX - touchStartX.value
   if (Math.abs(dx) < 50) return
   if (dx < 0) goToNextSlide()
   else goToPreviousSlide()

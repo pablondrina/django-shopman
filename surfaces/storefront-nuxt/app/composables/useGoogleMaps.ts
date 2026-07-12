@@ -13,7 +13,7 @@ declare global {
 
 function injectBootstrap (apiKey: string): Promise<boolean> {
   return new Promise(resolve => {
-    if (window.google?.maps?.importLibrary) {
+    if (typeof window.google?.maps?.importLibrary === 'function') {
       resolve(true)
       return
     }

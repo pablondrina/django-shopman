@@ -17,7 +17,7 @@ resistiram à verificação no código** — coerente com a regra do projeto:
 
 Exemplos de claims **derrubados na verificação**:
 - *"Atalhos de teclado não implementados (WP-1)"* → **falso**: há handlers de
-  teclado em `app/app.vue`, `app/components/PosComandaHeader.vue`,
+  teclado em `app/app.vue`, `app/components/PosTabHeader.vue`,
   `app/components/PosCartPanel.vue`, `app/composables/useOperatorLock.ts`.
 - *"Seletor de fulfillment ausente no checkout"* → **não confirmado**:
   `fulfillment` aparece em `app/components/PosPaymentWorkspace.vue`,

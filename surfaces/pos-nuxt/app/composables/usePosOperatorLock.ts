@@ -15,7 +15,7 @@ interface UnlockResponse {
  * attribution. Auto-locks after `autoLockSeconds` of inactivity — no
  * "stay logged in". Reusable across operator surfaces (POS/KDS/orders).
  */
-export function useOperatorLock(opts: {
+export function usePosOperatorLock(opts: {
   initialOperator?: OperatorCard | null;
   autoLockSeconds?: number;
 }) {

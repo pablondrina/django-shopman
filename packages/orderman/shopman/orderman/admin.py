@@ -131,7 +131,7 @@ def _operator_order_service():
     return import_module("shopman.shop.services.operator_orders")
 
 
-class CanalVendaFilter(admin.SimpleListFilter):
+class SalesChannelFilter(admin.SimpleListFilter):
     title = _("canal")
     parameter_name = "channel_ref"
 
@@ -163,7 +163,7 @@ class SessionAdmin(ModelAdmin):
         "rev",
         "updated_at",
     )
-    list_filter = (CanalVendaFilter, ("state", ChoicesRadioFilter))
+    list_filter = (SalesChannelFilter, ("state", ChoicesRadioFilter))
     search_fields = ("session_key", "channel_ref", "handle_type", "handle_ref")
     ordering = ("-updated_at", "-id")
     date_hierarchy = "updated_at"
@@ -844,7 +844,7 @@ class OrderAdmin(ModelAdmin):
         "created_at",
     )
     list_filter = (
-        CanalVendaFilter,
+        SalesChannelFilter,
         ("status", ChoicesRadioFilter),
         PreorderFilter,
         ("created_at", RangeDateFilter),

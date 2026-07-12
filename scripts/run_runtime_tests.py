@@ -18,6 +18,7 @@ DEFAULT_RUNTIME_TEST_PATHS = (
     "packages/payman/shopman/payman/tests/test_concurrency.py",
     "packages/craftsman/shopman/craftsman/tests/test_concurrency.py",
     "shopman/storefront/tests/test_concurrent_checkout.py",
+    "shopman/shop/tests/test_commit_stock_gate.py",
     "shopman/storefront/tests/test_rate_limiting.py",
     "shopman/storefront/tests/web/test_order_access_security.py",
     "shopman/shop/tests/test_eventstream_permissions.py",

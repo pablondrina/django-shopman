@@ -25,12 +25,12 @@ function withSetup<T>(composable: () => T): { result: T; unmount: () => void } {
 
 const ana: OperatorCard = { id: 1, username: "ana", name: "Ana" };
 
-describe("useOperatorLock", () => {
+describe("usePosOperatorLock", () => {
   beforeEach(() => callMock.mockReset());
 
   it("unlock com sucesso fixa o operador ativo e destrava", async () => {
     callMock.mockResolvedValue({ ok: true, operator: ana });
-    const { result, unmount } = withSetup(() => useOperatorLock({ initialOperator: null }));
+    const { result, unmount } = withSetup(() => usePosOperatorLock({ initialOperator: null }));
     expect(result.locked.value).toBe(true);
     await expect(result.unlock(1, "1234")).resolves.toBe(true);
     expect(result.activeOperator.value).toEqual(ana);
@@ -41,7 +41,7 @@ describe("useOperatorLock", () => {
 
   it("unlock com ok:false expõe a mensagem do servidor e mantém travado", async () => {
     callMock.mockResolvedValue({ ok: false, error: { message: "PIN incorreto" } });
-    const { result, unmount } = withSetup(() => useOperatorLock({}));
+    const { result, unmount } = withSetup(() => usePosOperatorLock({}));
     await expect(result.unlock(1, "0000")).resolves.toBe(false);
     expect(result.error.value).toBe("PIN incorreto");
     expect(result.locked.value).toBe(true);
@@ -50,14 +50,14 @@ describe("useOperatorLock", () => {
 
   it("unlock que lança usa a mensagem aninhada em data.error, senão fallback", async () => {
     callMock.mockRejectedValueOnce({ data: { error: { message: "Conta travada" } } });
-    const { result, unmount } = withSetup(() => useOperatorLock({}));
+    const { result, unmount } = withSetup(() => usePosOperatorLock({}));
     await expect(result.unlock(1, "1234")).resolves.toBe(false);
     expect(result.error.value).toBe("Conta travada");
     unmount();
   });
 
   it("lock limpa o operador MESMO se a chamada ao servidor falhar (local-first)", async () => {
-    const { result, unmount } = withSetup(() => useOperatorLock({ initialOperator: ana }));
+    const { result, unmount } = withSetup(() => usePosOperatorLock({ initialOperator: ana }));
     expect(result.locked.value).toBe(false);
     callMock.mockRejectedValueOnce(new Error("offline"));
     await result.lock();
@@ -67,7 +67,7 @@ describe("useOperatorLock", () => {
   });
 
   it("changePin: sucesso retorna true; falha expõe o detail do servidor", async () => {
-    const { result, unmount } = withSetup(() => useOperatorLock({}));
+    const { result, unmount } = withSetup(() => usePosOperatorLock({}));
     callMock.mockResolvedValueOnce({});
     await expect(result.changePin(1, "1234", "5678")).resolves.toBe(true);
     expect(result.changeError.value).toBe("");

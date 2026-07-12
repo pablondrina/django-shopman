@@ -80,7 +80,7 @@ export function useShopSession () {
     }
   }
 
-  function setFromAuthSession (session: AuthSessionProjection | null | undefined) {
+  function setFromAuthSession (session: Partial<AuthSessionProjection> | null | undefined) {
     if (!session) return
     if (!session.is_authenticated) {
       state.value = {

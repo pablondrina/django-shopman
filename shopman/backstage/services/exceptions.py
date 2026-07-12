@@ -15,6 +15,18 @@ class KDSError(BackstageServiceError):
     """Raised when a KDS mutation cannot be applied."""
 
 
+class KDSTicketNotFound(KDSError):
+    """Ticket inexistente.
+
+    A camada HTTP mapeia por TIPO para 404 (recurso não existe), nunca 400 —
+    mesmo padrão de ``PosRecentSaleNotFound``.
+    """
+
+
+class KDSOrderNotFound(KDSError):
+    """Pedido inexistente numa ação de expedição. A camada HTTP mapeia para 404."""
+
+
 class OrderError(BackstageServiceError):
     """Raised when an order mutation cannot be applied."""
 

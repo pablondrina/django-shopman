@@ -27,7 +27,7 @@ export function useReorder () {
     } catch (e) {
       const { status, data } = httpError(e)
       if (status === 409 && data) {
-        conflict.value = data as ReorderConflictProjection
+        conflict.value = data as unknown as ReorderConflictProjection
       } else if (import.meta.client) {
         useSonner.error(errorDetail(e, 'Não foi possível refazer este pedido.'))
       }
