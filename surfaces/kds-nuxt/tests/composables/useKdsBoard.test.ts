@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { flushPromises } from "@vue/test-utils";
-import { installNuxtGlobals } from "../support/composableEnv";
+import { installNuxtGlobals } from "../../../operator-kit/tests/support/composableEnv";
 import { useKdsBoard } from "~/composables/useKdsBoard";
 import type { KDSTicketProjection } from "~/types/kds";
 

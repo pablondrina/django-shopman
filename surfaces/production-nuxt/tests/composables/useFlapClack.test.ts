@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import "../support/installGlobals"; // stubs `ref` etc. before the singleton module evaluates
+import "../../../operator-kit/tests/support/installGlobals"; // stubs `ref` etc. before the singleton module evaluates
 import { useFlapClack } from "~/composables/useFlapClack";
 
 // useFlapClack is a device-local singleton; its Web Audio noise/clack is client-only

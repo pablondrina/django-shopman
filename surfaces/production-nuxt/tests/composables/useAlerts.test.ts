@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { installNuxtGlobals } from "../support/composableEnv";
+import { installNuxtGlobals } from "../../../operator-kit/tests/support/composableEnv";
 import { useAlerts } from "~/composables/useAlerts";
 
 const env = installNuxtGlobals();
