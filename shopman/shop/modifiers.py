@@ -329,9 +329,14 @@ class DiscountModifier:
             best_source = None  # (type, name)
 
             # Auto-promotions and coupon do not apply to D-1 lines.
+            # Only PERCENT discounts compete per-line: a percentage is intrinsically
+            # per-unit. FIXED discounts are order-level and applied once, after this
+            # loop (see the order-level fixed step below).
             if not is_d1_line:
                 # Evaluate auto-promotions
                 for promo in promotions:
+                    if promo.type != "percent":
+                        continue
                     if promo.min_order_q and session_total < promo.min_order_q:
                         continue
                     if not self._matches(promo, sku, ctx):
@@ -342,7 +347,7 @@ class DiscountModifier:
                         best_source = ("promotion", promo.name, promo.pk)
 
                 # Evaluate coupon
-                if coupon_promo:
+                if coupon_promo and coupon_promo.type == "percent":
                     if not (coupon_promo.min_order_q and session_total < coupon_promo.min_order_q):
                         if self._matches(coupon_promo, sku, ctx):
                             coupon_discount_q = self._calc_discount(coupon_promo, price_q)
@@ -385,6 +390,42 @@ class DiscountModifier:
                 })
                 if source_type == "coupon":
                     total_coupon_discount_q += best_discount_q * qty
+
+        # Order-level FIXED discount (fixed promo / fixed coupon). A fixed value
+        # like "R$5 off" is a single per-ORDER discount, never per unit — 6 units
+        # of a R$5 coupon is R$5 off the order, not R$30. Applied once to the
+        # eligible merchandise subtotal, distributed across lines that don't
+        # already carry a per-line discount (no stacking on the same line).
+        fixed = self._best_fixed_discount(promotions, coupon_promo, coupon_code, session_total)
+        if fixed is not None:
+            fixed_value, fixed_source, fixed_promo = fixed
+            eligible = [
+                item
+                for item in items
+                if not _is_non_merchandise_line(item)
+                and not _price_is_frozen(item)
+                and not item.get("modifiers_applied")
+                and int(item.get("line_total_q", 0)) > 0
+                and self._matches(fixed_promo, item.get("sku", ""), ctx)
+            ]
+            eligible_subtotal = sum(int(item.get("line_total_q", 0)) for item in eligible)
+            applied_q = min(fixed_value, eligible_subtotal)
+            if applied_q > 0:
+                self._distribute_order_discount(eligible, applied_q)
+                modified = True
+                src_type, src_name = fixed_source
+                # sku="" — an order-level record: it aggregates into the cart's
+                # discount total/line but matches no per-line SKU (no strikethrough).
+                discounts_applied.append({
+                    "sku": "",
+                    "type": src_type,
+                    "name": src_name,
+                    "original_price_q": 0,
+                    "discount_q": applied_q,
+                    "qty": 1,
+                })
+                if src_type == "coupon":
+                    total_coupon_discount_q += applied_q
 
         if modified:
             session.update_items(items)
@@ -438,6 +479,58 @@ class DiscountModifier:
             value = min(max(int(promo.value or 0), 0), 100)
             return monetary_div(price_q * value, 100)
         return max(0, min(promo.value, price_q))
+
+    @staticmethod
+    def _best_fixed_discount(
+        promotions: list[Any], coupon_promo: Any, coupon_code: str | None, session_total: int
+    ) -> tuple[int, tuple[str, str], Any] | None:
+        """Largest applicable FIXED discount, as a single order-level candidate.
+
+        Fixed promotions and the fixed coupon compete on value (best wins, no
+        stacking of two fixed discounts). ``min_order_q`` is gated against the
+        gross order subtotal; SKU/collection scope is enforced later when picking
+        the eligible lines. Returns ``(value_q, source, promo)`` where ``source``
+        is ``("promotion", name)`` or ``("coupon", code)``, or ``None``.
+        """
+        best: tuple[int, tuple[str, str], Any] | None = None
+        for promo in promotions:
+            if promo.type != "fixed":
+                continue
+            if promo.min_order_q and session_total < promo.min_order_q:
+                continue
+            value = max(0, int(promo.value or 0))
+            if value > 0 and (best is None or value > best[0]):
+                best = (value, ("promotion", promo.name), promo)
+        if coupon_promo is not None and coupon_promo.type == "fixed":
+            if not (coupon_promo.min_order_q and session_total < coupon_promo.min_order_q):
+                value = max(0, int(coupon_promo.value or 0))
+                if value > 0 and (best is None or value >= best[0]):
+                    best = (value, ("coupon", coupon_code or ""), coupon_promo)
+        return best
+
+    @staticmethod
+    def _distribute_order_discount(eligible: list[dict], amount_q: int) -> None:
+        """Spread an order-level discount across ``eligible`` lines proportionally
+        to line total, with the rounding residue landing on the last line, so the
+        summed ``line_total_q`` (what the order is charged) drops by exactly
+        ``amount_q``. Mirrors the loyalty/manual redemption split.
+        """
+        subtotal = sum(int(item.get("line_total_q", 0)) for item in eligible)
+        if subtotal <= 0:
+            return
+        remaining = amount_q
+        last = len(eligible) - 1
+        for idx, item in enumerate(eligible):
+            line_total = int(item.get("line_total_q", 0))
+            share = remaining if idx == last else monetary_div(amount_q * line_total, subtotal)
+            share = min(share, line_total)
+            if share <= 0:
+                continue
+            qty = int(item.get("qty", 1)) or 1
+            per_unit = share // qty
+            item["unit_price_q"] = max(0, int(item.get("unit_price_q", 0)) - per_unit)
+            item["line_total_q"] = max(0, line_total - share)
+            remaining -= share
 
     @staticmethod
     def _calc_manual(manual: dict, price_q: int) -> int:
