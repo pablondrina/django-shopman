@@ -1,17 +1,5 @@
 # syntax=docker/dockerfile:1
 
-FROM node:24-bookworm-slim AS assets
-
-WORKDIR /app
-
-COPY package.json package-lock.json ./
-RUN npm ci
-
-COPY static ./static
-COPY shopman ./shopman
-RUN npm run css:build && npm run gestor:build
-
-
 FROM python:3.12-slim AS runtime
 
 ENV DJANGO_SETTINGS_MODULE=config.settings \
@@ -33,11 +21,6 @@ COPY pyproject.toml README.md manage.py ./
 COPY config ./config
 COPY packages ./packages
 COPY shopman ./shopman
-
-COPY --from=assets /app/shopman/storefront/static/storefront/css/output.css \
-    ./shopman/storefront/static/storefront/css/output.css
-COPY --from=assets /app/shopman/storefront/static/storefront/css/output-gestor.css \
-    ./shopman/storefront/static/storefront/css/output-gestor.css
 
 RUN python -m pip install --upgrade pip \
     && python -m pip install \

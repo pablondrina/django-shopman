@@ -14,7 +14,7 @@ Covers:
 from __future__ import annotations
 
 import types
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.test import TestCase
 from django.utils import timezone
@@ -54,7 +54,7 @@ class PreorderCommitTests(TestCase):
 
     def test_preorder_sets_is_preorder_true(self) -> None:
         """Commit with future delivery_date sets is_preorder=True on order.data."""
-        friday = (timezone.now().date() + timedelta(days=3)).isoformat()
+        friday = (timezone.localdate() + timedelta(days=3)).isoformat()
         session = self._create_session(delivery_date=friday)
 
         result = CommitService.commit(
@@ -69,7 +69,7 @@ class PreorderCommitTests(TestCase):
 
     def test_same_day_order_not_preorder(self) -> None:
         """Commit with today's date does not set is_preorder."""
-        today = timezone.now().date().isoformat()
+        today = timezone.localdate().isoformat()
         session = self._create_session(delivery_date=today)
 
         result = CommitService.commit(
@@ -96,7 +96,7 @@ class PreorderCommitTests(TestCase):
 
     def test_preorder_copies_time_slot_and_notes(self) -> None:
         """Commit copies delivery_time_slot and order_notes to order.data."""
-        friday = (timezone.now().date() + timedelta(days=3)).isoformat()
+        friday = (timezone.localdate() + timedelta(days=3)).isoformat()
         session = self._create_session(
             delivery_date=friday,
             delivery_time_slot="manha",
@@ -127,7 +127,7 @@ class PreorderReminderDirectiveTests(TestCase):
 
     def test_preorder_creates_reminder_directive(self) -> None:
         """Committing a preorder creates a notification.send directive with available_at = D-1."""
-        friday = (timezone.now().date() + timedelta(days=3))
+        friday = (timezone.localdate() + timedelta(days=3))
         session = Session.objects.create(
             session_key="S-REMINDER-1",
             channel_ref=self.channel.ref,
@@ -168,7 +168,7 @@ class PreorderReminderDirectiveTests(TestCase):
 
     def test_same_day_order_no_reminder(self) -> None:
         """Same-day orders do not create reminder directives."""
-        today = timezone.now().date()
+        today = timezone.localdate()
         session = Session.objects.create(
             session_key="S-NO-REMINDER",
             channel_ref=self.channel.ref,
@@ -214,7 +214,7 @@ class PreorderCutoffValidationTests(TestCase):
         """Orders with delivery_date > today+7 should fail validation in checkout view."""
         # This tests the validation logic in CheckoutView.post
         # We test the date logic directly rather than through the view
-        today = timezone.now().date()
+        today = timezone.localdate()
         max_date = today + timedelta(days=7)
         chosen_date = today + timedelta(days=10)
 
@@ -225,13 +225,13 @@ class PreorderCutoffValidationTests(TestCase):
         """Orders for tomorrow placed after 18h should fail validation."""
         from unittest.mock import patch
 
-        today = timezone.now().date()
+        today = timezone.localdate()
         tomorrow = today + timedelta(days=1)
 
-        # Mock timezone.now() to return 19:00 today
-        mock_now = timezone.now().replace(hour=19, minute=0, second=0)
+        # Mock timezone.now() to return 19:00 (local) today
+        mock_now = timezone.make_aware(datetime.combine(today, time(19, 0)))
         with patch("django.utils.timezone.now", return_value=mock_now):
-            now = timezone.now()
+            now = timezone.localtime()
             # The cutoff logic: if chosen_date == today + 1 day and now.hour >= 18
             is_tomorrow = tomorrow == now.date() + timedelta(days=1)
             past_cutoff = now.hour >= 18
@@ -242,13 +242,13 @@ class PreorderCutoffValidationTests(TestCase):
         """Orders for tomorrow placed before 18h should pass validation."""
         from unittest.mock import patch
 
-        today = timezone.now().date()
+        today = timezone.localdate()
         tomorrow = today + timedelta(days=1)
 
-        # Mock timezone.now() to return 10:00 today
-        mock_now = timezone.now().replace(hour=10, minute=0, second=0)
+        # Mock timezone.now() to return 10:00 (local) today
+        mock_now = timezone.make_aware(datetime.combine(today, time(10, 0)))
         with patch("django.utils.timezone.now", return_value=mock_now):
-            now = timezone.now()
+            now = timezone.localtime()
             is_tomorrow = tomorrow == now.date() + timedelta(days=1)
             past_cutoff = now.hour >= 18
             self.assertTrue(is_tomorrow)
