@@ -190,7 +190,7 @@ Referencias externas usadas: iFood (`https://institucional.ifood.com.br/inovacao
 
 - Nenhum commit ou push foi feito, por decisao de consolidacao local.
 - Staging nao foi acionado. Validacao feita localmente em `/thing/`.
-- Workspace ja tinha alteracoes fora do escopo que continuam fora desta entrega: CSS Django/Penguin gerado, `.codex/config.toml` e `docs/specs/storefront-surface.md` nao stageados.
+- Workspace ja tinha alteracoes fora do escopo que continuam fora desta entrega: CSS Django/Penguin gerado, `.codex/config.toml` e `docs/_archive/specs/storefront-surface.md` nao stageados.
 - Recomendacao produto-a-produto para PDP continua pendente de projection propria se quisermos algo alem de `cart.upsell`.
 - Notices/banners temporais da home, incluindo closing awareness, devem ser canonizados em projection antes de materializar na UI Thing. Pendencia de produto: revisar quais avisos existem, ordem, copy, tom e actions.
 - Chunk grande do build permanece como risco tecnico de bundle, nao como bloqueio funcional desta aplicacao de Spec.

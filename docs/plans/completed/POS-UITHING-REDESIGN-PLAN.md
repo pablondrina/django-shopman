@@ -7,7 +7,7 @@ implementando o contrato canônico e estendendo-o com comandas, identidade de
 operador (PIN), anti-fraude e handoff de cozinha.
 
 Referências:
-- Contrato/UX canônico: [`docs/specs/backstage-pos-surface.md`](../specs/backstage-pos-surface.md), [`docs/specs/pos.md`](../specs/pos.md), [`docs/reference/backstage-pos-surface-contract.md`](../reference/backstage-pos-surface-contract.md)
+- Contrato/UX canônico: [`docs/_archive/specs/backstage-pos-surface.md`](../../_archive/specs/backstage-pos-surface.md), [`docs/specs/pos.md`](../../specs/pos.md), [`docs/reference/backstage-pos-surface-contract.md`](../../reference/backstage-pos-surface-contract.md)
 - Constituição (camadas/agnosticismo): [`docs/constitution.md`](../constitution.md)
 - ADR offline/surface ownership: [`docs/decisions/adr-013-pos-offline-policy-and-surface-ownership.md`](../decisions/adr-013-pos-offline-policy-and-surface-ownership.md)
 - Schemas de JSONField: [`docs/reference/data-schemas.md`](../reference/data-schemas.md)

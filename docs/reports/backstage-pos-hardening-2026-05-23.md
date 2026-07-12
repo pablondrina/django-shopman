@@ -90,7 +90,7 @@ Kind: backstage/operational surface
 
 - Added canonical POS domain spec: `docs/specs/pos.md`.
 - Added backend/projection/action/capability contract: `docs/reference/backstage-pos-surface-contract.md`.
-- Added framework-portable surface spec: `docs/specs/backstage-pos-surface.md`.
+- Added framework-portable surface spec: `docs/_archive/specs/backstage-pos-surface.md`.
 - Added API/Django close enforcement for missing open cash shift with stable `cash_shift_required` recovery metadata.
 - Added `PosCashPanel` and wired POS UI Thing cash open/close/movement to projected actions.
 - Added frontend guardrail expectations for cash management and backend tests for missing shift review rejection.

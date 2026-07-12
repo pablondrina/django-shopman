@@ -5,7 +5,7 @@
 > `redesign/surface-excellence`. Cadência: iterativa, **propor→aplicar→verificar ao
 > vivo→commit por tela**, sinalizando decisões de gosto. NÃO autônomo nas decisões
 > visuais. Memória-âncora: `project_pos_neutral_design_system.md`,
-> `project_wp7_pos_status.md`, dossiê `docs/research/pos-benchmarks/odoo.md`.
+> `project_wp7_pos_status.md`, dossiê `docs/_archive/research/pos-benchmarks/odoo.md`.
 
 ## Princípios (já decididos)
 - **UI de operador = NEUTRA + funcional.** Cinzas verdadeiros; cor **só onde tem

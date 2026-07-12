@@ -57,7 +57,7 @@ compartilhado entre release job e web para CSS/admin/assets.
 ## Segredos Obrigatórios
 
 Use também o runbook de fechamento em
-[`docs/predeploy/release-secrets-runbook.md`](../predeploy/release-secrets-runbook.md),
+[`docs/runbooks/release-secrets-runbook.md`](../runbooks/release-secrets-runbook.md),
 que lista os nomes exatos de variáveis, a configuração do WhatsApp público da
 loja e os comandos de validação.
 

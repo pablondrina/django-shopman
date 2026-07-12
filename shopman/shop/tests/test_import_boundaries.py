@@ -423,7 +423,7 @@ def test_storefront_cart_delegates_write_mutations():
 # These codify the semantic boundary: data Projections (shop/projections/) carry
 # only meaning; each surface's Presentation places appearance. See
 # docs/decisions/adr-014-surface-data-presentation-cut.md and
-# docs/redesign/04-architecture.md §4.2.
+# docs/_archive/redesign/04-architecture.md §4.2.
 # ──────────────────────────────────────────────────────────────────────
 
 
@@ -477,7 +477,7 @@ def test_data_projections_carry_no_appearance():
     yet — Action labels and confirmation copy still live in
     catalog_context/cart/checkout/payment_status/storefront_context/
     order_tracking. Draining those into OmotenashiCopy is the remaining S7 work
-    (see project_wp7_pos_status / docs/redesign/04-architecture.md §S7).
+    (see project_wp7_pos_status / docs/_archive/redesign/04-architecture.md §S7).
     """
     violations: list[tuple[Path, int, str]] = []
     for path in _py_files(PROJECTIONS_ROOT, skip_parts={"tests"}):

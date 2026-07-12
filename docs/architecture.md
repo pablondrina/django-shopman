@@ -2,6 +2,15 @@
 
 > ⚠️ **Documento em revisão (2026-04-26)**: este arquivo ainda reflete terminologia anterior em alguns pontos. Para a verdade atual, consulte [docs/reference/system-spec.md](reference/system-spec.md). Correções estruturais completas ficam para WP separado.
 
+> **Contrato das superfícies (vivo, 2026-07-11).** O backend é headless: o read-side
+> expõe **Projections de dado** (frozen, surface-agnostic, policy-laden, semânticas —
+> `_q`/enums/refs, nunca copy nem formatação) com `actions[]`, construídas no
+> orquestrador; cada superfície tem sua camada **Presentation** (copy, formatação,
+> layout) — no Nuxt, `app/presentation/` pura. A lei é [ADR-012](decisions/adr-012-headless-surface-contract.md)
+> (Projection com Actions) + [ADR-014](decisions/adr-014-surface-data-presentation-cut.md)
+> (corte dado × apresentação); o blueprint histórico que originou o corte está em
+> [`_archive/redesign/04-architecture.md`](_archive/redesign/04-architecture.md).
+
 ## Visão Geral
 
 Django Shopman é composto por **9 apps core** independentes e um **orquestrador** (`shopman/shop/`) que os conecta para cenários de negócio concretos. Cada app core é um pacote pip instalável separadamente.
