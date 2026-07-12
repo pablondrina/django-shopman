@@ -21,6 +21,12 @@ O PDV fala um SUPERSET deliberado: ``{"detail": ..., "error": {code, message,
 field, focus, recovery}}`` (ver ``shopman/shop/services/pos_intent.py``) —
 ``detail`` continua obrigatório lá também; este handler não o achata.
 
+O storefront também tem um superset deliberado nas respostas de recuperação e
+rate-limit (``error_code``/``title``/``actions``/``retry_after_seconds``,
+consumidos pelo ``useCartState`` do app Nuxt). Respostas simples — em especial
+todo 404 — falam só o canônico ``{detail, field, errors}``. Ver
+``docs/reference/errors.md``.
+
 Este handler existe porque o ``ValidationError`` de serializer DRF cru devolvia
 ``{"phone": ["Ensure this field..."]}`` sem ``detail`` — invisível para os
 fronts. As mensagens dos validators chegam em pt-br via i18n do Django

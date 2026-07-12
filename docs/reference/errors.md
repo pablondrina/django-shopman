@@ -56,6 +56,33 @@ obrigatório; `error` agrega metadados estáveis de recuperação
 Um front que só entende o dialeto canônico continua funcionando (lê `detail`);
 o operator-kit usa `error.{code,focus,recovery}` para foco e ação de 1 clique.
 
+### Superset do storefront (deliberado)
+
+Respostas de **recuperação** e **rate-limit** do storefront agregam metadados de
+UI por cima do canônico — `detail` continua obrigatório. São consumidos pelo app
+Nuxt (`useCartState`, lógica de retry); um front que só lê `detail` ignora o
+resto sem quebrar:
+
+```json
+{
+  "detail": "Atualize a quantidade: temos menos em estoque.",
+  "error_code": "insufficient_stock",
+  "title": "Revise este item",
+  "actions": [ ... ],
+  "retry_after_seconds": 60
+}
+```
+
+| Chave | Presença | Uso |
+|-------|----------|-----|
+| `error_code` | Erros com recuperação | Roteia a UI para a ação certa (`mutation_in_progress`, `rate_limited`, `insufficient_stock`, `order_not_cancellable`…). |
+| `title` | Alertas ricos (carrinho) | Título curto do alerta quando a tela não deriva o próprio (o 404 NÃO carrega `title` — a tela gera pelo status). |
+| `actions` / `retry_after_seconds` | Rate-limit e conflitos | Ações de 1 clique e cadência de retry (`Retry-After` também vai no header). |
+
+**Regra:** respostas simples — em especial **todo 404** — falam só o canônico
+`{detail, field, errors}`. O superset só aparece onde há semântica de recuperação
+real que o front consome; nunca é decoração de um erro comum.
+
 ---
 
 ## Hierarquia

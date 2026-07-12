@@ -265,7 +265,7 @@ class StorefrontProductView(APIView):
             request=request,
         )
         if product is None:
-            return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "Produto não encontrado."}, status=status.HTTP_404_NOT_FOUND)
         return Response({
             "product": projection_data(product),
             "cart": _cart_payload(request),
@@ -429,6 +429,7 @@ class CartCouponView(APIView):
         "invalid_coupon": "Cupom não encontrado.",
         "coupon_exhausted": "Este cupom já foi utilizado.",
         "coupon_expired": "Cupom expirado.",
+        "coupon_not_eligible": "Este cupom não está disponível para a sua conta.",
     }
 
     def post(self, request):
@@ -614,7 +615,7 @@ class CartSkuQtyView(APIView):
                 qty=serializer.validated_data["qty"],
             )
         except CartMutationNotFound:
-            return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "Produto não encontrado."}, status=status.HTTP_404_NOT_FOUND)
         except CartMutationUnavailable as unavailable:
             return Response(
                 _stock_error_payload(unavailable.stock_error, product=unavailable.product),

@@ -400,7 +400,7 @@ class TrustDeviceView(APIView):
     def post(self, request):
         customer_info = getattr(request, "customer", None)
         if customer_info is None:
-            return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"detail": "Entre na sua conta para continuar."}, status=status.HTTP_401_UNAUTHORIZED)
 
         payload = request.data if hasattr(request, "data") else {}
         trust_value = payload.get("trust", False)

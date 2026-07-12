@@ -138,7 +138,9 @@ class OrderTrackingView(APIView):
         except Http404:
             return Response(
                 {
-                    "title": _copy_title("TRACKING_NOT_FOUND_TITLE", "Pedido não encontrado"),
+                    # Dialeto canônico do storefront: só {detail, field, errors}.
+                    # O título humano do 404 é responsabilidade da tela (presentation),
+                    # não do payload de erro da API.
                     "detail": _copy_message(
                         "TRACKING_NOT_FOUND_MESSAGE",
                         "Confira o link do pedido ou fale com a equipe.",
@@ -217,7 +219,9 @@ class OrderCancelView(APIView):
         except Http404:
             return Response(
                 {
-                    "title": _copy_title("TRACKING_NOT_FOUND_TITLE", "Pedido não encontrado"),
+                    # Dialeto canônico do storefront: só {detail, field, errors}.
+                    # O título humano do 404 é responsabilidade da tela (presentation),
+                    # não do payload de erro da API.
                     "detail": _copy_message(
                         "TRACKING_NOT_FOUND_MESSAGE",
                         "Confira o link do pedido ou fale com a equipe.",
@@ -302,7 +306,9 @@ class OrderConfirmReceiptView(APIView):
         except Http404:
             return Response(
                 {
-                    "title": _copy_title("TRACKING_NOT_FOUND_TITLE", "Pedido não encontrado"),
+                    # Dialeto canônico do storefront: só {detail, field, errors}.
+                    # O título humano do 404 é responsabilidade da tela (presentation),
+                    # não do payload de erro da API.
                     "detail": _copy_message(
                         "TRACKING_NOT_FOUND_MESSAGE",
                         "Confira o link do pedido ou fale com a equipe.",
@@ -376,7 +382,9 @@ class OrderRateView(APIView):
         except Http404:
             return Response(
                 {
-                    "title": _copy_title("TRACKING_NOT_FOUND_TITLE", "Pedido não encontrado"),
+                    # Dialeto canônico do storefront: só {detail, field, errors}.
+                    # O título humano do 404 é responsabilidade da tela (presentation),
+                    # não do payload de erro da API.
                     "detail": _copy_message(
                         "TRACKING_NOT_FOUND_MESSAGE",
                         "Confira o link do pedido ou fale com a equipe.",

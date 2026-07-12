@@ -70,7 +70,7 @@ class OrderConversationView(APIView):
         try:
             order = order_service.get_accessible_order(request, ref)
         except Http404:
-            return Response({"detail": "Order not found."}, status=404)
+            return Response({"detail": "Pedido não encontrado."}, status=404)
 
         order_service.resolve_timeouts_if_due(order)
         channel_ref = str(request.query_params.get("channel_ref") or order.channel_ref or "whatsapp").strip()

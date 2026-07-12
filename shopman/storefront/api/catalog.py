@@ -102,7 +102,7 @@ class ProductDetailView(APIView):
 
     def get(self, request, sku: str):
         if catalog_service.get_published_product(sku) is None:
-            return Response({"detail": "Product not found."}, status=404)
+            return Response({"detail": "Produto não encontrado."}, status=404)
 
         items = build_catalog_items_for_skus(
             [sku],
@@ -110,7 +110,7 @@ class ProductDetailView(APIView):
             request=request,
         )
         if not items:
-            return Response({"detail": "Product not found."}, status=404)
+            return Response({"detail": "Produto não encontrado."}, status=404)
         return Response(ProductListItemSerializer(items[0]).data)
 
 

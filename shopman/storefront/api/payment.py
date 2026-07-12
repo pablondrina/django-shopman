@@ -97,7 +97,7 @@ class OrderPaymentView(APIView):
         try:
             order = order_service.get_accessible_order(request, ref)
         except Http404:
-            return Response({"detail": "Order not found."}, status=404)
+            return Response({"detail": "Pedido não encontrado."}, status=404)
 
         order_service.resolve_timeouts_if_due(order)
         if order_service.is_cancelled(order) or order_service.payment_is_sufficient(order):
@@ -145,7 +145,7 @@ class OrderPaymentStatusView(APIView):
         try:
             order = order_service.get_accessible_order(request, ref)
         except Http404:
-            return Response({"detail": "Order not found."}, status=404)
+            return Response({"detail": "Pedido não encontrado."}, status=404)
 
         order_service.resolve_timeouts_if_due(order)
         status = projection_data(build_payment_status(order))
@@ -172,7 +172,7 @@ class OrderPaymentMockConfirmView(APIView):
         try:
             order = order_service.get_accessible_order(request, ref)
         except Http404:
-            return Response({"detail": "Order not found."}, status=404)
+            return Response({"detail": "Pedido não encontrado."}, status=404)
 
         key = remote_mutations.idempotency_key_from_request(
             request,
