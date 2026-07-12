@@ -94,7 +94,18 @@ def send(order, template: str, **extra) -> None:
     if customer_ref:
         payload["customer_ref"] = customer_ref
 
-    Directive.objects.create(topic=TOPIC, payload=payload, dedupe_key=dedupe_key)
+    from shopman.shop.directives import create_deduped
+
+    created = create_deduped(topic=TOPIC, payload=payload, dedupe_key=dedupe_key)
+    if created is None:
+        # Corrida no check-then-create: outro processo enfileirou a mesma
+        # notificação entre o filtro acima e o INSERT. Dedupe-hit, não erro.
+        logger.info(
+            "notification.send: skipped duplicate %s for order %s (constraint)",
+            template,
+            order.ref,
+        )
+        return
 
     logger.info("notification.send: queued %s for order %s", template, order.ref)
 

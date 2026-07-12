@@ -69,7 +69,10 @@ class PreorderCommitTests(TestCase):
 
     def test_same_day_order_not_preorder(self) -> None:
         """Commit with today's date does not set is_preorder."""
-        today = timezone.now().date().isoformat()
+        # "hoje" = timezone.localdate(), como no commit.py — now().date() é a
+        # data UTC e vira "amanhã" a partir das 21h em America/Sao_Paulo,
+        # fazendo o pedido same-day parecer preorder (teste quebrava à noite).
+        today = timezone.localdate().isoformat()
         session = self._create_session(delivery_date=today)
 
         result = CommitService.commit(
@@ -168,7 +171,8 @@ class PreorderReminderDirectiveTests(TestCase):
 
     def test_same_day_order_no_reminder(self) -> None:
         """Same-day orders do not create reminder directives."""
-        today = timezone.now().date()
+        # "hoje" = timezone.localdate() (ver test_same_day_order_not_preorder).
+        today = timezone.localdate()
         session = Session.objects.create(
             session_key="S-NO-REMINDER",
             channel_ref=self.channel.ref,

@@ -150,9 +150,13 @@ def _enqueue_project(sku: str, listing_ref: str, trigger: str, extra: dict) -> N
     if exists:
         return
 
-    Directive.objects.create(
-        topic=CATALOG_PROJECT_SKU,
+    from shopman.shop.directives import create_deduped
+
+    created = create_deduped(
+        CATALOG_PROJECT_SKU,
         payload={"sku": sku, "listing_ref": listing_ref},
         dedupe_key=dedupe_key,
     )
+    if created is None:
+        return
     logger.debug("catalog_projection: enqueued %s for %s/%s", trigger, listing_ref, sku)

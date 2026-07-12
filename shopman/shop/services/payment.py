@@ -824,8 +824,10 @@ def _schedule_payment_timeout(order, intent: PaymentIntent) -> None:
             existing.save(update_fields=["payload", "available_at", "updated_at"])
             return
 
-        Directive.objects.create(
-            topic=PAYMENT_TIMEOUT,
+        from shopman.shop.directives import create_deduped
+
+        create_deduped(
+            PAYMENT_TIMEOUT,
             payload=payload,
             available_at=intent.expires_at,
             dedupe_key=dedupe_key,
