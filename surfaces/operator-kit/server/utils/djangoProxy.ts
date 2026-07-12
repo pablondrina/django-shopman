@@ -1,3 +1,9 @@
+// Proxy BFF canônico das superfícies de operador: repassa a chamada same-origin
+// do Nitro para o Django (api.<zona>), cuidando de cookie de sessão, CSRF
+// (bootstrap via /admin/login/ quando o token ainda não existe), redirects e
+// sanidade de contrato (X-API-Version). Vive na layer operator-kit e chega aos
+// apps hospedeiros por auto-import do Nitro (mesmo padrão do eventStream.ts e
+// do apiVersion.ts ao lado).
 import {
   appendResponseHeader,
   getQuery,
@@ -20,8 +26,8 @@ export function csrfTokenFromCookieHeader(cookie: string | undefined): string {
 }
 
 export function mergeSetCookieIntoCookieHeader(cookie: string | undefined, setCookie: string): string {
-  const [pair] = setCookie.split(";");
-  const [name, ...valueParts] = (pair ?? "").split("=");
+  const [pair = ""] = setCookie.split(";");
+  const [name, ...valueParts] = pair.split("=");
   const value = valueParts.join("=");
   if (!name || value == null) return cookie || "";
 
@@ -114,8 +120,8 @@ export async function proxyDjangoPath(event: H3Event, fullPath: string) {
   });
 
   // Sanidade de contrato: o Django carimba /api/v1/ com X-API-Version; major
-  // divergente vira warning estruturado no Nitro (operator-kit/server/utils/
-  // apiVersion.ts, auto-importado) — nunca bloqueia a resposta.
+  // divergente vira warning estruturado no Nitro (apiVersion.ts ao lado,
+  // auto-importado) — nunca bloqueia a resposta.
   warnOnApiVersionMismatch(response.headers.get("x-api-version"), { path: normalizedPath });
 
   const setCookie = response.headers.get("set-cookie");

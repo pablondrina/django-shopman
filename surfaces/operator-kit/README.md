@@ -24,6 +24,11 @@ O layer contribui, via auto-import do Nuxt:
 | `app/utils/httpError.ts` | `httpError`, `isTransientError` | narrowing tipado de erro de rede |
 | `app/utils/retryBackoff.ts` | `retryWithBackoff` | backoff exponencial + jitter + teto |
 | `app/utils/clientErrorReport.ts` | `reportClientError`, `buildClientErrorReport` | telemetria → `backstage/client-error/` |
+| `app/utils/tw-helper.ts` | `tw` | identidade para strings de classes Tailwind (DX/lint) |
+| `app/utils/translucent.ts` | `getTranslucentFloatingPanelClasses`, … | classes canônicas de painel flutuante translúcido |
+| `server/utils/djangoProxy.ts` | `proxyDjangoApi`, `proxyDjangoPath` | proxy BFF → Django (cookie, CSRF, redirects, X-API-Version) |
+| `server/utils/eventStream.ts` | `proxyEventStream` | streaming SSE same-origin do eventstream do Django |
+| `server/utils/apiVersion.ts` | `warnOnApiVersionMismatch` | warning estruturado de major divergente do contrato |
 | `app/composables/useConnectivity.ts` | `useConnectivity` | sinal offline + reconciliação no reconnect/foco |
 | `app/components/OfflineBanner.vue` | `<OfflineBanner>` | aviso calmo de conexão (colocar no layout raiz) |
 | `app/plugins/errorReporter.client.ts` | — | captura erro não-tratado → telemetria (inerte em dev) |
@@ -33,10 +38,13 @@ O layer contribui, via auto-import do Nuxt:
 | `app/components/OperatorLock.vue` | `<OperatorLock>` | overlay de lock (picker + PIN pad + crachá + troca forçada) |
 | `app/components/OperatorPinChange.vue` | `<OperatorPinChange>` | numpad de troca de PIN (forçada e voluntária) |
 
+Os testes também têm harness compartilhado: `tests/support/composableEnv.ts`
+(`installNuxtGlobals()`, env `node` com Vue real + fronteira de dados mockada) é importado
+pelos testes de composables de kds/orders/production — os projetos `unit` desses apps
+declaram `resolve.dedupe: ["vue"]` para garantir instância única do Vue.
+
 ## O que ainda NÃO vive aqui (roadmap — ver docs/plans/completed/BACKSTAGE-EXCELLENCE-HARDENING-PLAN.md)
 
-- **De-duplicação dos byte-idênticos** `server/utils/djangoProxy.ts`, `app/utils/tw-helper.ts`,
-  `app/utils/translucent.ts` — migram para cá com atualização dos imports/testes dos apps.
 - **Lock do POS** — o POS mantém deliberadamente a própria variante
   (`usePosOperatorLock` + `PosLockScreen`/`PosPinChange`): auto-lock por inatividade,
   transporte via `usePosAction` e lock local-first. A família canônica

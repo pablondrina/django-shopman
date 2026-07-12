@@ -1,6 +1,6 @@
 import { ref } from "vue";
 import { beforeEach, describe, expect, it } from "vitest";
-import { installNuxtGlobals } from "../support/composableEnv";
+import { installNuxtGlobals } from "../../../operator-kit/tests/support/composableEnv";
 import { useWeighing } from "~/composables/useWeighing";
 
 const env = installNuxtGlobals();

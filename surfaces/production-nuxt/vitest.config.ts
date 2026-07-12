@@ -11,14 +11,17 @@ const appAlias = {
 // SETUP para apps com router (`nuxtApp._route` undefined). Mesma correção provada em
 // orders-nuxt (B-ORD.1). Por isso, dois projetos SEM env nuxt:
 //   - unit (node): presentation, composables (auto-imports do Nuxt injetados como globais
-//     no harness) e BFF. Ver tests/support/composableEnv.ts.
+//     no harness) e BFF. Harness compartilhado: operator-kit/tests/support/composableEnv.ts.
 //   - component (happy-dom + @vitejs/plugin-vue): monta SFCs reais com @vue/test-utils,
 //     SEM o runtime Nuxt — Icon/NuxtLink viram stubs; auto-imports viram globais.
 export default defineConfig({
   test: {
     projects: [
       {
-        resolve: { alias: appAlias },
+        // dedupe("vue"): o harness compartilhado vive na operator-kit e importa "vue" de lá;
+        // sem dedupe seriam DUAS instâncias do Vue no mesmo processo (refs criadas pelo
+        // teste não rastreariam em watch/computed do harness).
+        resolve: { alias: appAlias, dedupe: ["vue"] },
         test: {
           name: "unit",
           environment: "node",

@@ -72,9 +72,12 @@ surfaces/               6 apps Nuxt 4 (SSR) + 1 layer compartilhada — as super
 ├── orders-nuxt/       gestor de pedidos (:3004)                            → api./backstage
 ├── production-nuxt/   produção/fornadas (kiosk Solari, :3005)              → api./backstage
 └── operator-kit/      Nuxt layer compartilhada dos apps de operador (extends): httpError,
-                       retryWithBackoff, useConnectivity, OperatorLock/PIN, telemetria de erro.
+                       retryWithBackoff, useConnectivity, OperatorLock/PIN, telemetria de erro,
+                       BFF canônico (server/utils: djangoProxy, eventStream, apiVersion),
+                       tw-helper/translucent, harness de teste (tests/support/composableEnv).
                        Storefront fica de fora (superfície de cliente, branded, harness próprio).
-    Cada app: BFF Nitro (server/utils/djangoProxy.ts, CSRF), composables + presentation/ pura (vitest).
+    Cada app: BFF Nitro (proxy da layer; storefront mantém o próprio djangoProxy.ts, CSRF),
+    composables + presentation/ pura (vitest).
 
 config/                 Django project wrapper + deployment app
 ├── settings.py, urls.py, wsgi.py, asgi.py

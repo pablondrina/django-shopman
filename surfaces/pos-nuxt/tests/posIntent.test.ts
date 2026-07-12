@@ -18,10 +18,6 @@ import {
   tabRefMaxLength,
   tabRefPlaceholder,
 } from "../app/utils/posTabLifecycle";
-import {
-  csrfTokenFromCookieHeader,
-  mergeSetCookieIntoCookieHeader,
-} from "../server/utils/djangoProxy";
 
 describe("POS sale intent", () => {
   it("serializes cart state into the canonical POS intent contract", () => {
@@ -247,17 +243,6 @@ describe("operator access", () => {
       djangoPublicBaseUrl: "http://127.0.0.1:8000",
       nextPath: "/admin/",
     })).toBe("http://127.0.0.1:8000/admin/login/?next=%2Fadmin%2F");
-  });
-
-  it("preserves Django session cookies while refreshing CSRF state", () => {
-    const cookie = "sessionid=session-123; csrftoken=old-token";
-    expect(csrfTokenFromCookieHeader(cookie)).toBe("old-token");
-    expect(mergeSetCookieIntoCookieHeader(cookie, "csrftoken=new-token; Path=/; SameSite=Lax")).toBe(
-      "sessionid=session-123; csrftoken=new-token",
-    );
-    expect(mergeSetCookieIntoCookieHeader(cookie, "other=value=with-equals; Path=/")).toBe(
-      "sessionid=session-123; csrftoken=old-token; other=value=with-equals",
-    );
   });
 });
 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { installNuxtGlobals } from "../support/composableEnv";
+import { installNuxtGlobals } from "../../../operator-kit/tests/support/composableEnv";
 import { useCatalogMatrix } from "../../app/composables/useCatalogMatrix";
 
 const env = installNuxtGlobals();

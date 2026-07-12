@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import "../support/installGlobals"; // stubs `ref` etc. before the singleton module evaluates
+import "../../../operator-kit/tests/support/installGlobals"; // stubs `ref` etc. before the singleton module evaluates
 import { useOvenTimers } from "~/composables/useOvenTimers";
 
 // useOvenTimers is a device-local singleton (its ticker + chime + AudioContext are

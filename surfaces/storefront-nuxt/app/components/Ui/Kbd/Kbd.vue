@@ -47,7 +47,7 @@
     ],
     variants: {
       size: {
-        xs: "h-4 px-1 text-[11px]",
+        xs: "h-4 px-1 text-xs",
         sm: "h-5 px-1 text-xs",
         md: "h-[22px] px-1 text-sm",
       },
