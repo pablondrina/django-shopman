@@ -120,6 +120,29 @@ class CheckoutView(APIView):
             except ValueError:
                 _parsed_date = None
             if _parsed_date is not None:
+                # Bordas de data: encomenda no passado nunca é pedido válido, e a
+                # janela de encomenda tem teto (max_preorder_days). is_open_on é
+                # cego a ambos, então esta é a guarda autoritativa (o caminho
+                # HTMX que validava isso está morto).
+                _today_local = timezone.localdate()
+                if _parsed_date < _today_local:
+                    message = "Não é possível encomendar para uma data passada."
+                    return Response(
+                        {"detail": message, "field": "delivery_date", "errors": {"delivery_date": message}},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                from datetime import timedelta as _timedelta
+
+                from shopman.shop.projections import checkout_context
+
+                _max_preorder_days, _ = checkout_context.preorder_config()
+                _max_date = _today_local + _timedelta(days=_max_preorder_days)
+                if _parsed_date > _max_date:
+                    message = f"Data máxima permitida: {_max_date.strftime('%d/%m/%Y')}."
+                    return Response(
+                        {"detail": message, "field": "delivery_date", "errors": {"delivery_date": message}},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
                 if not business_calendar.is_open_on(_parsed_date):
                     message = "Estamos fechados nesse dia. Escolha outra data."
                     return Response(
