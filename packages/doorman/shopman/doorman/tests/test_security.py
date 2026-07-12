@@ -406,6 +406,35 @@ class TestVerificationCodeLifecycle:
         assert result.success
         assert result.customer is not None
 
+    def test_verified_code_cannot_be_reused(self, customer, verification_code):
+        """A verified OTP is single-use: a replay of the same code is rejected."""
+        first = AuthService.verify_for_login(
+            "+5541999999999", verification_code._raw_code, None
+        )
+        assert first.success
+
+        replay = AuthService.verify_for_login(
+            "+5541999999999", verification_code._raw_code, None
+        )
+        assert not replay.success
+
+    def test_request_code_does_not_reveal_phone_existence(self, customer):
+        """Anti-enumeration: request-code yields the same generic success whether
+        the phone maps to a customer or not — no existence oracle for an attacker."""
+        from unittest.mock import MagicMock
+
+        method = VerificationCode.DeliveryMethod.SMS
+        known = AuthService.request_code(
+            "+5541999999999", delivery_method=method, sender=MagicMock()
+        )
+        unknown = AuthService.request_code(
+            "+5541222223333", delivery_method=method, sender=MagicMock()
+        )
+
+        assert known.success is True
+        assert unknown.success is True
+        assert known.error_code == unknown.error_code
+
     def test_rate_limit_by_phone(self, db):
         """Rate limit must block after too many requests per phone."""
         phone = "+5541777777777"
