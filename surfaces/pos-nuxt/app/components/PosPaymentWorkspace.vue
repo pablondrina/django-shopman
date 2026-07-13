@@ -148,6 +148,9 @@ const approvalBlocking = computed(() =>
   && (!props.managerUsername.trim() || !props.managerPin.trim()),
 );
 const managerThresholdQ = computed(() => props.review?.manager_approval_threshold_q || 0);
+// Avisos não-bloqueantes da review (disponibilidade no balcão, pagamento): o
+// operador VÊ a ressalva antes de finalizar; nunca bloqueiam a venda.
+const reviewWarnings = computed(() => props.review?.warnings ?? []);
 
 // On-demand sale-data drawers (Odoo-style: customer/fulfillment/discount are
 // actions that open a sheet, not a wall of fields next to the payment).
@@ -398,6 +401,19 @@ function onAddressSelected(address: StructuredAddressProjection) {
             {{ kitchenNote }}
           </p>
         </div>
+
+        <!-- avisos não-bloqueantes da review (nunca impedem finalizar) -->
+        <ul v-if="reviewWarnings.length" class="shrink-0 flex flex-col gap-1.5">
+          <li
+            v-for="(w, idx) in reviewWarnings"
+            :key="idx"
+            class="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300"
+            role="status"
+          >
+            <Icon name="lucide:triangle-alert" class="mt-0.5 size-4 shrink-0" />
+            <span>{{ w.message }}</span>
+          </li>
+        </ul>
 
         <!-- linhas de pagamento + troco/restante -->
         <div v-if="tenderLines.length" class="shrink-0 border-t pt-3">

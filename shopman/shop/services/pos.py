@@ -370,6 +370,35 @@ def review_sale(
             "message": "Os pagamentos informados não cobrem o total da venda.",
         })
 
+    # Aviso não-bloqueante de disponibilidade (Q1): no balcão a venda vale mesmo
+    # sem estoque (a mercadoria já saiu da vitrine e o canal não auto-rejeita),
+    # mas o operador deve VER a falta em vez de descobrir depois.
+    from shopman.shop.services import availability
+
+    for item in payload.get("items", []):
+        if _is_delivery_fee_item(item):
+            continue
+        sku = str(item.get("sku") or "")
+        try:
+            qty = int(item.get("qty", 1))
+        except (TypeError, ValueError):
+            continue
+        if not sku or qty <= 0:
+            continue
+        decision = availability.decide(sku, qty, channel_ref=channel.ref)
+        if decision.get("approved"):
+            continue
+        try:
+            available = int(decision.get("available_qty") or 0)
+        except (TypeError, ValueError):
+            available = 0
+        name = str(item.get("name") or sku)
+        warnings.append({
+            "code": "item_low_stock",
+            "field": "items",
+            "message": f"{name}: só {available} em estoque. A venda de balcão vale; confira o estoque depois.",
+        })
+
     return PosSaleReview(
         intent_version=POS_SALE_INTENT_VERSION,
         tab_ref=_session_tab_ref(session) if session is not None else "",
