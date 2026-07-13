@@ -26,6 +26,13 @@
     "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
+@theme inline {
+  /* Rail de operador (OperatorRail/RailItem) tem cor PRÓPRIA, desacoplada da ação:
+     no escuro a ação é dourada-pop, mas o rail precisa recuar (chrome, não ação). */
+  --color-rail: var(--rail);
+  --color-rail-foreground: var(--rail-foreground);
+}
+
 :root {
   --radius: 0.625rem; /* soft (10px) — levemente mais arredondado que o antigo 8px */
 
@@ -63,6 +70,9 @@
   --chart-3: #5e7b3b; /* moss */
   --chart-4: #3f6e8c; /* azul-poeira */
   --chart-5: #c8962f; /* dourado vivo */
+
+  --rail: #8b6b2e; /* Brass-700 — rail bronze (mesmo tom da ação no claro) */
+  --rail-foreground: #ffffff;
 
   --sidebar: #f5e7dd; /* Faubourg-200 */
   --sidebar-foreground: #3b2a1e;
@@ -109,6 +119,10 @@
   --chart-3: #8a9a6b; /* moss claro */
   --chart-4: #6fa0c0;
   --chart-5: #c8962f;
+
+  --rail: #4c381f; /* Brass-900 — bronze escuro: recua sem perder a identidade
+                      (a ação dourada #d4a53f fica exclusiva de botões/foco) */
+  --rail-foreground: #f0e6d2;
 
   --sidebar: #2b1d16;
   --sidebar-foreground: #f0e6d2;
