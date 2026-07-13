@@ -203,3 +203,98 @@ def test_nelson_seed_rejects_default_admin_password_when_not_debug(monkeypatch):
     with override_settings(DEBUG=False):
         with pytest.raises(CommandError):
             call_command("seed", stdout=StringIO())
+
+
+@pytest.mark.django_db
+def test_nelson_seed_qa_profile_builds_named_scenarios(monkeypatch):
+    """Perfil qa (SEED-DATA-QUALITY-PLAN Fase 2): cada cenário nomeado existe com
+    ref previsível QA-*, estado estável e datas relativas a localdate().
+
+    Ver docs/reference/qa-seed-scenarios.md — este teste é a âncora de contrato.
+    """
+    from datetime import timedelta
+
+    from django.utils import timezone
+    from shopman.craftsman.models import WorkOrder
+    from shopman.payman.models import PaymentIntent, PaymentTransaction
+
+    from shopman.backstage.models import CashShift, KDSTicket, POSTab
+
+    monkeypatch.setenv("ADMIN_PASSWORD", "strong-seed-admin-password")
+    call_command("seed", "--flush", "--profile", "qa", stdout=StringIO())
+
+    today = timezone.localdate()
+    tomorrow = (today + timedelta(days=1)).isoformat()
+
+    # Todas as refs QA-* nomeadas existem.
+    named = {
+        "QA-PREORDER-01", "QA-PREORDER-02",
+        "QA-PAID-READY-01", "QA-PAID-READY-02", "QA-RETURNED-01",
+        "QA-PIX-PENDING-01", "QA-IFOOD-01", "QA-NOTES-01", "QA-NAMED-ITEMS-01",
+    }
+    existing = set(Order.objects.filter(ref__startswith="QA-").values_list("ref", flat=True))
+    assert named <= existing, f"faltando cenários qa: {named - existing}"
+
+    # Preorder: novo + confirmado, encomenda para amanhã.
+    p1 = Order.objects.get(ref="QA-PREORDER-01")
+    assert p1.status == Order.Status.NEW
+    assert p1.data["is_preorder"] is True
+    assert p1.data["delivery_date"] == tomorrow
+    assert Order.objects.get(ref="QA-PREORDER-02").status == Order.Status.CONFIRMED
+
+    # Pago em ready/dispatched com intent capturado.
+    ready = Order.objects.get(ref="QA-PAID-READY-01")
+    assert ready.status == Order.Status.READY
+    assert PaymentIntent.objects.get(order_ref="QA-PAID-READY-01").status == PaymentIntent.Status.CAPTURED
+    assert Order.objects.get(ref="QA-PAID-READY-02").status == Order.Status.DISPATCHED
+
+    # Devolvido + estorno (intent refunded com transação de refund).
+    ret = Order.objects.get(ref="QA-RETURNED-01")
+    assert ret.status == Order.Status.RETURNED
+    ret_intent = PaymentIntent.objects.get(order_ref="QA-RETURNED-01")
+    assert ret_intent.status == PaymentIntent.Status.REFUNDED
+    assert PaymentTransaction.objects.filter(
+        intent=ret_intent, type=PaymentTransaction.Type.REFUND
+    ).exists()
+
+    # PIX pendente (confirmado, não pago).
+    assert Order.objects.get(ref="QA-PIX-PENDING-01").status == Order.Status.CONFIRMED
+    assert PaymentIntent.objects.get(order_ref="QA-PIX-PENDING-01").status == PaymentIntent.Status.PENDING
+
+    # iFood (canal marketplace + external_ref).
+    ifood = Order.objects.get(ref="QA-IFOOD-01")
+    assert ifood.channel_ref == "ifood"
+    assert ifood.external_ref == "IFOOD-QA-0001"
+
+    # order_notes do cliente propagado.
+    assert Order.objects.get(ref="QA-NOTES-01").data["order_notes"]
+
+    # OrderItem.name preenchido (regressão SKU cru).
+    named_items = Order.objects.get(ref="QA-NAMED-ITEMS-01")
+    assert all(item.name for item in named_items.items.all())
+
+    # Produção: WO em cada estado hoje + fornada presa de ontem (started).
+    today_states = set(
+        WorkOrder.objects.filter(
+            source_ref__startswith="seed:production:today:", target_date=today
+        ).values_list("status", flat=True)
+    )
+    assert {"planned", "started", "finished"} <= today_states
+    stuck = WorkOrder.objects.filter(source_ref__startswith="seed:production:qa-stuck:")
+    assert stuck.count() == 1
+    stuck_wo = stuck.get()
+    assert stuck_wo.status == WorkOrder.Status.STARTED
+    assert stuck_wo.target_date == today - timedelta(days=1)
+
+    # Caixa: 1 aberto + 1 fechado com divergência conhecida.
+    assert CashShift.objects.filter(status="open").exists()
+    closed = CashShift.objects.filter(status="closed")
+    assert closed.exists()
+    assert closed.first().difference_q != 0
+
+    # Comandas: aberta com itens (00001007) + uma com item disparado à cozinha.
+    assert POSTab.objects.filter(ref="00002001").exists()
+    assert KDSTicket.objects.filter(session_key="seed-qa-postab-00002001").exists()
+    assert Session.objects.filter(
+        state="open", handle_type="pos_tab", handle_ref="00001007"
+    ).exists()

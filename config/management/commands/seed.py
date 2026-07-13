@@ -96,6 +96,18 @@ class Command(BaseCommand):
             action="store_true",
             help="Permite --flush mesmo em produção (SHOPMAN_ENVIRONMENT=production).",
         )
+        parser.add_argument(
+            "--profile",
+            choices=["demo", "qa"],
+            default="demo",
+            help=(
+                "Perfil de dados dinâmicos. 'demo' (padrão) = histórico realista/aleatório "
+                "de 35 dias, bom para telas vivas. 'qa' = conjunto determinístico com "
+                "cenários nomeados garantidos (refs previsíveis QA-*), datas relativas a "
+                "localdate(). A base estática (catálogo, canais, receitas, operadores) é "
+                "idêntica nos dois. Ver docs/reference/qa-seed-scenarios.md."
+            ),
+        )
 
     def handle(self, *args, **options):
         from django.conf import settings
@@ -118,6 +130,19 @@ class Command(BaseCommand):
         from shopman.shop.adapters._external import suppress
 
         suppress("seed")
+
+        # Perfil de dados dinâmicos. A base estática é idêntica; só os seeders
+        # dinâmicos (pedidos, produção, comandas, caixa) divergem no branch abaixo.
+        self.profile = options["profile"]
+
+        # Determinismo do perfil qa: semente fixa do RNG ANTES de qualquer seeder,
+        # para que a matriz de produção (jitter em _seed_recipes) e qualquer sorteio
+        # da base saiam idênticos a cada `seed --flush --profile qa`. Os cenários
+        # nomeados (QA-*) já têm refs literais, então não dependem disto — mas o RNG
+        # semeado garante idempotência ampla. (secrets.* — refs de Order/Session —
+        # não é semeável; por isso os cenários qa usam refs explícitos.)
+        if self.profile == "qa":
+            random.seed(20260713)
 
         admin_password = self._resolve_admin_password()
 
@@ -142,6 +167,23 @@ class Command(BaseCommand):
         self._seed_showcases()
         self._assert_storefront_products_orderable()
         self._seed_kds()
+
+        # ── Fase dinâmica: diverge por perfil ──────────────────────────────
+        # Base estática acima é idêntica nos dois perfis. Só pedidos, produção
+        # operacional, comandas, caixa e alertas divergem.
+        if self.profile == "qa":
+            self._seed_qa_dynamic(products, customers, channels, positions)
+        else:
+            self._seed_demo_dynamic(products, customers, channels, positions)
+
+        self.stdout.write(self.style.SUCCESS("\n✅ Seed Nelson completo!\n"))
+
+    def _seed_demo_dynamic(self, products, customers, channels, positions):
+        """Perfil demo: histórico realista/aleatório de 35 dias + board vivo.
+
+        Comportamento histórico do seed — bom para telas "vivas" e apresentação.
+        Ordem e chamadas preservadas byte-a-byte (sem regressão de demo).
+        """
         self._seed_pos_tabs()
         self._seed_orders(products, customers, channels)
         self._seed_security_reliability_edges(products, customers, channels)
@@ -161,7 +203,45 @@ class Command(BaseCommand):
         self._seed_cash_register()
         self._seed_operation_checklists()
 
-        self.stdout.write(self.style.SUCCESS("\n✅ Seed Nelson completo!\n"))
+    def _seed_qa_dynamic(self, products, customers, channels, positions):
+        """Perfil qa: conjunto determinístico com cenários nomeados garantidos.
+
+        Cada cenário nasce com ref previsível (QA-*) e datas relativas a
+        localdate(), para que testes/QA ancorem sem criar dado à mão. Idempotente:
+        ``seed --flush --profile qa`` duas vezes produz o mesmo conjunto de refs.
+        Ver docs/reference/qa-seed-scenarios.md.
+        """
+        # Config estática compartilhada com o demo (independente de pedidos): mesma
+        # chamada, mesmo resultado — só não é "dinâmica" no sentido de aleatória.
+        self._seed_stock_alerts(products, positions)
+        self._seed_promotions()
+        self._seed_notification_templates()
+        self._seed_rule_configs()
+        self._seed_omotenashi_copy()
+        self._seed_loyalty(customers)
+        self._seed_operation_checklists()
+
+        # Cenários nomeados determinísticos (Fase 2 do SEED-DATA-QUALITY-PLAN).
+        self._seed_qa_orders(products, customers, channels)
+        self._seed_production_demand_history(products, channels, timezone.now())
+        self._seed_qa_production_stuck_batch()
+        self._seed_qa_pos_tabs()
+
+        # Caixa/fechamento já são determinísticos e datados por localdate() — reuso.
+        self._seed_cash_register()   # 1 turno aberto (hoje) + 1 fechado c/ divergência (ontem)
+        self._seed_day_closing()
+
+        # Comandas abertas (uma delas na tab 00001007 = comanda POS aberta com itens).
+        self._seed_sessions(channels)
+
+        # Attachers genéricos que operam sobre os pedidos já criados. Cada um filtra
+        # por status e pula pedidos que já têm o artefato — então respeitam os estados
+        # específicos dos cenários qa (pending fica pending, refunded fica refunded).
+        self._seed_operator_alerts()
+        self._seed_payments()
+        self._seed_fulfillments()
+        self._seed_directives()
+        self._seed_fiscal_example()
 
     # ────────────────────────────────────────────────────────────────
     # Shop
@@ -482,6 +562,15 @@ class Command(BaseCommand):
         from shopman.refs.models import RefSequence
 
         RefSequence.objects.all().delete()
+
+        # Contador sequencial de código de WorkOrder (WO-YYYY-NNNNN) vive numa tabela
+        # PRÓPRIA do craftsman — diferente da RefSequence do shopman.refs acima. Sem
+        # zerá-la, os códigos de produção continuam de onde pararam a cada re-seed
+        # (WO-2026-00042 → 00043 …), quebrando a idempotência do perfil qa. Zerar aqui
+        # faz o `--flush` recomeçar do WO-2026-00001 — estado limpo canônico.
+        from shopman.craftsman.models.sequence import RefSequence as CraftRefSequence
+
+        CraftRefSequence.objects.all().delete()
 
         # Audit tables are data too in local seeds; keep --flush actually clean.
         for model in [
@@ -2657,7 +2746,10 @@ class Command(BaseCommand):
             "stock": _remote_stock,
         }
         _marketplace_config = {
-            "confirmation": {"mode": "manual", "stale_new_alert_minutes": 30},
+            # stale_new_alert < hold_ttl_minutes (20 < 30): o operador é cutucado
+            # ENQUANTO a reserva de estoque ainda vale, não no exato minuto em que
+            # ela expira (senão o alerta chega tarde demais para ser útil).
+            "confirmation": {"mode": "manual", "stale_new_alert_minutes": 20},
             "payment": {"method": "external", "timing": "external"},
             # Marketplace: o pedido já foi comitado e PAGO no iFood. Não rejeitar
             # localmente por estoque/listing — aceitar e deixar o operador tratar
@@ -3497,7 +3589,12 @@ class Command(BaseCommand):
                     datetime.combine(anchor - timedelta(days=7 * index), time(hour=10, minute=15))
                 )
                 seed_key = f"production-demand-history:{sku}:{index}"
-                ref = self._new_order_ref(pdv.ref, order_time.date())
+                # No perfil qa a ref precisa ser previsível/idempotente: _new_order_ref
+                # sorteia sufixo via secrets (não-semeável), então usamos ref literal.
+                if getattr(self, "profile", "demo") == "qa":
+                    ref = f"QADH-{sku}-{index}"
+                else:
+                    ref = self._new_order_ref(pdv.ref, order_time.date())
                 total_q = int(qty * product.base_price_q)
                 order = Order.objects.filter(snapshot__seed_key=seed_key).first()
                 if order is None:
@@ -3543,6 +3640,418 @@ class Command(BaseCommand):
                 )
                 created_or_updated += 1
         return created_or_updated
+
+    # ────────────────────────────────────────────────────────────────
+    # Cenários nomeados determinísticos (perfil qa) — Fase 2
+    # ────────────────────────────────────────────────────────────────
+
+    # Caminho linear canônico de status para reconstruir a trilha de eventos.
+    _QA_STATUS_PATH = [
+        Order.Status.NEW,
+        Order.Status.CONFIRMED,
+        Order.Status.PREPARING,
+        Order.Status.READY,
+        Order.Status.DISPATCHED,
+        Order.Status.DELIVERED,
+        Order.Status.COMPLETED,
+    ]
+
+    def _qa_line(self, product, qty: int, name: str | None = None) -> dict:
+        return {
+            "sku": product.sku,
+            "name": name or product.name,
+            "qty": qty,
+            "unit_price_q": product.base_price_q,
+            "line_total_q": product.base_price_q * qty,
+        }
+
+    def _qa_status_events(self, order: Order, created_at: datetime) -> None:
+        """Reconstrói a trilha de eventos até o status atual (determinística)."""
+        status = order.status
+        if status == Order.Status.CANCELLED:
+            path = [Order.Status.NEW, Order.Status.CONFIRMED, Order.Status.CANCELLED]
+        elif status == Order.Status.RETURNED:
+            path = [
+                Order.Status.NEW, Order.Status.CONFIRMED, Order.Status.PREPARING,
+                Order.Status.READY, Order.Status.DISPATCHED, Order.Status.DELIVERED,
+                Order.Status.RETURNED,
+            ]
+        else:
+            idx = self._QA_STATUS_PATH.index(status)
+            path = self._QA_STATUS_PATH[: idx + 1]
+        for seq, step in enumerate(path):
+            OrderEvent.objects.create(
+                order=order,
+                type="status_change",
+                seq=seq,
+                payload={"new_status": step, "source": "seed:qa"},
+                created_at=created_at + timedelta(minutes=seq),
+            )
+
+    def _make_qa_order(
+        self,
+        *,
+        ref: str,
+        channel_ref: str,
+        status: str,
+        items: list[dict],
+        data: dict,
+        minutes_ago: int,
+        handle_ref: str = "",
+        handle_type: str = "phone",
+        external_ref: str | None = None,
+    ) -> Order:
+        now = timezone.now()
+        created_at = now - timedelta(minutes=minutes_ago)
+        total_q = sum(item["line_total_q"] for item in items)
+        order_data = {
+            "availability_decision": {"approved": True, "source": "seed:qa", "decisions": []},
+            **data,
+        }
+        completed_at = created_at + timedelta(minutes=15) if status in (
+            Order.Status.COMPLETED, Order.Status.DELIVERED,
+        ) else None
+        order = Order.objects.create(
+            ref=ref,
+            channel_ref=channel_ref,
+            session_key=f"seed-qa-{ref}",
+            status=status,
+            total_q=total_q,
+            handle_type=handle_type,
+            handle_ref=handle_ref,
+            external_ref=external_ref,
+            completed_at=completed_at,
+            snapshot={"seed": "nelson", "seed_namespace": "qa", "seed_key": ref},
+            data=order_data,
+        )
+        self._stamp_order(order, created_at)
+        for index, item in enumerate(items):
+            OrderItem.objects.create(
+                order=order,
+                line_id=f"L-QA-{ref}-{index}",
+                sku=item["sku"],
+                name=item["name"],
+                qty=Decimal(str(item["qty"])),
+                unit_price_q=item["unit_price_q"],
+                line_total_q=item["line_total_q"],
+                meta={"seed": "nelson", "source": "qa"},
+            )
+        self._qa_status_events(order, created_at)
+        return order
+
+    def _seed_qa_orders(self, products, customers, channels):
+        """Cria os pedidos-cenário nomeados do perfil qa (refs QA-*)."""
+        self.stdout.write("  🎯 Cenários qa nomeados (pedidos)...")
+
+        def pick(*skus):
+            for sku in skus:
+                if sku in products:
+                    return products[sku]
+            return next(iter(products.values()))
+
+        croissant = pick("CROISSANT", "BAGUETE")
+        baguete = pick("BAGUETE", "CROISSANT")
+        pain = pick("PAIN-CHOCOLAT", "BRIOCHE", "CROISSANT")
+
+        web = channels["web"].ref
+        pdv = channels["pdv"].ref
+        today = timezone.localdate()
+        tomorrow = (today + timedelta(days=1)).isoformat()
+
+        created = 0
+
+        # ── QA-PREORDER-* — encomenda para amanhã (novo + confirmado) ─────────
+        preorder_data = {
+            "fulfillment_type": "delivery",
+            "delivery_date": tomorrow,
+            "delivery_time_slot": "manha",
+            "is_preorder": True,
+            "customer": {"name": "Cliente Encomenda QA"},
+        }
+        self._make_qa_order(
+            ref="QA-PREORDER-01",
+            channel_ref=web,
+            status=Order.Status.NEW,
+            items=[self._qa_line(croissant, 6), self._qa_line(baguete, 4)],
+            data={**preorder_data},
+            minutes_ago=12,
+        )
+        self._make_qa_order(
+            ref="QA-PREORDER-02",
+            channel_ref=web,
+            status=Order.Status.CONFIRMED,
+            items=[self._qa_line(pain, 8)],
+            data={**preorder_data, "customer": {"name": "Cliente Encomenda Confirmada QA"}},
+            minutes_ago=30,
+        )
+        created += 2
+
+        # ── QA-PAID-READY-* — pago (PIX/cartão capturado) em ready/dispatched ──
+        paid_pix = self._make_qa_order(
+            ref="QA-PAID-READY-01",
+            channel_ref=web,
+            status=Order.Status.READY,
+            items=[self._qa_line(croissant, 3), self._qa_line(pain, 2)],
+            data={
+                "fulfillment_type": "pickup",
+                "customer": {"name": "Cliente Pago PIX QA"},
+                "payment": {"method": "pix"},
+            },
+            minutes_ago=18,
+        )
+        self._attach_edge_payment_intent(
+            paid_pix,
+            method=PaymentIntent.Method.PIX,
+            status=PaymentIntent.Status.CAPTURED,
+            gateway="efi",
+            gateway_id="seed-qa-pix-captured",
+            captured_at=paid_pix.created_at + timedelta(minutes=3),
+        )
+        paid_card = self._make_qa_order(
+            ref="QA-PAID-READY-02",
+            channel_ref=web,
+            status=Order.Status.DISPATCHED,
+            items=[self._qa_line(baguete, 5)],
+            data={
+                "fulfillment_type": "delivery",
+                "customer": {"name": "Cliente Pago Cartão QA"},
+                "payment": {"method": "card"},
+            },
+            minutes_ago=22,
+        )
+        self._attach_edge_payment_intent(
+            paid_card,
+            method=PaymentIntent.Method.CARD,
+            status=PaymentIntent.Status.CAPTURED,
+            gateway="stripe",
+            gateway_id="seed-qa-card-captured",
+            captured_at=paid_card.created_at + timedelta(minutes=4),
+        )
+        created += 2
+
+        # ── QA-RETURNED-01 — entregue, devolvido e estornado ──────────────────
+        returned = self._make_qa_order(
+            ref="QA-RETURNED-01",
+            channel_ref=web,
+            status=Order.Status.RETURNED,
+            items=[self._qa_line(croissant, 4)],
+            data={
+                "fulfillment_type": "delivery",
+                "customer": {"name": "Cliente Devolução QA"},
+                "payment": {"method": "pix", "refunded": True},
+                "return_reason": "produto danificado no transporte",
+            },
+            minutes_ago=180,
+        )
+        returned_intent = PaymentIntent.objects.create(
+            ref="PI-QA-RETURNED-01",
+            order_ref=returned.ref,
+            method=PaymentIntent.Method.PIX,
+            status=PaymentIntent.Status.REFUNDED,
+            amount_q=returned.total_q,
+            gateway="efi",
+            gateway_id=f"seed-qa-refunded-{returned.ref}",
+            captured_at=returned.created_at + timedelta(minutes=5),
+        )
+        PaymentTransaction.objects.create(
+            intent=returned_intent,
+            type=PaymentTransaction.Type.CAPTURE,
+            amount_q=returned.total_q,
+            gateway_id=returned_intent.gateway_id,
+        )
+        PaymentTransaction.objects.create(
+            intent=returned_intent,
+            type=PaymentTransaction.Type.REFUND,
+            amount_q=returned.total_q,
+            gateway_id=f"{returned_intent.gateway_id}-refund",
+        )
+        returned.data = {
+            **(returned.data or {}),
+            "payment": {**(returned.data or {}).get("payment", {}), "intent_ref": returned_intent.ref},
+        }
+        returned.save(update_fields=["data", "updated_at"])
+        OperatorAlert.objects.get_or_create(
+            type="order_returned",
+            order_ref=returned.ref,
+            defaults={
+                "severity": "warning",
+                "message": f"Pedido {returned.ref} devolvido e estornado — conferir motivo e estoque.",
+            },
+        )
+        created += 1
+
+        # ── QA-PIX-PENDING-01 — confirmado, PIX pendente (não pago) ───────────
+        pix_pending = self._make_qa_order(
+            ref="QA-PIX-PENDING-01",
+            channel_ref=web,
+            status=Order.Status.CONFIRMED,
+            items=[self._qa_line(pain, 2), self._qa_line(baguete, 2)],
+            data={
+                "fulfillment_type": "pickup",
+                "customer": {"name": "Cliente PIX Pendente QA"},
+                "payment": {
+                    "method": "pix",
+                    "expires_at": (timezone.now() + timedelta(minutes=8)).replace(microsecond=0).isoformat(),
+                },
+            },
+            minutes_ago=5,
+        )
+        self._attach_edge_payment_intent(
+            pix_pending,
+            method=PaymentIntent.Method.PIX,
+            status=PaymentIntent.Status.PENDING,
+            gateway="efi",
+            gateway_id="seed-qa-pix-pending",
+            expires_at=timezone.now() + timedelta(minutes=8),
+        )
+        created += 1
+
+        # ── QA-IFOOD-01 — canal marketplace (fluxo de cancelamento iFood) ─────
+        if "ifood" in channels:
+            self._make_qa_order(
+                ref="QA-IFOOD-01",
+                channel_ref=channels["ifood"].ref,
+                status=Order.Status.CONFIRMED,
+                items=[self._qa_line(croissant, 2)],
+                data={
+                    "fulfillment_type": "delivery",
+                    "customer": {"name": "Cliente iFood QA"},
+                    "payment": {"method": "external", "timing": "external"},
+                    "origin_channel": "ifood",
+                },
+                minutes_ago=9,
+                handle_type="marketplace_order",
+                external_ref="IFOOD-QA-0001",
+            )
+            created += 1
+
+        # ── QA-NOTES-01 — pedido web com observação do cliente (order_notes) ──
+        self._make_qa_order(
+            ref="QA-NOTES-01",
+            channel_ref=web,
+            status=Order.Status.PREPARING,
+            items=[self._qa_line(baguete, 3)],
+            data={
+                "fulfillment_type": "pickup",
+                "customer": {"name": "Cliente Observação QA"},
+                "order_notes": "Bem assadinha, por favor. Cortar ao meio.",
+            },
+            minutes_ago=8,
+        )
+        created += 1
+
+        # ── QA-NAMED-ITEMS-01 — OrderItem.name preenchido (regressão SKU cru) ─
+        self._make_qa_order(
+            ref="QA-NAMED-ITEMS-01",
+            channel_ref=pdv,
+            status=Order.Status.PREPARING,
+            items=[
+                self._qa_line(croissant, 2, name="Croissant Tradicional"),
+                self._qa_line(pain, 1, name="Pain au Chocolat"),
+            ],
+            data={
+                "fulfillment_type": "pickup",
+                "customer": {"name": "Cliente Itens Nomeados QA"},
+            },
+            minutes_ago=6,
+        )
+        created += 1
+
+        self.stdout.write(f"  ✅ {created} pedidos-cenário qa (refs QA-*)")
+
+    def _seed_qa_production_stuck_batch(self):
+        """WorkOrder iniciada ONTEM e ainda em andamento (fornada de dia anterior presa).
+
+        Cenário do QA: uma fornada que ficou 'started' virando o dia. Identificável
+        pelo source_ref ``seed:production:qa-stuck:*``. As WOs de hoje (cada estado) e
+        o histórico já vêm de _seed_recipes (base estática determinística no qa).
+        """
+        from shopman.craftsman.models import WorkOrderEvent
+
+        recipe = Recipe.objects.filter(ref="baguete").first()
+        if recipe is None:
+            return
+        yesterday = timezone.localdate() - timedelta(days=1)
+        tz_info = timezone.get_current_timezone()
+        source_ref = f"seed:production:qa-stuck:{yesterday.isoformat()}:{recipe.ref}"
+        started_at = datetime.combine(yesterday, time(5, 0), tzinfo=tz_info)
+
+        work_order = WorkOrder.objects.filter(source_ref=source_ref).first()
+        if work_order is None:
+            work_order = WorkOrder(source_ref=source_ref)
+        work_order.recipe = recipe
+        work_order.output_sku = recipe.output_sku
+        work_order.quantity = Decimal("30")
+        work_order.finished = None
+        work_order.status = WorkOrder.Status.STARTED
+        work_order.target_date = yesterday
+        work_order.started_at = started_at
+        work_order.finished_at = None
+        work_order.position_ref = "producao"
+        work_order.operator_ref = "chef:ana"
+        work_order.meta = {"seed": True, "scope": "qa-stuck", "qa_scenario": "stuck_previous_day_batch"}
+        work_order.save()
+        work_order.events.all().delete()
+        for seq, (kind, when, payload) in enumerate([
+            (WorkOrderEvent.Kind.PLANNED, datetime.combine(yesterday, time(3, 0), tzinfo=tz_info),
+             {"quantity": "30", "recipe": recipe.ref, "output_sku": recipe.output_sku,
+              "target_date": yesterday.isoformat(), "source_ref": source_ref}),
+            (WorkOrderEvent.Kind.STARTED, started_at,
+             {"quantity": "30", "operator_ref": "chef:ana", "note": "seed qa: fornada presa"}),
+        ]):
+            event = WorkOrderEvent.objects.create(
+                work_order=work_order, seq=seq, kind=kind, payload=payload, actor="seed",
+            )
+            WorkOrderEvent.objects.filter(pk=event.pk).update(created_at=when)
+
+        self.stdout.write("  ✅ 1 fornada presa de ontem (qa-stuck, started)")
+
+    def _seed_qa_pos_tabs(self):
+        """Comandas POS do perfil qa: base + uma com item JÁ disparado à cozinha."""
+        self.stdout.write("  🧾 Comandas qa (POS)...")
+
+        # Base de tabs (rows POSTab) — inclui 00001007 que _seed_sessions usa como
+        # comanda aberta com itens.
+        self._seed_pos_tabs()
+
+        from shopman.shop.services.kds import fire_lines
+
+        # Comanda com item já disparado à cozinha (KDS ticket criado).
+        fired_tab = "00002001"
+        POSTab.objects.update_or_create(
+            ref=fired_tab,
+            defaults={"label": "QA Disparada", "is_active": True},
+        )
+        session_key = f"seed-qa-postab-{fired_tab}"
+        session, _ = Session.objects.update_or_create(
+            channel_ref="pdv",
+            state="open",
+            handle_type="pos_tab",
+            handle_ref=fired_tab,
+            defaults={
+                "session_key": session_key,
+                "pricing_policy": "internal",
+                "edit_policy": "open",
+                "data": {
+                    "origin_channel": "pos",
+                    "fulfillment_type": "pickup",
+                    "tab_ref": fired_tab,
+                    "tab_display": fired_tab.lstrip("0"),
+                    "pos_operator": "seed",
+                },
+            },
+        )
+        lines = [
+            {"line_id": f"L-QA-{fired_tab}-0", "sku": "CROISSANT", "name": "Croissant Tradicional",
+             "qty": 2, "unit_price_q": 1300, "line_total_q": 2600},
+            {"line_id": f"L-QA-{fired_tab}-1", "sku": "PAIN-CHOCOLAT", "name": "Pain au Chocolat",
+             "qty": 1, "unit_price_q": 1500, "line_total_q": 1500},
+        ]
+        session.update_items(lines)
+        # Dispara à cozinha: cria KDSTicket(s) para as linhas roteáveis.
+        fire_lines(session_key=session.session_key, lines=lines)
+
+        self.stdout.write("  ✅ Comanda qa 00002001 com item disparado à cozinha")
 
     def _stamp_order(self, order: Order, created_at: datetime):
         Order.objects.filter(pk=order.pk).update(created_at=created_at, updated_at=created_at)

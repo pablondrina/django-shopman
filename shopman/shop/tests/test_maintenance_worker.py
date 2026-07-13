@@ -47,9 +47,17 @@ def _capture_worker_logs(caplog, level=logging.ERROR):
     worker_logger = logging.getLogger(WORKER_LOGGER)
     with caplog.at_level(level, logger=WORKER_LOGGER):
         worker_logger.addHandler(caplog.handler)
+        # Determinismo do count: com o handler do caplog anexado direto no logger
+        # do worker, propagação ligada faria o MESMO record ser capturado de novo
+        # pelo handler-raiz do caplog (record duplicado → count 2 em vez de 1). O
+        # estado ambiente de propagate varia por ambiente/ordem (era flake de CI);
+        # forçar False aqui garante captura única pelo handler direto, invariante.
+        prev_propagate = worker_logger.propagate
+        worker_logger.propagate = False
         try:
             yield
         finally:
+            worker_logger.propagate = prev_propagate
             worker_logger.removeHandler(caplog.handler)
 
 
