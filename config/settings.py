@@ -943,8 +943,12 @@ SHOPMAN_FOCUS_NFE = {
     "timeout": int(os.environ.get("FOCUS_NFE_TIMEOUT", "30")),
     "base_url": os.environ.get("FOCUS_NFE_BASE_URL", ""),
 }
+# Desconto manual no PDV acima deste valor (centavos) exige aprovação gerencial
+# por PIN. Default R$ 5,00 (500q) — política definida pelo Pablo (2026-07-13,
+# Questão 2 do QA exploratório do backstage). Descontos em linha D-1 e overrides
+# de preço exigem aprovação SEMPRE, independente deste piso.
 SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q = int(
-    os.environ.get("SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q", "0")
+    os.environ.get("SHOPMAN_POS_DISCOUNT_APPROVAL_THRESHOLD_Q", "500")
 )
 SHOPMAN_ACCOUNTING_BACKEND = None
 
