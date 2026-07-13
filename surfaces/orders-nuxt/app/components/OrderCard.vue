@@ -37,7 +37,7 @@ function buttonClass(priority: string): string {
   if (priority === "primary")
     return "bg-primary text-primary-foreground hover:bg-primary/90 border-transparent";
   if (priority === "danger")
-    return "border-red-500/40 text-red-700 hover:bg-red-500/10 dark:text-red-300";
+    return "border-destructive/40 text-destructive hover:bg-destructive/10 dark:text-orange-300";
   return "border-border hover:bg-accent";
 }
 </script>
@@ -49,7 +49,7 @@ function buttonClass(priority: string): string {
     class="flex flex-col gap-2.5 rounded-lg border bg-card p-3.5 transition hover:border-primary/40"
     :class="[
       selected ? 'border-primary ring-1 ring-primary' : '',
-      card.can_confirm && !selected ? 'border-l-2 border-l-amber-500' : '',
+      card.can_confirm && !selected ? 'border-l-2 border-l-warning' : '',
     ]"
   >
     <!-- ref + timer -->
@@ -91,7 +91,7 @@ function buttonClass(priority: string): string {
       </span>
       <span
         v-if="confirmationLeft"
-        class="inline-flex shrink-0 items-center gap-1 rounded-md border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-xs font-semibold tabular-nums text-amber-700 dark:text-amber-400"
+        class="inline-flex shrink-0 items-center gap-1 rounded-md border border-warning/50 bg-warning/10 px-2 py-0.5 text-xs font-semibold tabular-nums text-amber-700 dark:text-amber-400"
         :title="card.confirmation_action === 'cancel' ? 'Cancela automaticamente ao vencer' : 'Confirma automaticamente ao vencer'"
         role="timer"
         aria-live="off"
@@ -125,7 +125,7 @@ function buttonClass(priority: string): string {
       <span
         v-if="card.payment_method_label"
         class="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-muted-foreground"
-        :class="card.payment_pending ? 'border-amber-500/40 text-amber-700 dark:text-amber-300' : 'border-border'"
+        :class="card.payment_pending ? 'border-warning/40 text-amber-700 dark:text-amber-300' : 'border-border'"
       >
         <Icon :name="card.payment_pending ? 'lucide:hourglass' : 'lucide:wallet'" class="size-3" />
         {{ card.payment_method_label }}
@@ -149,12 +149,12 @@ function buttonClass(priority: string): string {
     <!-- action error: the backend's specific reason, inline and persistent -->
     <div
       v-if="error"
-      class="flex items-start gap-1.5 rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1.5 text-xs text-red-700 dark:text-red-300"
+      class="flex items-start gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive dark:text-orange-300"
       role="alert"
     >
       <Icon name="lucide:alert-triangle" class="mt-px size-3.5 shrink-0" />
       <span class="min-w-0 flex-1">{{ error }}</span>
-      <button type="button" class="shrink-0 rounded p-0.5 transition hover:bg-red-500/20" aria-label="Dispensar aviso" @click="emit('dismiss-error')">
+      <button type="button" class="shrink-0 rounded p-0.5 transition hover:bg-destructive/20" aria-label="Dispensar aviso" @click="emit('dismiss-error')">
         <Icon name="lucide:x" class="size-3.5" />
       </button>
     </div>

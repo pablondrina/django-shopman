@@ -244,7 +244,7 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) =>
           class="relative grid size-9 place-items-center rounded-md border transition hover:bg-accent hover:text-foreground"
           :class="
             soundOn && soundBlocked
-              ? 'border-amber-500/50 text-amber-600 dark:text-amber-400'
+              ? 'border-warning/50 text-amber-600 dark:text-amber-400'
               : 'text-muted-foreground'
           "
           :aria-label="
@@ -267,7 +267,7 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) =>
           />
           <span
             v-if="soundOn && soundBlocked"
-            class="absolute -right-1 -top-1 size-2 rounded-full bg-amber-500"
+            class="absolute -right-1 -top-1 size-2 rounded-full bg-warning"
             aria-hidden="true"
           />
         </button>
@@ -326,13 +326,13 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) =>
            pode esconder os tickets da cozinha — banner acima, cards embaixo. -->
       <p
         v-if="error && !view"
-        class="rounded-md border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-700 dark:text-red-400"
+        class="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive dark:text-orange-300"
       >
         Falha ao carregar o board. Reconectando…
       </p>
       <p
         v-else-if="error && view"
-        class="mb-3 rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400"
+        class="mb-3 rounded-md border border-warning/30 bg-warning/5 p-2 text-xs text-amber-700 dark:text-amber-400"
       >
         Sem conexão — mostrando o último estado. Reconectando…
       </p>
@@ -345,11 +345,11 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) =>
           <article
             v-for="t in view.cancelled"
             :key="`x-${t.pk}`"
-            class="flex items-start justify-between gap-3 rounded-md border border-l-4 border-l-red-500 bg-red-500/10 p-4"
+            class="flex items-start justify-between gap-3 rounded-md border border-l-4 border-l-destructive bg-destructive/10 p-4"
           >
             <div class="min-w-0">
               <div
-                class="flex items-center gap-2 text-sm font-semibold text-red-400"
+                class="flex items-center gap-2 text-sm font-semibold text-destructive"
               >
                 <Icon name="lucide:ban" class="size-4 shrink-0" />
                 Cancelado{{
@@ -368,7 +368,7 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) =>
             </div>
             <button
               type="button"
-              class="flex shrink-0 items-center gap-1.5 rounded-md border border-red-500/40 px-3 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/15 active:scale-[0.98]"
+              class="flex shrink-0 items-center gap-1.5 rounded-md border border-destructive/40 px-3 py-2 text-sm font-semibold text-destructive transition hover:bg-destructive/15 active:scale-[0.98]"
               aria-label="Dar baixa no cancelado"
               @click="acknowledge(t.pk)"
             >
@@ -384,7 +384,7 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) =>
           class="grid place-items-center gap-3 rounded-md border border-dashed py-20 text-center"
         >
           <div
-            class="grid size-16 place-items-center rounded-full bg-green-500/10 text-green-400"
+            class="grid size-16 place-items-center rounded-full bg-success/10 text-success"
           >
             <Icon name="lucide:coffee" class="size-8" />
           </div>

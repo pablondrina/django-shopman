@@ -52,7 +52,7 @@ const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
     <!-- falha terminal do despacho (Machine recusou / dados) -->
     <p
       v-if="courier.error"
-      class="rounded-md border border-red-500/30 bg-red-500/5 p-2.5 text-sm text-red-700 dark:text-red-400"
+      class="rounded-md border border-destructive/30 bg-destructive/5 p-2.5 text-sm text-destructive dark:text-orange-400"
     >
       Falha ao abrir a corrida: {{ courier.error.message }}
     </p>
@@ -64,7 +64,7 @@ const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
           <span
             class="grid size-6 place-items-center rounded-full border text-xs font-semibold"
             :class="step.state === 'done'
-              ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+              ? 'border-success/50 bg-success/15 text-success dark:text-lime-300'
               : step.state === 'current'
                 ? 'border-primary bg-primary/10 text-primary'
                 : 'border-border text-muted-foreground'"
@@ -144,8 +144,8 @@ const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
         :disabled="busy"
         class="inline-flex items-center gap-1.5 rounded-md border px-3.5 py-2 text-sm font-semibold transition disabled:opacity-50"
         :class="confirmingCancel
-          ? 'border-red-500/60 bg-red-500/10 text-red-700 dark:text-red-300'
-          : 'border-red-500/40 text-red-700 hover:bg-red-500/10 dark:text-red-300'"
+          ? 'border-destructive/60 bg-destructive/10 text-destructive dark:text-orange-300'
+          : 'border-destructive/40 text-destructive hover:bg-destructive/10 dark:text-orange-300'"
         @blur="confirmingCancel = false"
         @click="requestCancel"
       >

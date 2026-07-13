@@ -42,8 +42,8 @@ const cards = computed(() =>
 // pode receber); "em uso" recede em neutro (ocupada, em andamento, sem ação).
 function cardTone(view: TabCardView): string {
   if (view.selected) return "border-primary bg-primary/5";
-  if (view.isUnpaid) return "border-amber-500/40 bg-amber-500/10";
-  if (view.isFree) return "border-green-500/45 bg-green-500/5";
+  if (view.isUnpaid) return "border-warning/40 bg-warning/10";
+  if (view.isFree) return "border-success/45 bg-success/5";
   return "";
 }
 
@@ -152,7 +152,7 @@ defineExpose({ focus: () => inputRef.value?.inputRef?.focus() });
           <span class="truncate font-semibold tabular-nums">#{{ view.displayRef }}</span>
           <span
             v-if="view.isUnpaid"
-            class="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400"
+            class="inline-flex shrink-0 items-center gap-1 rounded-full bg-warning/15 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400"
             title="Disparado para a cozinha e ainda não pago"
           >
             <Icon name="lucide:flame" class="size-3" />

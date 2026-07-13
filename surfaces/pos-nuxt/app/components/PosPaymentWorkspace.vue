@@ -351,7 +351,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
               v-for="note in cashNotesQ"
               :key="note"
               type="button"
-              class="flex items-center justify-center gap-1 rounded-md border border-green-500/30 bg-green-500/10 text-sm font-semibold tabular-nums text-green-800 transition hover:bg-green-500/20 active:translate-y-px disabled:opacity-40"
+              class="flex items-center justify-center gap-1 rounded-md border border-success/30 bg-success/10 text-sm font-semibold tabular-nums text-success transition hover:bg-success/20 active:translate-y-px disabled:opacity-40"
               :disabled="!numpadActive"
               :aria-label="`Recebi nota de ${formatBRL(note)}`"
               @click="$emit('tenderAdd', note)"

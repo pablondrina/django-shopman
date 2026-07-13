@@ -89,7 +89,7 @@ useHead({ title: "Expositores · Gestor" });
             <button
               type="button" role="switch" :aria-checked="sc.is_active"
               class="relative mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-40"
-              :class="sc.is_active ? 'bg-emerald-500' : 'bg-muted-foreground/30'"
+              :class="sc.is_active ? 'bg-success' : 'bg-muted-foreground/30'"
               :disabled="isBusy(sc.ref)"
               :aria-label="sc.is_active ? 'Pausar expositor' : 'Ativar expositor'"
               :title="sc.is_active ? 'Ativo — clique para pausar' : 'Pausado — clique para ativar'"
