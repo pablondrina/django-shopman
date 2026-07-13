@@ -432,7 +432,7 @@ const asExpedition = (c: KDSTicketProjection | KDSExpeditionCardProjection) =>
           >
             <div v-for="(card, idx) in filteredCards" :key="card.pk">
               <KdsExpeditionCard
-                v-if="isExpeditionCard(card)"
+                v-if="view.isExpedition"
                 :card="asExpedition(card)"
                 :density="density"
                 @action="(action) => expedite(card.pk, action)"
