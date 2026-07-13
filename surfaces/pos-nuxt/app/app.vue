@@ -101,6 +101,7 @@ const {
   cancelSaleReason,
   saleCancelled,
   lookupBusy,
+  managerApprovalError,
   result,
   pixStatus,
   checkoutMode,
@@ -459,6 +460,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         v-model:discount-reason="cart.discountReason"
         v-model:manager-username="cart.managerUsername"
         v-model:manager-pin="cart.managerPin"
+        :manager-approval-error="managerApprovalError"
         v-model:fulfillment-type="cart.fulfillmentType"
         v-model:payment-collection="cart.paymentCollection"
         v-model:customer-name="cart.customerName"

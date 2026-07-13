@@ -56,6 +56,7 @@ const props = defineProps<{
   discountReason: string;
   managerUsername: string;
   managerPin: string;
+  managerApprovalError: string;
   fulfillmentType: "pickup" | "delivery";
   paymentCollection: "terminal" | "on_delivery";
   paymentTenders: POSPaymentTenderDraft[];
@@ -222,6 +223,11 @@ const deliveryCollections = computed(() => collectionsForFulfillment(props.payme
 // (instead of disabling the button with a cramped inline field).
 const needsAuth = computed(() => approvalBlocking.value);
 const managerAuthOpen = ref(false);
+// Servidor recusou o PIN → reabre o diálogo com a mensagem (o dialog limpa o PIN
+// no seu próprio watch de `error`). Sem isto, o operador fica sem caminho.
+watch(() => props.managerApprovalError, (message) => {
+  if (message) managerAuthOpen.value = true;
+});
 const ctaLabel = computed(() => {
   if (needsReview.value) return "Atualizando…";
   return needsAuth.value ? "Autorizar e validar" : "Validar";
@@ -628,6 +634,7 @@ function onAddressSelected(address: StructuredAddressProjection) {
     v-model:open="managerAuthOpen"
     :threshold-q="managerThresholdQ"
     :busy="loading"
+    :error="managerApprovalError"
     @authorize="onManagerAuthorize"
   />
 </template>
