@@ -2728,7 +2728,11 @@ class Command(BaseCommand):
         _pos_config = {
             "confirmation": {"mode": "immediate"},
             "payment": {"method": "cash", "timing": "external"},
-            "stock": {"check_on_commit": True},
+            # No balcão o item já saiu fisicamente da vitrine: a venda NUNCA é
+            # auto-rejeitada por estoque (o kernel reserva o que der, best-effort,
+            # e o estoque reconcilia). A review avisa; não bloqueia. Mesma semântica
+            # do marketplace (check_on_commit=False).
+            "stock": {"check_on_commit": False},
             "handle_label": "Comanda",
             "handle_placeholder": "Ex: 42",
         }
