@@ -1234,6 +1234,40 @@ def validate_manager_approval(payload: dict, *, operator_username: str) -> None:
     )
 
 
+def validate_manager_override(approval: dict | None, *, operator_username: str, action: str) -> None:
+    """Gate an exceptional POS operation behind the manager PIN challenge.
+
+    Cancelar uma venda fechada é exceção auditada (anti-fraude), não fluxo do
+    operador: exige o mesmo desafio de PIN gerencial do desconto acima do teto
+    (``backstage.adjust_cashshift``), sempre — não há limiar.
+    """
+    approval = approval or {}
+    username = str(approval.get("username") or "").strip()
+    pin = str(approval.get("pin") or "")
+    if not username or not pin:
+        raise PosIntentError(
+            code="manager_approval_required",
+            message="Esta operação exige aprovação gerencial.",
+            field="manager_approval",
+            focus="approval",
+            recovery="Peça a um gerente autorizado para aprovar com o PIN.",
+        )
+    if _verify_manager_pin(username, pin) is None:
+        raise PosIntentError(
+            code="manager_approval_invalid",
+            message="Aprovação gerencial inválida.",
+            field="manager_approval",
+            focus="approval",
+            recovery="Revise o gerente e o PIN.",
+        )
+    logger.info(
+        "pos_manager_override action=%s operator=%s approved_by=%s",
+        action,
+        operator_username,
+        username,
+    )
+
+
 def _replace_session_ops(session: Session, payload: dict, operator_username: str) -> list[dict]:
     """Build ops that replace mutable POS payload fields on an existing session.
 

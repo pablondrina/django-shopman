@@ -661,7 +661,16 @@ class POSHeadlessSurfaceContractTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.json()["customer"])
 
-    def test_api_headless_pos_can_cancel_recent_sale_through_pos_contract(self) -> None:
+    def _create_manager(self, pin: str = "4321"):
+        from shopman.doorman.models import PinCredential
+
+        User = get_user_model()
+        manager = User.objects.create_user(username="pos-manager", password="x", is_staff=True)
+        _grant_adjust_cashshift_perm(manager)
+        PinCredential.set_for(manager, pin)
+        return manager
+
+    def _close_sale(self, request_id: str) -> str:
         opened = self.client.post("/api/v1/backstage/pos/tabs/00001007/open/", {})
         self.assertEqual(opened.status_code, 200)
         tab = opened.json()
@@ -674,16 +683,24 @@ class POSHeadlessSurfaceContractTests(TestCase):
                 "items": [{"sku": "POS-HEADLESS-ITEM", "name": "Headless Item", "qty": 1, "unit_price_q": 1300}],
                 "payment_method": "cash",
                 "payment_collection": "terminal",
-                "client_request_id": "pos-headless-cancel-001",
+                "client_request_id": request_id,
             }),
             content_type="application/json",
         )
         self.assertEqual(closed.status_code, 200)
-        order_ref = closed.json()["order_ref"]
+        return closed.json()["order_ref"]
+
+    def test_api_headless_pos_can_cancel_recent_sale_through_pos_contract(self) -> None:
+        self._create_manager()
+        order_ref = self._close_sale("pos-headless-cancel-001")
 
         cancelled = self.client.post(
             "/api/v1/backstage/pos/sale/recent/cancel/",
-            data=json.dumps({"order_ref": order_ref, "reason": "Erro de lançamento"}),
+            data=json.dumps({
+                "order_ref": order_ref,
+                "reason": "Erro de lançamento",
+                "manager_approval": {"username": "pos-manager", "pin": "4321"},
+            }),
             content_type="application/json",
         )
 
@@ -692,12 +709,49 @@ class POSHeadlessSurfaceContractTests(TestCase):
         self.assertEqual(order.status, Order.Status.CANCELLED)
         self.assertEqual(order.data["pos_correction_reason"], "Erro de lançamento")
 
-    def test_api_cancel_recent_sale_unknown_ref_is_404(self) -> None:
-        # Não-encontrado mapeia por TIPO de exceção (PosRecentSaleNotFound),
-        # não por substring da mensagem.
+    def test_api_cancel_recent_sale_requires_manager_approval(self) -> None:
+        # Cancelar venda fechada é exceção auditada: sem o desafio gerencial o
+        # endpoint recusa ANTES de qualquer efeito, no dialeto de erro do POS.
+        order_ref = self._close_sale("pos-headless-cancel-002")
+
         response = self.client.post(
             "/api/v1/backstage/pos/sale/recent/cancel/",
-            data=json.dumps({"order_ref": "NOPE-404"}),
+            data=json.dumps({"order_ref": order_ref}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["error"]["code"], "manager_approval_required")
+        self.assertNotEqual(Order.objects.get(ref=order_ref).status, Order.Status.CANCELLED)
+
+    def test_api_cancel_recent_sale_rejects_wrong_manager_pin(self) -> None:
+        self._create_manager(pin="4321")
+        order_ref = self._close_sale("pos-headless-cancel-003")
+
+        response = self.client.post(
+            "/api/v1/backstage/pos/sale/recent/cancel/",
+            data=json.dumps({
+                "order_ref": order_ref,
+                "manager_approval": {"username": "pos-manager", "pin": "0000"},
+            }),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["error"]["code"], "manager_approval_invalid")
+        self.assertNotEqual(Order.objects.get(ref=order_ref).status, Order.Status.CANCELLED)
+
+    def test_api_cancel_recent_sale_unknown_ref_is_404(self) -> None:
+        # Não-encontrado mapeia por TIPO de exceção (PosRecentSaleNotFound),
+        # não por substring da mensagem. O desafio gerencial vem antes do lookup,
+        # então o 404 só é visível para quem já passou pelo gate.
+        self._create_manager()
+        response = self.client.post(
+            "/api/v1/backstage/pos/sale/recent/cancel/",
+            data=json.dumps({
+                "order_ref": "NOPE-404",
+                "manager_approval": {"username": "pos-manager", "pin": "4321"},
+            }),
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 404)

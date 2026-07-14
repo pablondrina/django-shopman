@@ -65,8 +65,8 @@ interface PosSaleDeps {
   };
   apiPath: (path: string) => string;
   requestHeaders: Record<string, string> | undefined;
-  /** Absolute Django origin (dev) for the post-sale "open in gestor" link. */
-  djangoOrigin: ComputedRef<string>;
+  /** Absolute Gestor de Pedidos (orders app) origin for the post-sale "open in gestor" link. */
+  ordersUrl: ComputedRef<string>;
 }
 
 /**
@@ -74,13 +74,13 @@ interface PosSaleDeps {
  * session command (add/qty/discount, open/save/clear/rename/move/fire,
  * checkout/close, cash shift) emitted as idempotent intents via `action.call`
  * over the Projection's `Action[]`. The shell owns the Nuxt-bound primitives
- * (`action`/`apiPath`/`requestHeaders`/`djangoOrigin`) and passes them in, so
+ * (`action`/`apiPath`/`requestHeaders`/`ordersUrl`) and passes them in, so
  * this stays a plain composable (no Nuxt composable runs after the shell's
  * `await`). It emits commands and tracks local draft state; the orchestrator
  * decides lifecycle/policy. Screens bind to the returned state and handlers.
  */
 export function usePosSale(deps: PosSaleDeps) {
-  const { pos, tabs, actions, refresh, action, apiPath, requestHeaders, djangoOrigin } = deps;
+  const { pos, tabs, actions, refresh, action, apiPath, requestHeaders, ordersUrl } = deps;
 
   const tabInput = ref("");
   const busy = ref(false);
@@ -96,6 +96,8 @@ export function usePosSale(deps: PosSaleDeps) {
   const renamingTab = ref(false);
   const cancellingSale = ref(false);
   const cancelSaleReason = ref("");
+  const cancelSaleDialogOpen = ref(false);
+  const cancelApprovalError = ref("");
   const saleCancelled = ref(false);
   const lookupBusy = ref(false);
   const serverError = ref("");
@@ -547,7 +549,7 @@ export function usePosSale(deps: PosSaleDeps) {
     showTabs.value = false;
   }
 
-  function setFromTabPayload(payload: POSTabPayload) {
+  function setFromTabPayload(payload: POSTabPayload, options: { preserveCheckout?: boolean } = {}) {
     tabLoading.value = true;
     assignTabIdentityFromPayload(payload);
     cart.items = (payload.items || []).map((item) => ({ ...item }));
@@ -583,8 +585,12 @@ export function usePosSale(deps: PosSaleDeps) {
     cart.managerPin = "";
     cart.clientRequestId = "";
     customerLookup.value = null;
-    checkoutMode.value = false;
-    review.value = null;
+    // preserveCheckout: o checkout otimista recarrega a comanda POR BAIXO do shell
+    // de pagamento já aberto — sair do modo aqui devolveria o operador à venda.
+    if (!options.preserveCheckout) {
+      checkoutMode.value = false;
+      review.value = null;
+    }
     void nextTick(() => { tabLoading.value = false; });
   }
 
@@ -955,7 +961,7 @@ export function usePosSale(deps: PosSaleDeps) {
     }
   }
 
-  async function reloadCurrentTab() {
+  async function reloadCurrentTab(options: { preserveCheckout?: boolean } = {}) {
     if (!cart.tabRef) return;
     const path = concreteActionHref(
       actions.value,
@@ -964,7 +970,7 @@ export function usePosSale(deps: PosSaleDeps) {
       { tab_ref: cart.tabRef },
     );
     const payload = await action.call<POSTabPayload>(path);
-    setFromTabPayload(payload);
+    setFromTabPayload(payload, options);
     await refresh();
   }
 
@@ -985,14 +991,20 @@ export function usePosSale(deps: PosSaleDeps) {
     serverError.value = "";
     result.value = null;
     busy.value = true;
+    // Otimista: o shell de pagamento abre JÁ (total interino, review por baixo) em
+    // vez de segurar o operador na tela de venda durante os round-trips de
+    // persistência — era isso que fazia a tela "piscar" duas vezes no Cobrar.
+    checkoutMode.value = true;
+    review.value = null;
     try {
       if (hasOpenTab.value) {
         await persistTab();
-        await reloadCurrentTab();
+        await reloadCurrentTab({ preserveCheckout: true });
       }
       await reviewSale();
-      checkoutMode.value = true;
     } catch (error) {
+      // O checkout não abriu de verdade: volta à venda com o motivo no toast.
+      checkoutMode.value = false;
       serverError.value = httpErrorMessage(error, "Falha ao revisar checkout.");
     } finally {
       busy.value = false;
@@ -1060,7 +1072,7 @@ export function usePosSale(deps: PosSaleDeps) {
         const proof = paymentProofView(response.payment);
         result.value = {
           orderRef,
-          nextUrl: `${djangoOrigin.value}/admin/operacao/pedidos/${encodeURIComponent(orderRef)}/`,
+          nextUrl: `${ordersUrl.value.replace(/\/+$/, "")}/${encodeURIComponent(orderRef)}`,
           payment: proof,
           receipt,
           issueFiscalDocument: cart.issueFiscalDocument,
@@ -1269,23 +1281,45 @@ export function usePosSale(deps: PosSaleDeps) {
     }
   }
 
-  async function cancelRecentSale() {
+  function openCancelSaleDialog() {
+    cancelApprovalError.value = "";
+    cancelSaleReason.value = "";
+    cancelSaleDialogOpen.value = true;
+  }
+
+  async function cancelRecentSale(managerUsername: string, managerPin: string) {
     if (!result.value) return;
     serverError.value = "";
+    cancelApprovalError.value = "";
     cancellingSale.value = true;
     try {
       const orderRef = result.value.orderRef;
       const reason = cancelSaleReason.value.trim();
       await action.call(
         actionHref(actions.value, "cancel_recent_sale", "/api/v1/backstage/pos/sale/recent/cancel/"),
-        { body: { order_ref: orderRef, ...(reason ? { reason } : {}) } },
+        {
+          body: {
+            order_ref: orderRef,
+            manager_approval: { username: managerUsername, pin: managerPin },
+            ...(reason ? { reason } : {}),
+          },
+        },
       );
       result.value = null;
       cancelSaleReason.value = "";
+      cancelSaleDialogOpen.value = false;
       saleCancelled.value = true;
       await refresh();
     } catch (error) {
-      serverError.value = httpErrorMessage(error, "Falha ao cancelar venda.");
+      const failure = (httpError(error).data as { error?: { code?: string; message?: string; recovery?: string } } | null)?.error;
+      if (failure?.code === "manager_approval_invalid" || failure?.code === "manager_approval_required") {
+        // Desafio gerencial recusado: mantém o diálogo aberto com o motivo,
+        // o PIN é limpo pelo próprio diálogo.
+        cancelApprovalError.value = failure.recovery || failure.message || "Aprovação gerencial inválida.";
+      } else {
+        cancelSaleDialogOpen.value = false;
+        serverError.value = httpErrorMessage(error, "Falha ao cancelar venda.");
+      }
     } finally {
       cancellingSale.value = false;
     }
@@ -1370,6 +1404,8 @@ export function usePosSale(deps: PosSaleDeps) {
     renamingTab,
     cancellingSale,
     cancelSaleReason,
+    cancelSaleDialogOpen,
+    cancelApprovalError,
     saleCancelled,
     lookupBusy,
     serverError,
@@ -1455,6 +1491,7 @@ export function usePosSale(deps: PosSaleDeps) {
     unfireTab,
     unfireSelected,
     renameTab,
+    openCancelSaleDialog,
     cancelRecentSale,
     openCashShift,
     closeCashShift,

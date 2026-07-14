@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "vue-sonner";
 
-import { makeProjection, makeSale } from "./_posSaleHarness";
+import { makeProjection, makeSale, makeTabPayload } from "./_posSaleHarness";
 
 vi.mock("vue-sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
@@ -109,6 +109,79 @@ describe("usePosSale — submitSale (fluxo em etapas)", () => {
     expect(vi.mocked(toast.error)).toHaveBeenCalledWith("Caixa fechado");
     expect(h.sale.cart.items).toHaveLength(1); // 1 linha (pão x2) — nada perdido
     expect(h.sale.cart.items[0]!.qty).toBe(2);
+    h.handles.dispose();
+  });
+
+  it("venda fechada aponta 'Abrir no gestor' para o orders app (não o Django admin)", async () => {
+    const actionCall = saleRouter(null);
+    const h = saleReadyForCheckout(actionCall);
+    await h.sale.submitSale(); // prepara
+    await h.sale.submitSale(); // fecha
+    expect(h.sale.result.value?.nextUrl).toBe("http://gestor.test/PED-1");
+    h.handles.dispose();
+  });
+});
+
+describe("usePosSale — checkout otimista (sem flash)", () => {
+  beforeEach(() => {
+    vi.mocked(toast.error).mockClear();
+  });
+
+  it("o shell de pagamento abre ANTES da review resolver", async () => {
+    let resolveReview!: (value: unknown) => void;
+    const actionCall = vi.fn().mockImplementation((path: string) => {
+      if (String(path).includes("/sale/review/")) {
+        return new Promise((resolve) => { resolveReview = resolve; });
+      }
+      return Promise.resolve({});
+    });
+    const h = saleReadyForCheckout(actionCall);
+
+    const pending = h.sale.submitSale();
+    expect(h.sale.checkoutMode.value).toBe(true); // shell já aberto, review por baixo
+    expect(h.sale.review.value).toBeNull();
+
+    resolveReview({ review: { total_q: 1000, total_display: "R$ 10,00" } });
+    await pending;
+    expect(h.sale.review.value?.total_q).toBe(1000);
+    h.handles.dispose();
+  });
+
+  it("falha na review devolve o operador à venda (sem shell órfão)", async () => {
+    const actionCall = vi.fn().mockImplementation(async (path: string) => {
+      if (String(path).includes("/sale/review/")) throw { data: { detail: "Sem preço" } };
+      return {};
+    });
+    const h = saleReadyForCheckout(actionCall);
+
+    await h.sale.submitSale();
+
+    expect(h.sale.checkoutMode.value).toBe(false);
+    expect(vi.mocked(toast.error)).toHaveBeenCalledWith("Sem preço");
+    h.handles.dispose();
+  });
+
+  it("com comanda aberta, o reload da comanda não derruba o checkout otimista", async () => {
+    const actionCall = vi.fn().mockImplementation(async (path: string) => {
+      const p = String(path);
+      if (p.includes("/tabs/save/")) return {};
+      if (p.includes("/open/")) {
+        return makeTabPayload({
+          items: [{ sku: "PAO", name: "Pão", qty: 2, unit_price_q: 500, price_q: 500 }],
+        });
+      }
+      if (p.includes("/sale/review/")) return { review: { total_q: 1000, total_display: "R$ 10,00" } };
+      return {};
+    });
+    const h = makeSale({ projection: freeCartProjection(), actionCall });
+    Object.assign(h.sale.cart, { tabRef: "M1", tabDisplay: "M1", tabSessionKey: "sess-1" });
+    const pao = h.handles.posValue.value!.products[0]!;
+    h.sale.addProduct(pao);
+
+    await h.sale.submitSale(); // prepara: persiste + recarrega + review, tudo por baixo
+
+    expect(h.sale.checkoutMode.value).toBe(true);
+    expect(h.sale.review.value?.total_q).toBe(1000);
     h.handles.dispose();
   });
 });

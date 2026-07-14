@@ -27,6 +27,9 @@ export default defineNuxtConfig({
       // Estado inicial do rail (só quando não há cookie ainda). Padrão compacto; a própria
       // Central sobrescreve pra "collapsed" (é a casa, não precisa do rail aberto).
       railDefaultState: process.env.NUXT_PUBLIC_RAIL_DEFAULT_STATE || "compact",
+      // URL do Gestor de Pedidos (orders-nuxt) — links cross-app "abrir no gestor"
+      // apontam pra cá. Dev: orders-nuxt em :3004; prod: gestor.<zona> via env.
+      ordersUrl: process.env.NUXT_PUBLIC_ORDERS_URL || "http://127.0.0.1:3004/",
     },
   },
 });
