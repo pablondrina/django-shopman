@@ -216,6 +216,71 @@ class TestAvailabilityOwnHoldCorrection:
         assert item.availability_warning is None
 
 
+class TestAwaitingConfirmationIsNotUnavailable:
+    """Regression (incidente da baguete, 2026-07-14): linha em planned-hold
+    ("Aguardando confirmação") NÃO conta como indisponível.
+
+    Sem estoque pronto mas com produção planejada, o add cria um hold
+    planejado indefinido — a falta de pronta-entrega é exatamente o que o
+    selo da linha já explica. Contá-la em ``has_unavailable`` disparava o
+    banner "estoque mudou" e bloqueava o checkout JUNTO do selo acolhedor:
+    beco sem saída. O commit adota o hold planejado, então o checkout pode
+    seguir (AVAILABILITY-PLAN §5 bloqueia só por Indisponível).
+    """
+
+    def test_planned_hold_line_does_not_raise_banner_nor_block_checkout(
+        self, client, channel, product,
+    ):
+        from datetime import date
+        from decimal import Decimal
+
+        from shopman.stockman import stock
+        from shopman.stockman.models import Position, PositionKind
+
+        from shopman.storefront.tests.web.conftest import _ensure_listing_item
+
+        _ensure_listing_item(channel, product, price_q=90)
+        position, _ = Position.objects.get_or_create(
+            ref="loja",
+            defaults={
+                "name": "Loja Principal",
+                "kind": PositionKind.PHYSICAL,
+                "is_saleable": True,
+            },
+        )
+        # Fornada planejada pra HOJE (quant target-dated, ainda não realizada);
+        # NENHUM estoque pronto.
+        stock.plan(
+            quantity=Decimal("10"),
+            product=product,
+            target_date=date.today(),
+            position=position,
+            reason="fornada planejada (teste baguete)",
+        )
+
+        resp = client.put(
+            f"/api/v1/cart/skus/{product.sku}/",
+            data=json.dumps({"qty": 2}),
+            content_type="application/json",
+        )
+        assert resp.status_code in (200, 201), (
+            "com produção planejada, o add deve aceitar (hold planejado)"
+        )
+
+        request = _request_with_cart_session(client)
+        proj = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
+
+        assert len(proj.items) == 1
+        item = proj.items[0]
+        assert item.is_awaiting_confirmation is True, "linha deve estar em espera de materialização"
+        assert proj.has_awaiting_confirmation_items is True
+        assert proj.has_unavailable_items is False, (
+            "aguardando confirmação NÃO é indisponível — banner não pode disparar"
+        )
+        checkout = next(action for action in proj.actions if action.ref == "checkout")
+        assert checkout.reason != "Revise itens indisponíveis antes de finalizar."
+
+
 # ──────────────────────────────────────────────────────────────────────
 # Minimum order progress
 # ──────────────────────────────────────────────────────────────────────

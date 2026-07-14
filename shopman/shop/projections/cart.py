@@ -241,7 +241,18 @@ def build_cart(
 
     count = sum(line.qty for line in lines)
     subtotal_q = sum(line.line_total_q for line in lines)
-    has_unavailable = any(not line.is_available for line in lines)
+    # Linha em planned-hold ("aguardando confirmação"/"confirme até HH:MM") NÃO é
+    # indisponível: a falta de pronta-entrega é exatamente o que o selo da linha já
+    # explica, e o commit adota o hold planejado da sessão (stock.hold; com data
+    # futura, re-reserva contra o target_date). Contá-la aqui disparava o banner
+    # "estoque mudou" + checkout bloqueado JUNTO do selo acolhedor — beco sem
+    # saída na sacola (AVAILABILITY-PLAN §5 bloqueia checkout só por Indisponível).
+    has_unavailable = any(
+        not line.is_available
+        and not line.is_awaiting_confirmation
+        and not line.is_ready_for_confirmation
+        for line in lines
+    )
     has_awaiting = any(line.is_awaiting_confirmation for line in lines)
     has_ready = any(line.is_ready_for_confirmation for line in lines)
 
