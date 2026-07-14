@@ -85,6 +85,7 @@ def register_all() -> None:
     _register_accounting_handler()
     _register_return_handler()
     _register_fulfillment_handler()
+    _register_preorder_handler()
     _register_delivery_auto_complete_handler()
     _register_courier_handlers()
     _register_loyalty_handler()
@@ -129,6 +130,11 @@ def _register_confirmation_handler() -> None:
     )
     registry.register_directive_handler(ConfirmationTimeoutHandler())
     registry.register_directive_handler(StaleNewOrderAlertHandler())
+
+
+def _register_preorder_handler() -> None:
+    from shopman.shop.handlers.preorder import PreorderActivateHandler
+    registry.register_directive_handler(PreorderActivateHandler())
 
 
 def _register_payment_timeout_handler() -> None:

@@ -9,6 +9,7 @@
 | Comando | App | Categoria | Descrição |
 |---------|-----|-----------|-----------|
 | [`release_expired_holds`](#release_expired_holds) | stockman | Manutenção | Libera holds expirados |
+| [`sweep_orphan_holds`](#sweep_orphan_holds) | shop | Manutenção | Libera holds indefinidos órfãos (sem sessão viva ou com data passada) |
 | [`load_crafting_demo`](#load_crafting_demo) | craftsman | Seed | Carrega dados demo de produção |
 | [`process_directives`](#process_directives) | orderman | Worker | Processa fila de directives |
 | [`cleanup_idempotency_keys`](#cleanup_idempotency_keys) | orderman | Manutenção | Remove chaves de idempotência antigas |
@@ -46,6 +47,28 @@ python manage.py release_expired_holds
 ```
 
 **Recomendação:** Executar via cron a cada 5–15 minutos.
+
+---
+
+### sweep_orphan_holds
+
+**App:** `shopman.shop`
+**Arquivo:** `shopman/shop/management/commands/sweep_orphan_holds.py`
+
+Backstop para holds INDEFINIDOS (`expires_at IS NULL` — planejados/demanda, AVAILABILITY-PLAN §8),
+que nunca caem no `release_expired_holds`. Libera, com `OperatorAlert`, holds cuja referência é
+sessão sem Session aberta (morta/committed/deletada) ou cuja `target_date` já passou. Nunca toca
+reservas de produção (`purpose=workorder`) nem holds adotados por pedido (`order:<ref>`).
+Roda no ciclo do `maintenance_worker`, entre `cleanup_stale_sessions` e `cleanup_stale_planning`.
+
+| Flag | Default | Descrição |
+|------|---------|-----------|
+| `--dry-run` | — | Lista os holds candidatos sem liberar |
+
+```bash
+python manage.py sweep_orphan_holds --dry-run
+python manage.py sweep_orphan_holds
+```
 
 ---
 

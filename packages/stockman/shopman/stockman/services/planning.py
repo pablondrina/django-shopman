@@ -11,10 +11,12 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from shopman.stockman.conf import stockman_settings
 from shopman.stockman.exceptions import StockError
 from shopman.stockman.models.enums import HoldStatus
+from shopman.stockman.models.hold import Hold
 from shopman.stockman.models.move import Move
 from shopman.stockman.models.quant import Quant
 
@@ -151,7 +153,16 @@ class StockPlanning:
                 user=user
             )
 
-            # Transfer holds up to actual_quantity (FIFO)
+            # Transfer holds up to actual_quantity. The pool covers the holds
+            # anchored on the planned quant AND floating demand holds
+            # (quant=None) for the same sku/date — demand registered before a
+            # plan existed materializes together with the batch.
+            #
+            # Order: ``metadata.priority`` ascending (missing = last), then
+            # FIFO by created_at. Priority is a neutral integer the caller
+            # stamps at hold creation (e.g. committed orders outrank cart
+            # reservations when the batch is short).
+            #
             # Holds that were against planned stock get a TTL now
             # (the clock starts when stock materializes).
             transferred = Decimal('0')
@@ -163,9 +174,30 @@ class StockPlanning:
             )
             materialized_expires_at = now + timedelta(minutes=hold_ttl_minutes)
 
-            for hold in locked_quant.holds.filter(
-                status__in=[HoldStatus.PENDING, HoldStatus.CONFIRMED]
-            ).order_by('created_at'):
+            active_statuses = [HoldStatus.PENDING, HoldStatus.CONFIRMED]
+            anchored = locked_quant.holds.filter(status__in=active_statuses)
+            floating = Hold.objects.filter(
+                quant__isnull=True,
+                sku=sku,
+                target_date=target_date,
+                status__in=active_statuses,
+            ).filter(
+                Q(expires_at__isnull=True) | Q(expires_at__gte=now)
+            )
+
+            def _priority(hold):
+                value = (hold.metadata or {}).get('priority')
+                try:
+                    return (0, int(value)) if value is not None else (1, 0)
+                except (TypeError, ValueError):
+                    return (1, 0)
+
+            pool = sorted(
+                [*anchored, *floating],
+                key=lambda hold: (*_priority(hold), hold.created_at),
+            )
+
+            for hold in pool:
                 if transferred >= actual_quantity:
                     break
                 hold.quant = physical_quant

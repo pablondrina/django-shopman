@@ -78,6 +78,7 @@ def create_hold(
     reference: str | None = None,
     channel_ref: str | None = None,
     apply_safety_margin: bool = True,
+    allow_demand: bool = False,
     **metadata,
 ) -> dict:
     """
@@ -92,6 +93,11 @@ def create_hold(
     RESERVA de carrinho (a margem protege a vitrine do oversell), mas deve ser
     False no hold de COMMIT: um pedido já colocado pode consumir o buffer —
     bloqueá-lo sub-reservaria uma venda real.
+
+    ``allow_demand=True`` autoriza o fallback de DEMANDA do Stockman
+    (hold ``quant=None``) quando nenhum quant satisfaz — encomenda para data
+    sem plano registra a demanda em vez de recusar. Produto pausado continua
+    recusando.
 
     Returns:
         {"success": bool, "hold_id": str | None, "error_code": str | None,
@@ -132,6 +138,7 @@ def create_hold(
             allowed_positions=allowed_positions,
             excluded_positions=excluded_positions,
             safety_margin=safety_margin,
+            allow_demand=allow_demand,
             **hold_kwargs,
         )
 
@@ -313,14 +320,16 @@ def find_holds_by_reference(
     return [(h.hold_id, h.sku, Decimal(str(h.quantity))) for h in holds]
 
 
-def retag_hold_reference(hold_id: str, new_reference: str) -> bool:
+def retag_hold_reference(hold_id: str, new_reference: str, **extra_metadata) -> bool:
     """Update hold's reference tag (e.g. session_key → order ref).
+
+    Extra metadata (e.g. ``priority``) is merged in the same write.
 
     Returns True if updated, False if hold not found.
     """
     from shopman.stockman import StockHolds
 
-    return StockHolds.retag_reference(hold_id, new_reference)
+    return StockHolds.retag_reference(hold_id, new_reference, **extra_metadata)
 
 
 def extend_hold(hold_id: str, *, expires_at=None) -> bool:

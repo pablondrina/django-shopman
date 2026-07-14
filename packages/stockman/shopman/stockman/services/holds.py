@@ -89,6 +89,7 @@ class StockHolds:
              allowed_positions: list[str] | None = None,
              excluded_positions: list[str] | None = None,
              safety_margin: int = 0,
+             allow_demand: bool = False,
              **metadata):
         """
         Create quantity hold.
@@ -106,6 +107,12 @@ class StockHolds:
             This allows forward-selling (pre-orders, made-to-order items) without
             a physical Quant reservation. The hold is fulfilled later when stock
             arrives.
+
+        ``allow_demand=True`` extends the demand-mode fallback to products whose
+        own policy is NOT ``demand_ok``: the CALLER authorizes registering demand
+        (e.g. a sales channel that accepts pre-orders for a future date without
+        a production plan yet). Paused products still refuse — pausing means
+        "do not sell", including forward sales.
 
         Args:
             quantity: Amount to hold
@@ -160,7 +167,7 @@ class StockHolds:
             elif decision.is_paused:
                 approved = False
                 available = Decimal("0")
-            elif policy == 'demand_ok':
+            elif policy == 'demand_ok' or allow_demand:
                 approved = True
                 available = max(decision.available_qty, quantity)
             elif policy == 'stock_only':
@@ -207,7 +214,7 @@ class StockHolds:
                     )
                     return hold.hold_id
 
-            if policy == 'demand_ok':
+            if policy == 'demand_ok' or allow_demand:
                 hold = Hold.objects.create(
                     sku=sku,
                     quant=None,
@@ -471,10 +478,13 @@ class StockHolds:
         return bool(updated)
 
     @staticmethod
-    def retag_reference(hold_id: str, new_reference: str) -> bool:
+    def retag_reference(hold_id: str, new_reference: str, **extra_metadata) -> bool:
         """Update Hold.metadata.reference to a new value.
 
-        Used to transfer a hold from session scope to order scope.
+        Used to transfer a hold from session scope to order scope. Extra
+        metadata (e.g. ``priority`` — see :meth:`StockPlanning.realize`'s
+        materialization ordering) is merged in the same write, so the
+        ownership transfer and its consequences are atomic.
 
         Returns:
             True if the hold was updated, False if not found.
@@ -487,6 +497,7 @@ class StockHolds:
 
         metadata = dict(hold.metadata or {})
         metadata["reference"] = new_reference
+        metadata.update(extra_metadata)
         hold.metadata = metadata
         hold.save(update_fields=["metadata"])
         return True

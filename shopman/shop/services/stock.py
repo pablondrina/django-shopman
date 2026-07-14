@@ -77,6 +77,16 @@ def hold(order, *, require_all: bool = False) -> None:
 
     target_date = get_commitment_date(order)
     adopt_session_holds = target_date in (None, timezone.localdate())
+    # Encomenda: pedido para data FUTURA não adota os holds da sacola (eles
+    # miram a produção de HOJE) — reserva na data-alvo, e quando não há plano
+    # para ela o canal com preorder REGISTRA A DEMANDA (hold quant=None) em
+    # vez de recusar. Os holds de hoje da sessão caem no leftover-release no
+    # fim desta função. Produto pausado continua recusando (gate do Stockman).
+    allow_demand = (
+        not adopt_session_holds
+        and target_date is not None
+        and _channel_allows_preorder(order)
+    )
     session_key = getattr(order, "session_key", None)
     session_holds_by_sku = _load_session_holds(session_key) if session_key else {}
 
@@ -140,6 +150,8 @@ def hold(order, *, require_all: bool = False) -> None:
                 target_date=target_date,
                 channel_ref=getattr(order, "channel_ref", None),
                 apply_safety_margin=False,
+                allow_demand=allow_demand,
+                priority=_ORDER_HOLD_PRIORITY,
             )
             if not result.get("success"):
                 logger.warning(
@@ -180,12 +192,18 @@ def hold(order, *, require_all: bool = False) -> None:
     logger.info("stock.hold: %d holds for order %s", len(hold_ids), order.ref)
 
 
-def fulfill(order) -> None:
+def fulfill(order, *, pending_materialization_ok: bool = False) -> None:
     """
     Fulfill (decrement) all holds for the order.
 
     Uses adapter.fulfill_hold() which transparently handles the
     PENDING → CONFIRMED → FULFILLED state machine.
+
+    ``pending_materialization_ok=True`` (ativação de encomenda): hold de
+    DEMANDA ainda sem quant (fornada da data não materializou) não é erro —
+    o receiver de ``holds_materialized`` completa a baixa quando o estoque
+    existir. Sem a flag, HOLD_IS_DEMAND conta como falha (caminho de venda
+    imediata, onde demanda pendente seria drift real).
 
     SYNC — must complete before notifying client.
     """
@@ -203,6 +221,12 @@ def fulfill(order) -> None:
         qty = Decimal(str(entry["qty"])) if entry.get("qty") is not None else None
         result = adapter.fulfill_hold(hold_id, qty=qty)
         if not result.get("success"):
+            if pending_materialization_ok and result.get("error_code") == "HOLD_IS_DEMAND":
+                logger.info(
+                    "stock.fulfill: hold %s aguarda materialização (order=%s)",
+                    hold_id, order.ref,
+                )
+                continue
             errors += 1
             failed_skus.append(str(entry.get("sku") or hold_id))
             logger.warning(
@@ -449,6 +473,12 @@ def _adopt_holds_for_qty(
 # abandonado) não pode reter estoque para sempre. release_expired reclama depois.
 _ORDER_HOLD_BACKSTOP_HOURS = 48
 
+# Prioridade de materialização (planning.realize): pedido ENVIADO materializa
+# antes de reserva de sacola quando a fornada é menor que a demanda (decisão
+# de produto — AVAILABILITY-SALE-PRODUCTION-PLAN §2). Menor = primeiro;
+# holds sem priority (sacola) vêm depois, FIFO.
+_ORDER_HOLD_PRIORITY = 0
+
 
 def _retag_hold_for_order(hold_id: str, order_ref: str) -> None:
     """Update Hold.metadata.reference from session_key to order ref.
@@ -463,9 +493,25 @@ def _retag_hold_for_order(hold_id: str, order_ref: str) -> None:
     from datetime import timedelta
 
     adapter = get_adapter("stock")
-    adapter.retag_hold_reference(hold_id, f"order:{order_ref}")
+    adapter.retag_hold_reference(hold_id, f"order:{order_ref}", priority=_ORDER_HOLD_PRIORITY)
     backstop = timezone.now() + timedelta(hours=_ORDER_HOLD_BACKSTOP_HOURS)
     adapter.extend_hold(hold_id, expires_at=backstop)
+
+
+def _channel_allows_preorder(order) -> bool:
+    """True quando o canal do pedido aceita encomenda (ChannelConfig.stock.preorder)."""
+    from shopman.shop.config import ChannelConfig
+
+    try:
+        return bool(ChannelConfig.for_channel(order.channel_ref).stock.preorder)
+    except Exception:
+        # Defaults aceitam encomenda; config ilegível não pode virar recusa
+        # de venda (o gate de estoque do Stockman continua valendo).
+        logger.warning(
+            "stock._channel_allows_preorder: config lookup failed channel=%s",
+            getattr(order, "channel_ref", None),
+        )
+        return bool(ChannelConfig().stock.preorder)
 
 
 def _is_untracked(sku: str, prior_decisions: dict[str, dict], adapter) -> bool:

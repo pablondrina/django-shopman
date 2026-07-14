@@ -89,16 +89,37 @@ def on_holds_materialized(sender, hold_ids, sku, target_date, **kwargs):
 
     session_keys = set()
     hold_ids_by_session: dict[str, list[str]] = {}
+    order_refs: set[str] = set()
     for hold_id in hold_ids:
         try:
             pk = int(hold_id.split(":")[1])
             hold = Hold.objects.get(pk=pk)
             ref = (hold.metadata or {}).get("reference")
+            if ref and str(ref).startswith("order:"):
+                # Hold de PEDIDO (encomenda/commit) materializou: o TTL curto
+                # de vitrine (30 min) evaporaria a reserva antes da retirada.
+                # O dono é o pedido — vale o mesmo backstop longo dos holds
+                # adotados no commit; o ciclo termina por fulfill/release.
+                _extend_order_hold_backstop(hold_id)
+                order_refs.add(str(ref).removeprefix("order:"))
+                continue
             if ref:
                 session_keys.add(ref)
                 hold_ids_by_session.setdefault(ref, []).append(hold_id)
         except (Hold.DoesNotExist, IndexError, ValueError, TypeError):
             pass
+
+    # Encomenda cujo despertador já tocou (ativada na data, baixa pendente de
+    # materialização): agora que a fornada existe, completa KDS + baixa.
+    # ``activate_preorder`` é guardado (data futura/status errado → no-op).
+    for order_ref in order_refs:
+        try:
+            _complete_activated_preorder(order_ref)
+        except Exception:
+            logger.warning(
+                "on_holds_materialized: preorder completion failed order=%s",
+                order_ref, exc_info=True,
+            )
 
     if not session_keys:
         return
@@ -143,6 +164,35 @@ def on_holds_materialized(sender, hold_ids, sku, target_date, **kwargs):
                 "Failed to auto-commit session %s:%s",
                 session.channel_ref, session.session_key, exc_info=True,
             )
+
+
+def _complete_activated_preorder(order_ref: str) -> None:
+    from shopman.orderman.models import Order
+
+    from shopman.shop.lifecycle import activate_preorder
+
+    order = Order.objects.filter(ref=order_ref).first()
+    if order is None:
+        return
+    activate_preorder(order)
+
+
+def _extend_order_hold_backstop(hold_id: str) -> None:
+    """Reaplica o backstop de pedido (48h) a um hold materializado."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from shopman.shop.adapters import get_adapter
+    from shopman.shop.services.stock import _ORDER_HOLD_BACKSTOP_HOURS
+
+    try:
+        backstop = timezone.now() + timedelta(hours=_ORDER_HOLD_BACKSTOP_HOURS)
+        get_adapter("stock").extend_hold(hold_id, expires_at=backstop)
+    except Exception:
+        logger.warning(
+            "on_holds_materialized: backstop extension failed hold=%s", hold_id, exc_info=True
+        )
 
 
 def _notify_stock_arrived(session, *, sku: str, target_date, hold_ids: list[str] | None = None) -> None:

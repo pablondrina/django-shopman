@@ -92,6 +92,7 @@ def resolve_channel_policy(channel_or_ref: Any) -> ChannelPolicyResolution:
             "excluded_positions": tuple(config.stock.excluded_positions),
             "check_on_commit": config.stock.check_on_commit,
             "low_stock_threshold": config.stock.low_stock_threshold,
+            "preorder": config.stock.preorder,
         },
         notifications={
             "backend": config.notifications.backend,
