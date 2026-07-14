@@ -9,6 +9,7 @@ Never imports from ``shopman.backstage.views.*``.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from dataclasses import dataclass
 from datetime import timedelta
@@ -21,6 +22,7 @@ from shopman.orderman.models import Order
 from shopman.utils.monetary import format_money
 
 from shopman.shop.services.order_helpers import get_fulfillment_type
+from shopman.shop.services.pos import display_tab_ref
 
 from .order_queue import _DEFAULT_CHANNEL_ICON, CHANNEL_ICONS
 
@@ -242,7 +244,19 @@ def build_kds_ticket(ticket_pk: int) -> KDSTicketProjection:
 
 
 def build_kds_customer_status(*, limit: int = 24) -> KDSCustomerStatusProjection:
-    """Build a public pickup board without customer names, phones, totals, or addresses."""
+    """Build a public pickup board without customer names, phones, totals, or addresses.
+
+    Shows committed pickup Orders (READY vs em preparo) **plus** open POS comandas that
+    were fired to the kitchen before payment. Those exist only as open ``Session`` rows
+    (no ``Order`` yet), so an Order-fed board never showed the customer that their order
+    is already being made. Pre-commit comandas join the "em preparo" column with a
+    privacy-safe numeric/opaque code only (never the named tab — ``tab_display`` can be a
+    customer name on this public screen) and are de-duplicated against committed Orders by
+    ``session_key`` so a just-paid comanda is not listed twice.
+    """
+    from shopman.orderman.models import Session
+
+    fetch = max(limit * 2, limit)
     orders_qs = (
         Order.objects.filter(
             status__in=[
@@ -251,13 +265,16 @@ def build_kds_customer_status(*, limit: int = 24) -> KDSCustomerStatusProjection
                 Order.Status.READY,
             ]
         )
-        .order_by("ready_at", "updated_at", "created_at")[: max(limit * 2, limit)]
+        .order_by("ready_at", "updated_at", "created_at")[:fetch]
     )
 
     preparing: list[KDSCustomerOrderProjection] = []
     ready: list[KDSCustomerOrderProjection] = []
+    committed_session_keys: set[str] = set()
 
     for order in orders_qs:
+        if order.session_key:
+            committed_session_keys.add(order.session_key)
         if get_fulfillment_type(order) == "delivery":
             continue
         projection = KDSCustomerOrderProjection(
@@ -271,14 +288,53 @@ def build_kds_customer_status(*, limit: int = 24) -> KDSCustomerStatusProjection
         else:
             preparing.append(projection)
 
-        if len(preparing) + len(ready) >= limit:
-            break
+    # Pre-commit POS comandas fired to the kitchen but not yet paid (open Sessions).
+    sessions_qs = Session.objects.filter(state="open").order_by("-updated_at")[:fetch]
+    for session in sessions_qs:
+        if session.session_key in committed_session_keys:
+            continue  # already surfaced as its committed Order (dedup on payment)
+        data = session.data or {}
+        if not data.get("fired_lines"):
+            continue  # nothing fired to the kitchen yet → not "em preparo"
+        if (data.get("fulfillment_type") or data.get("delivery_method") or "pickup") == "delivery":
+            continue  # pickup/counter only — delivery never shows on the pickup board
+        preparing.append(
+            KDSCustomerOrderProjection(
+                ref=_public_comanda_code(session),
+                status=Order.Status.PREPARING,
+                status_label="Em preparo",
+                updated_at_display=_format_time(session.updated_at),
+            )
+        )
+
+    # Apply the display budget without starving READY (the pickup priority): keep the
+    # ready column first, then fill "em preparo" with whatever slots remain.
+    ready = ready[:limit]
+    preparing = preparing[: max(0, limit - len(ready))]
 
     return KDSCustomerStatusProjection(
         preparing=tuple(preparing),
         ready=tuple(ready),
         updated_at_display=_format_time(timezone.now()),
     )
+
+
+def _public_comanda_code(session) -> str:
+    """A privacy-safe public code for a pre-commit POS comanda.
+
+    The pickup board is a PUBLIC screen, so it must never leak a named tab
+    (``tab_display`` / ``tab_ref`` can be a customer name like "João"). A purely
+    numeric comanda shows its unpadded number ("1012"); anything else (a name)
+    falls back to a short, stable, non-identifying code derived from the session
+    key — deterministic so it stays put across the board's 10s refresh.
+    """
+    data = session.data or {}
+    for candidate in (data.get("tab_ref"), session.handle_ref):
+        text = str(candidate or "").strip()
+        if text.isdigit():
+            return display_tab_ref(text)
+    digest = hashlib.blake2s(str(session.session_key).encode("utf-8"), digest_size=2).hexdigest().upper()
+    return f"#{digest}"
 
 
 # ── Internals ──────────────────────────────────────────────────────────
@@ -334,6 +390,31 @@ def _resolve_ticket_source(ticket):
     )
 
 
+def _display_order_ref(source, source_data: dict, handle_ref: str, session_key: str) -> str:
+    """Resolve the heading a KDS card calls a comanda/order by.
+
+    Prefers the operator-chosen POS tab label (``tab_display`` — e.g. "Mesa 5",
+    or "1012" already stripped of the 8-digit storage padding), so a *named* tab
+    surfaces on the KDS instead of a bare id (B6-14). ``tab_display`` lives in the
+    open ``Session.data`` (comanda fired before payment) and is copied into
+    ``Order.data`` at commit, so it is stable across the fire→pay transition.
+
+    Falls back to the normalized ``tab_ref``, then the order ref / handle / session
+    key. Numeric values are shown without their leading-zero padding so the kitchen
+    calls "1012", never "00001012" (B2-6). Web/iFood refs (e.g.
+    ``WEB-20260713-1012``) are non-numeric and pass through unchanged; the surface
+    still splits the {channel-date-} prefix from the called code.
+    """
+    tab_display = str(source_data.get("tab_display") or "").strip()
+    if tab_display:
+        return tab_display
+    tab_ref = str(source_data.get("tab_ref") or "").strip()
+    if tab_ref:
+        return display_tab_ref(tab_ref)
+    raw_ref = getattr(source, "ref", "") or handle_ref or session_key
+    return display_tab_ref(raw_ref)
+
+
 def _build_ticket(ticket, instance) -> KDSTicketProjection:
     now = timezone.now()
     is_cancelled = ticket.status == "cancelled"
@@ -351,7 +432,7 @@ def _build_ticket(ticket, instance) -> KDSTicketProjection:
     source = _resolve_ticket_source(ticket)
     source_data = (getattr(source, "data", None) or {}) if source is not None else {}
     handle_ref = getattr(source, "handle_ref", "") if source is not None else ""
-    order_ref = getattr(source, "ref", "") or handle_ref or ticket.session_key
+    order_ref = _display_order_ref(source, source_data, handle_ref, ticket.session_key)
     channel_ref = getattr(source, "channel_ref", "") if source is not None else ""
     customer_name = (
         source_data.get("customer", {}).get("name", "")
