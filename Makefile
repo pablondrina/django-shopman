@@ -15,7 +15,7 @@ APP_COMPOSE := $(COMPOSE) --profile app
 RELEASE_COMPOSE := $(COMPOSE) --profile release
 NUXT_DIR := surfaces/storefront-nuxt
 
-.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-buyman test-framework test-migrations test-runtime-preflight test-runtime load-test storefront-e2e test-coverage lint omotenashi-qa omotenashi-browser-qa omotenashi-browser-ci admin admin-update admin-ui admin-ui-ci admin-ui-maturity admin-ui-strict admin-ui-surfaces admin-ui-test admin-ui-update unfold unfold-ci unfold-maturity unfold-strict unfold-surfaces unfold-update lint-unfold lint-unfold-maturity clean migrate run nuxt dev seed coverage fonts up down logs db-shell diagnose-runtime diagnose-worker diagnose-payments diagnose-webhooks diagnose-health release-readiness release-readiness-strict reconcile-financial-day smoke-gateways smoke-gateways-sandbox deploy-env-check deploy-check deploy-build deploy-release deploy-up deploy-down deploy-logs deploy-ps collectstatic
+.PHONY: help install test test-refs test-utils test-offerman test-stockman test-craftsman test-orderman test-payman test-guestman test-doorman test-buyman test-framework test-migrations test-runtime-preflight test-runtime load-test storefront-e2e test-coverage lint omotenashi-qa omotenashi-browser-qa omotenashi-browser-ci admin admin-update admin-ui admin-ui-ci admin-ui-maturity admin-ui-strict admin-ui-surfaces admin-ui-test admin-ui-update unfold unfold-ci unfold-maturity unfold-strict unfold-surfaces unfold-update lint-unfold lint-unfold-maturity clean migrate run nuxt dev seed coverage fonts up down logs db-shell diagnose-runtime diagnose-worker diagnose-payments diagnose-webhooks diagnose-health release-readiness release-readiness-strict reconcile-financial-day audit-branches smoke-gateways smoke-gateways-sandbox deploy-env-check deploy-check deploy-build deploy-release deploy-up deploy-down deploy-logs deploy-ps collectstatic
 
 help: ## Mostra este help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -198,6 +198,9 @@ diagnose-webhooks: ## Diagnostica idempotencia, falhas e alertas de webhooks
 
 diagnose-health: ## Diagnostica health/readiness, checks Django e configuracao critica
 	$(PYTHON) scripts/diagnose_operational.py health
+
+audit-branches: ## Lista branches remotos à frente do main e separa entregues de ⚠️ não mergeados
+	@bash scripts/audit-branches.sh
 
 release-readiness: ## Consolida prontidao local e bloqueios externos de piloto/release
 	$(PYTHON) scripts/check_release_readiness.py $(if $(json),--json,) $(if $(manual_qa),--manual-qa-evidence=$(manual_qa),) $(if $(preprod_url),--preprod-url=$(preprod_url),)
