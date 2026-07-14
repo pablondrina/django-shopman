@@ -20,9 +20,10 @@ precisa saber):
    aconteceu (ou não); a reserva não promete mais nada.
 
 NUNCA toca holds de produção (``metadata.purpose == "workorder"``) nem holds
-já adotados por pedido (``reference`` com prefixo ``order:``), exceto pelo
-critério de data passada, que não se aplica a eles aqui — pedidos travados são
-problema do ``sweep_stuck_orders``.
+adotados por pedido (``reference`` com prefixo ``order:``) — nem mesmo pela
+regra de data passada: o dono é o pedido e pedido travado é problema do
+``sweep_stuck_orders``. Hold manual sem referência (decisão do operador) só
+cai pela regra de data passada.
 
 Idempotente: cada hold é liberado uma única vez.
 
@@ -77,12 +78,18 @@ class Command(BaseCommand):
             if (hold.metadata or {}).get("purpose") == "workorder":
                 continue
             reference = str((hold.metadata or {}).get("reference") or "")
+            # Hold de PEDIDO nunca é desta varredura (nem por data passada):
+            # o dono é o pedido, o ciclo termina por fulfill/release/cancel, e
+            # pedido travado é problema do sweep_stuck_orders — liberar aqui
+            # faria o fulfill tardio falhar por baixo dos panos.
+            if reference.startswith("order:"):
+                continue
             if hold.target_date and hold.target_date < today:
                 orphans.append((hold, "data passada"))
                 continue
-            if reference.startswith("order:") or not reference:
-                # Adotado por pedido (ciclo termina por fulfill/release) ou sem
-                # referência rastreável — fora do escopo desta varredura.
+            if not reference:
+                # Sem referência rastreável (hold manual do operador): decisão
+                # humana, não órfão — só a regra de data passada se aplica.
                 continue
             if reference not in open_session_keys:
                 orphans.append((hold, "sessão morta"))

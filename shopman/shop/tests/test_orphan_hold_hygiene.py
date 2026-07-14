@@ -142,12 +142,21 @@ def test_sweep_releases_holds_with_past_target_date():
 
 def test_sweep_keeps_live_session_order_and_workorder_holds():
     _open_session("SESS-VIVA")
+    yesterday = timezone.localdate() - timedelta(days=1)
     live = _planned_hold("SESS-VIVA")
     order_owned = _planned_hold("order:WEB-123")
+    # Nem a regra de data passada alcança hold de pedido: liberar por baixo
+    # dos panos faria o fulfill tardio do pedido falhar.
+    order_owned_late = _planned_hold("order:WEB-124", target_date=yesterday)
     production = _planned_hold("wo:WO-001", purpose="workorder")
+    production_late = _planned_hold("wo:WO-002", target_date=yesterday, purpose="workorder")
+    manual = _planned_hold("")  # hold manual do operador, sem referência
 
     call_command("sweep_orphan_holds")
 
     assert not _is_released(live), "hold de sessão aberta não é órfão"
     assert not _is_released(order_owned), "hold adotado por pedido é do pedido"
+    assert not _is_released(order_owned_late), "pedido travado é do sweep_stuck_orders"
     assert not _is_released(production), "reserva de produção não é da varredura"
+    assert not _is_released(production_late), "reserva de produção não é da varredura"
+    assert not _is_released(manual), "hold manual do operador é decisão humana"
