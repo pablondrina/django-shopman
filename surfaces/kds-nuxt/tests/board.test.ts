@@ -49,6 +49,7 @@ const ticket = (
   status_label: "",
   is_cancelled: false,
   cancelled_at_display: "",
+  is_expedition: false,
   ...over,
 });
 
@@ -63,6 +64,7 @@ const expedition = (): KDSExpeditionCardProjection => ({
   units_count: "3",
   line_count: 2,
   total_display: "R$ 30,00",
+  is_expedition: true,
 });
 
 describe("kds board presentation", () => {
