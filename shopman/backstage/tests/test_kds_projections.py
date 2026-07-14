@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
-from shopman.orderman.models import Order, OrderItem
+from shopman.orderman.models import Order, OrderItem, Session
 
 from shopman.backstage.models import KDSInstance, KDSTicket
 from shopman.backstage.projections.kds import build_kds_board, build_kds_index, build_kds_ticket
@@ -70,6 +70,92 @@ def test_ticket_notes_default_empty_when_absent(kds_setup):
 
     assert ticket.kitchen_note == ""
     assert ticket.customer_note == ""
+
+
+@pytest.mark.django_db
+def test_precommit_comanda_strips_numeric_tab_padding(kds_setup):
+    # POS comanda fired to the kitchen before payment resolves to an open Session,
+    # whose tab_display carries the operator-facing number without the 8-digit
+    # storage padding. The KDS must call it "1012", never "00001012" (B2-6).
+    prep, _, _, _ = kds_setup
+    Session.objects.create(
+        session_key="sk-tab-num",
+        state="open",
+        handle_ref="00001012",
+        data={"tab_ref": "00001012", "tab_display": "1012"},
+    )
+    ticket = KDSTicket.objects.create(
+        session_key="sk-tab-num",
+        kds_instance=prep,
+        items=[{"sku": "SKU", "name": "Produto", "qty": 1}],
+    )
+
+    projection = build_kds_ticket(ticket.pk)
+
+    assert projection.order_ref == "1012"
+
+
+@pytest.mark.django_db
+def test_precommit_comanda_surfaces_named_tab(kds_setup):
+    # Operator NAMED the tab ("Mesa 5"); the KDS surfaces the name instead of an id (B6-14).
+    prep, _, _, _ = kds_setup
+    Session.objects.create(
+        session_key="sk-tab-named",
+        state="open",
+        handle_ref="MESA 5",
+        data={"tab_ref": "MESA 5", "tab_display": "Mesa 5"},
+    )
+    ticket = KDSTicket.objects.create(
+        session_key="sk-tab-named",
+        kds_instance=prep,
+        items=[{"sku": "SKU", "name": "Produto", "qty": 1}],
+    )
+
+    projection = build_kds_ticket(ticket.pk)
+
+    assert projection.order_ref == "Mesa 5"
+
+
+@pytest.mark.django_db
+def test_committed_order_keeps_named_tab_label(kds_setup):
+    # After payment the tab_display copied into Order.data keeps the KDS heading stable
+    # (no jarring flip from "Mesa 5" to the random order ref).
+    prep, _, _, _ = kds_setup
+    order = Order.objects.create(
+        ref="A42",
+        channel_ref="pos",
+        session_key="sk-tab-committed",
+        status="confirmed",
+        total_q=1500,
+        handle_ref="MESA 5",
+        data={"tab_ref": "MESA 5", "tab_display": "Mesa 5"},
+    )
+    OrderItem.objects.create(order=order, line_id="1", sku="SKU", name="Produto", qty=1, unit_price_q=1500, line_total_q=1500)
+    ticket = KDSTicket.objects.create(
+        session_key="sk-tab-committed",
+        kds_instance=prep,
+        items=[{"sku": "SKU", "name": "Produto", "qty": 1}],
+    )
+
+    projection = build_kds_ticket(ticket.pk)
+
+    assert projection.order_ref == "Mesa 5"
+
+
+@pytest.mark.django_db
+def test_precommit_comanda_falls_back_to_stripped_handle_ref(kds_setup):
+    # No explicit tab_display/tab_ref in data: the numeric handle still shows unpadded.
+    prep, _, _, _ = kds_setup
+    Session.objects.create(session_key="sk-tab-bare", state="open", handle_ref="00000007", data={})
+    ticket = KDSTicket.objects.create(
+        session_key="sk-tab-bare",
+        kds_instance=prep,
+        items=[{"sku": "SKU", "name": "Produto", "qty": 1}],
+    )
+
+    projection = build_kds_ticket(ticket.pk)
+
+    assert projection.order_ref == "7"
 
 
 @pytest.mark.django_db

@@ -21,6 +21,7 @@ from shopman.orderman.models import Order
 from shopman.utils.monetary import format_money
 
 from shopman.shop.services.order_helpers import get_fulfillment_type
+from shopman.shop.services.pos import display_tab_ref
 
 from .order_queue import _DEFAULT_CHANNEL_ICON, CHANNEL_ICONS
 
@@ -334,6 +335,31 @@ def _resolve_ticket_source(ticket):
     )
 
 
+def _display_order_ref(source, source_data: dict, handle_ref: str, session_key: str) -> str:
+    """Resolve the heading a KDS card calls a comanda/order by.
+
+    Prefers the operator-chosen POS tab label (``tab_display`` — e.g. "Mesa 5",
+    or "1012" already stripped of the 8-digit storage padding), so a *named* tab
+    surfaces on the KDS instead of a bare id (B6-14). ``tab_display`` lives in the
+    open ``Session.data`` (comanda fired before payment) and is copied into
+    ``Order.data`` at commit, so it is stable across the fire→pay transition.
+
+    Falls back to the normalized ``tab_ref``, then the order ref / handle / session
+    key. Numeric values are shown without their leading-zero padding so the kitchen
+    calls "1012", never "00001012" (B2-6). Web/iFood refs (e.g.
+    ``WEB-20260713-1012``) are non-numeric and pass through unchanged; the surface
+    still splits the {channel-date-} prefix from the called code.
+    """
+    tab_display = str(source_data.get("tab_display") or "").strip()
+    if tab_display:
+        return tab_display
+    tab_ref = str(source_data.get("tab_ref") or "").strip()
+    if tab_ref:
+        return display_tab_ref(tab_ref)
+    raw_ref = getattr(source, "ref", "") or handle_ref or session_key
+    return display_tab_ref(raw_ref)
+
+
 def _build_ticket(ticket, instance) -> KDSTicketProjection:
     now = timezone.now()
     is_cancelled = ticket.status == "cancelled"
@@ -351,7 +377,7 @@ def _build_ticket(ticket, instance) -> KDSTicketProjection:
     source = _resolve_ticket_source(ticket)
     source_data = (getattr(source, "data", None) or {}) if source is not None else {}
     handle_ref = getattr(source, "handle_ref", "") if source is not None else ""
-    order_ref = getattr(source, "ref", "") or handle_ref or ticket.session_key
+    order_ref = _display_order_ref(source, source_data, handle_ref, ticket.session_key)
     channel_ref = getattr(source, "channel_ref", "") if source is not None else ""
     customer_name = (
         source_data.get("customer", {}).get("name", "")
