@@ -1532,14 +1532,37 @@ def _tab_payload_line_discount(item: dict) -> dict | None:
     return {"value": value, "reason": manual.get("reason", "cortesia")}
 
 
-def _tab_line_display_price_q(item: dict) -> int:
-    """Pre-discount unit price for display: when a manual discount won, the
-    DiscountModifier stored the original price; otherwise the stored unit price."""
+def _manual_discount_originals(session: Session) -> dict[str, int]:
+    """Map ``sku -> pre-discount unit price`` for manual per-line discounts.
+
+    Sourced from ``session.pricing["discount"]["items"]``, which the
+    DiscountModifier writes precisely because the item-level ``modifiers_applied``
+    does NOT survive the session save (extra line fields are stripped on
+    ``update_items``). ``original_price_q`` is the price the discount was computed
+    against, deterministic per SKU, so a SKU key is unambiguous.
+    """
+    records = ((session.pricing or {}).get("discount") or {}).get("items") or []
+    return {
+        rec["sku"]: int(rec["original_price_q"])
+        for rec in records
+        if rec.get("type") == "manual" and rec.get("sku") and rec.get("original_price_q")
+    }
+
+
+def _tab_line_display_price_q(item: dict, manual_originals: dict[str, int]) -> int:
+    """Pre-discount unit price for display AND for restore.
+
+    When a manual per-line discount won, the DiscountModifier baked the discounted
+    price into ``unit_price_q``. The cart reloads the PRE-discount price plus the
+    discount descriptor, so re-sending applies the discount ONCE — reading back the
+    baked price while re-sending the descriptor double-applies it (bug B1-3). The
+    original comes from ``session.pricing`` (see ``_manual_discount_originals``),
+    never from the item's ``modifiers_applied`` (stripped on save)."""
     manual = (item.get("meta") or {}).get("manual_discount") or {}
     if manual.get("value"):
-        for mod in (item.get("modifiers_applied") or []):
-            if mod.get("type") == "manual" and mod.get("original_price_q"):
-                return int(mod["original_price_q"])
+        original = manual_originals.get(item.get("sku", ""))
+        if original:
+            return int(original)
     return int(item.get("unit_price_q", 0))
 
 
@@ -1568,12 +1591,13 @@ def build_open_tab(session: Session) -> dict:
     tab_ref = str(data.get("tab_ref") or session.handle_ref or "")
     tab_display = str(data.get("tab_display") or "") or _display_ref(tab_ref)
     fired_lines = set(data.get("fired_lines") or [])
+    manual_originals = _manual_discount_originals(session)
     items = [
         {
             "line_id": item.get("line_id", ""),
             "sku": item["sku"],
             "name": item.get("name", item["sku"]),
-            "price_q": _tab_line_display_price_q(item),
+            "price_q": _tab_line_display_price_q(item, manual_originals),
             "qty": int(item.get("qty", 1)),
             "notes": (item.get("meta") or {}).get("notes", ""),
             "is_d1": bool(item.get("is_d1")),

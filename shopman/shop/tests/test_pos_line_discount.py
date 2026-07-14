@@ -311,15 +311,41 @@ class TestTabPayloadRestore:
         assert pos_projection._tab_payload_line_discount({"sku": "X", "meta": {}}) is None
 
     def test_display_price_uses_pre_discount_when_manual_applied(self) -> None:
-        # After the modifier ran, unit_price_q is discounted; display restores base.
+        # After the modifier ran, unit_price_q is discounted; the reload restores the
+        # base price from session.pricing (NOT from the item's modifiers_applied,
+        # which is stripped on save) so the descriptor is not double-applied (B1-3).
         item = {
             "sku": "X",
             "unit_price_q": 1170,  # 1300 - 10%
             "meta": {"manual_discount": {"value": 10, "reason": "cortesia"}},
-            "modifiers_applied": [{"type": "manual", "original_price_q": 1300, "discount_q": 130}],
         }
-        assert pos_projection._tab_line_display_price_q(item) == 1300
+        originals = {"X": 1300}
+        assert pos_projection._tab_line_display_price_q(item, originals) == 1300
+
+    def test_display_price_falls_back_when_no_pricing_record(self) -> None:
+        # No surviving pricing record → fall back to the stored (baked) unit price
+        # rather than guessing; the descriptor path only triggers with an original.
+        item = {"sku": "X", "unit_price_q": 1170, "meta": {"manual_discount": {"value": 10}}}
+        assert pos_projection._tab_line_display_price_q(item, {}) == 1170
 
     def test_display_price_falls_back_to_unit_price(self) -> None:
         item = {"sku": "X", "unit_price_q": 1300, "meta": {}}
-        assert pos_projection._tab_line_display_price_q(item) == 1300
+        assert pos_projection._tab_line_display_price_q(item, {}) == 1300
+
+    def test_manual_originals_map_from_session_pricing(self) -> None:
+        # The surviving source: session.pricing["discount"]["items"]. Only manual
+        # records with an original price map; promotion/coupon records are ignored
+        # (their baked price is repriced on commit, not restored here).
+        from types import SimpleNamespace
+
+        session = SimpleNamespace(pricing={"discount": {"items": [
+            {"sku": "X", "type": "manual", "original_price_q": 1300, "discount_q": 1170, "qty": 1},
+            {"sku": "Y", "type": "promotion", "original_price_q": 900, "discount_q": 90, "qty": 1},
+            {"sku": "", "type": "coupon", "original_price_q": 0, "discount_q": 500, "qty": 1},
+        ]}})
+        assert pos_projection._manual_discount_originals(session) == {"X": 1300}
+
+    def test_manual_originals_map_empty_without_pricing(self) -> None:
+        from types import SimpleNamespace
+
+        assert pos_projection._manual_discount_originals(SimpleNamespace(pricing=None)) == {}
