@@ -6,7 +6,12 @@ from django.utils import timezone
 from shopman.orderman.models import Order, OrderItem, Session
 
 from shopman.backstage.models import KDSInstance, KDSTicket
-from shopman.backstage.projections.kds import build_kds_board, build_kds_index, build_kds_ticket
+from shopman.backstage.projections.kds import (
+    build_kds_board,
+    build_kds_customer_status,
+    build_kds_index,
+    build_kds_ticket,
+)
 from shopman.shop.models import Shop
 
 
@@ -196,6 +201,107 @@ def test_build_expedition_board_uses_ready_orders(kds_setup):
     assert board.tickets[0].is_delivery is True
     assert board.tickets[0].units_count == "2"
     assert board.tickets[0].line_count == 1
+
+
+# ── Customer pickup board (public) ─────────────────────────────────────────
+
+
+@pytest.mark.django_db
+def test_customer_board_includes_fired_unpaid_pickup_comanda(kds_setup):
+    # POS comanda fired to the kitchen before payment lives only as an open Session.
+    # It must show in "Em preparo" so the customer sees their order is being made,
+    # with its unpadded number (never the 8-digit storage padding).
+    Session.objects.create(
+        session_key="sk-cust-num",
+        state="open",
+        handle_ref="00001012",
+        data={"fired_lines": ["1"], "tab_ref": "00001012", "tab_display": "1012", "fulfillment_type": "pickup"},
+    )
+
+    status = build_kds_customer_status()
+
+    refs = [p.ref for p in status.preparing]
+    assert "1012" in refs
+    assert all(p.ref != "1012" for p in status.ready)
+
+
+@pytest.mark.django_db
+def test_customer_board_never_leaks_named_tab(kds_setup):
+    # A named comanda ("João") must NOT surface the name on this public screen —
+    # only an opaque, non-identifying code.
+    Session.objects.create(
+        session_key="sk-cust-named",
+        state="open",
+        handle_ref="JOÃO",
+        data={"fired_lines": ["1"], "tab_ref": "JOÃO", "tab_display": "João", "fulfillment_type": "pickup"},
+    )
+
+    status = build_kds_customer_status()
+
+    refs = [p.ref for p in status.preparing]
+    assert "João" not in refs
+    assert "JOÃO" not in refs
+    # The comanda still shows — as an opaque #code, not the name.
+    assert any(r.startswith("#") for r in refs)
+    assert all("JO" not in r.upper() for r in refs)
+
+
+@pytest.mark.django_db
+def test_customer_board_dedups_session_on_payment(kds_setup):
+    # A comanda that just got paid exists briefly as both a committed Order and its
+    # (still-open) Session: it must appear once — as the Order — not twice.
+    Order.objects.create(
+        ref="POS-DUP",
+        channel_ref="pos",
+        session_key="sk-dup",
+        status="confirmed",
+        total_q=1000,
+        data={"fulfillment_type": "pickup"},
+    )
+    Session.objects.create(
+        session_key="sk-dup",
+        state="open",
+        handle_ref="00009999",
+        data={"fired_lines": ["1"], "tab_ref": "00009999", "fulfillment_type": "pickup"},
+    )
+
+    status = build_kds_customer_status()
+
+    refs = [p.ref for p in status.preparing]
+    assert refs.count("POS-DUP") == 1
+    assert "9999" not in refs  # the duplicate Session was suppressed
+
+
+@pytest.mark.django_db
+def test_customer_board_excludes_delivery_comanda(kds_setup):
+    # Delivery comandas never belong on the pickup (counter) board.
+    Session.objects.create(
+        session_key="sk-cust-delivery",
+        state="open",
+        handle_ref="00005555",
+        data={"fired_lines": ["1"], "tab_ref": "00005555", "fulfillment_type": "delivery"},
+    )
+
+    status = build_kds_customer_status()
+
+    refs = [p.ref for p in status.preparing]
+    assert "5555" not in refs
+
+
+@pytest.mark.django_db
+def test_customer_board_ignores_comanda_without_fired_lines(kds_setup):
+    # An open comanda with nothing fired to the kitchen is not "em preparo".
+    Session.objects.create(
+        session_key="sk-cust-unfired",
+        state="open",
+        handle_ref="00007777",
+        data={"tab_ref": "00007777", "fulfillment_type": "pickup"},
+    )
+
+    status = build_kds_customer_status()
+
+    refs = [p.ref for p in status.preparing]
+    assert "7777" not in refs
 
 
 # A renderização das telas KDS migrou p/ o app Nuxt (kds.) sobre a API headless

@@ -9,6 +9,7 @@ Never imports from ``shopman.backstage.views.*``.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from dataclasses import dataclass
 from datetime import timedelta
@@ -243,7 +244,19 @@ def build_kds_ticket(ticket_pk: int) -> KDSTicketProjection:
 
 
 def build_kds_customer_status(*, limit: int = 24) -> KDSCustomerStatusProjection:
-    """Build a public pickup board without customer names, phones, totals, or addresses."""
+    """Build a public pickup board without customer names, phones, totals, or addresses.
+
+    Shows committed pickup Orders (READY vs em preparo) **plus** open POS comandas that
+    were fired to the kitchen before payment. Those exist only as open ``Session`` rows
+    (no ``Order`` yet), so an Order-fed board never showed the customer that their order
+    is already being made. Pre-commit comandas join the "em preparo" column with a
+    privacy-safe numeric/opaque code only (never the named tab — ``tab_display`` can be a
+    customer name on this public screen) and are de-duplicated against committed Orders by
+    ``session_key`` so a just-paid comanda is not listed twice.
+    """
+    from shopman.orderman.models import Session
+
+    fetch = max(limit * 2, limit)
     orders_qs = (
         Order.objects.filter(
             status__in=[
@@ -252,13 +265,16 @@ def build_kds_customer_status(*, limit: int = 24) -> KDSCustomerStatusProjection
                 Order.Status.READY,
             ]
         )
-        .order_by("ready_at", "updated_at", "created_at")[: max(limit * 2, limit)]
+        .order_by("ready_at", "updated_at", "created_at")[:fetch]
     )
 
     preparing: list[KDSCustomerOrderProjection] = []
     ready: list[KDSCustomerOrderProjection] = []
+    committed_session_keys: set[str] = set()
 
     for order in orders_qs:
+        if order.session_key:
+            committed_session_keys.add(order.session_key)
         if get_fulfillment_type(order) == "delivery":
             continue
         projection = KDSCustomerOrderProjection(
@@ -272,14 +288,53 @@ def build_kds_customer_status(*, limit: int = 24) -> KDSCustomerStatusProjection
         else:
             preparing.append(projection)
 
-        if len(preparing) + len(ready) >= limit:
-            break
+    # Pre-commit POS comandas fired to the kitchen but not yet paid (open Sessions).
+    sessions_qs = Session.objects.filter(state="open").order_by("-updated_at")[:fetch]
+    for session in sessions_qs:
+        if session.session_key in committed_session_keys:
+            continue  # already surfaced as its committed Order (dedup on payment)
+        data = session.data or {}
+        if not data.get("fired_lines"):
+            continue  # nothing fired to the kitchen yet → not "em preparo"
+        if (data.get("fulfillment_type") or data.get("delivery_method") or "pickup") == "delivery":
+            continue  # pickup/counter only — delivery never shows on the pickup board
+        preparing.append(
+            KDSCustomerOrderProjection(
+                ref=_public_comanda_code(session),
+                status=Order.Status.PREPARING,
+                status_label="Em preparo",
+                updated_at_display=_format_time(session.updated_at),
+            )
+        )
+
+    # Apply the display budget without starving READY (the pickup priority): keep the
+    # ready column first, then fill "em preparo" with whatever slots remain.
+    ready = ready[:limit]
+    preparing = preparing[: max(0, limit - len(ready))]
 
     return KDSCustomerStatusProjection(
         preparing=tuple(preparing),
         ready=tuple(ready),
         updated_at_display=_format_time(timezone.now()),
     )
+
+
+def _public_comanda_code(session) -> str:
+    """A privacy-safe public code for a pre-commit POS comanda.
+
+    The pickup board is a PUBLIC screen, so it must never leak a named tab
+    (``tab_display`` / ``tab_ref`` can be a customer name like "João"). A purely
+    numeric comanda shows its unpadded number ("1012"); anything else (a name)
+    falls back to a short, stable, non-identifying code derived from the session
+    key — deterministic so it stays put across the board's 10s refresh.
+    """
+    data = session.data or {}
+    for candidate in (data.get("tab_ref"), session.handle_ref):
+        text = str(candidate or "").strip()
+        if text.isdigit():
+            return display_tab_ref(text)
+    digest = hashlib.blake2s(str(session.session_key).encode("utf-8"), digest_size=2).hexdigest().upper()
+    return f"#{digest}"
 
 
 # ── Internals ──────────────────────────────────────────────────────────
