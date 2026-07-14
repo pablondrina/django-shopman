@@ -632,9 +632,9 @@ const headerCount = computed(() => {
       <!-- Erro só toma a tela quando NÃO há dado nenhum a mostrar (acolhedor, não tela branca). -->
       <div
         v-else-if="display === 'error'"
-        class="grid place-items-center gap-2 rounded-lg border border-dashed border-red-500/30 py-16 text-center text-muted-foreground"
+        class="grid place-items-center gap-2 rounded-lg border border-dashed border-destructive/30 py-16 text-center text-muted-foreground"
       >
-        <Icon name="lucide:cloud-off" class="size-8 text-red-500/70" />
+        <Icon name="lucide:cloud-off" class="size-8 text-destructive/70" />
         <p class="text-base font-medium text-foreground">
           Não foi possível carregar o quadro.
         </p>
@@ -654,7 +654,7 @@ const headerCount = computed(() => {
           v-if="stale"
           role="status"
           aria-live="polite"
-          class="mb-3 flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-700 dark:text-amber-300"
+          class="mb-3 flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm font-medium text-amber-700 dark:text-amber-300"
         >
           <Icon name="lucide:wifi-off" class="size-4 shrink-0" />
           <span>Sem atualizar — mostrando o último quadro carregado.</span>
@@ -714,7 +714,7 @@ const headerCount = computed(() => {
                       class="inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-semibold tabular-nums transition"
                       :class="
                         oven.isRinging(ovenKey(row))
-                          ? 'animate-pulse border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300'
+                          ? 'animate-pulse border-destructive/40 bg-destructive/10 text-destructive dark:text-orange-300'
                           : oven.get(ovenKey(row))
                             ? 'border-border bg-muted text-foreground'
                             : 'border-dashed text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -1059,7 +1059,7 @@ const headerCount = computed(() => {
 
         <div v-if="voidConfirming" class="flex flex-col gap-2">
           <p
-            class="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5 text-sm text-amber-700 dark:text-amber-300"
+            class="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-2.5 text-sm text-amber-700 dark:text-amber-300"
           >
             <Icon name="lucide:triangle-alert" class="mt-0.5 size-4 shrink-0" />
             <span
@@ -1079,7 +1079,7 @@ const headerCount = computed(() => {
           <button
             v-if="!voidConfirming"
             type="button"
-            class="mr-auto rounded-md border px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-500/10 dark:text-red-300"
+            class="mr-auto rounded-md border px-3 py-2 text-sm font-medium text-destructive transition hover:bg-destructive/10 dark:text-orange-300"
             @click="voidConfirming = true"
           >
             Estornar…
@@ -1087,7 +1087,7 @@ const headerCount = computed(() => {
           <button
             v-else
             type="button"
-            class="mr-auto rounded-md border border-transparent bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+            class="mr-auto rounded-md border border-transparent bg-destructive px-3 py-2 text-sm font-semibold text-white transition hover:bg-destructive/90"
             @click="confirmVoid()"
           >
             Confirmar estorno
@@ -1250,7 +1250,7 @@ const headerCount = computed(() => {
           <button
             v-if="ovenRow && oven.get(ovenKey(ovenRow))"
             type="button"
-            class="mr-auto rounded-md border px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-500/10 dark:text-red-300"
+            class="mr-auto rounded-md border px-3 py-2 text-sm font-medium text-destructive transition hover:bg-destructive/10 dark:text-orange-300"
             @click="cancelOven()"
           >
             Cancelar timer

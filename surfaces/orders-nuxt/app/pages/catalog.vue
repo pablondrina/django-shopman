@@ -335,14 +335,14 @@ useHead({ title: "Catálogo · Gestor" });
                         class="shrink-0 rounded-full px-1.5 py-0.5 text-xs font-medium"
                         :class="{
                           'bg-destructive/10 text-destructive': rowStatuses[row.sku]?.tone === 'danger',
-                          'bg-amber-500/15 text-amber-600 dark:text-amber-400': rowStatuses[row.sku]?.tone === 'amber',
+                          'bg-warning/15 text-amber-600 dark:text-amber-400': rowStatuses[row.sku]?.tone === 'amber',
                           'bg-muted text-muted-foreground': rowStatuses[row.sku]?.tone === 'muted',
                         }"
                       >{{ rowStatuses[row.sku]?.label }}</span>
                       <!-- esgotado que repõe por produção: a próxima fornada reativa sozinha -->
                       <span v-if="row.sold_out && row.replenish_qty" class="shrink-0 text-xs font-normal text-muted-foreground">repõe {{ row.replenish_qty }} na fornada</span>
                       <!-- estoque baixo (produto ainda ativo): aviso discreto -->
-                      <span v-else-if="!rowStatuses[row.sku]?.off && row.low_stock" class="shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">resta {{ row.stock_qty }}</span>
+                      <span v-else-if="!rowStatuses[row.sku]?.off && row.low_stock" class="shrink-0 rounded-full bg-warning/15 px-1.5 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">resta {{ row.stock_qty }}</span>
                     </span>
                     <span class="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <span class="font-mono">{{ row.sku }}</span>
@@ -410,7 +410,7 @@ useHead({ title: "Catálogo · Gestor" });
                 <button
                   type="button" role="switch" :aria-checked="cell.is_sellable"
                   class="relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:opacity-40"
-                  :class="cell.is_sellable && !rowStatuses[row.sku]?.off ? 'bg-emerald-500' : 'bg-muted-foreground/30'"
+                  :class="cell.is_sellable && !rowStatuses[row.sku]?.off ? 'bg-success' : 'bg-muted-foreground/30'"
                   :disabled="isBusy(cellKey(row.sku, cell.surface_ref))"
                   :aria-label="cell.is_sellable ? `${cellView(row, cell).label} — pausar neste ${surfaceWord(cell)}` : `Reativar neste ${surfaceWord(cell)}`"
                   :title="cell.is_sellable ? `${cellView(row, cell).label} — pausar neste ${surfaceWord(cell)}` : `Pausado — reativar neste ${surfaceWord(cell)}`"
@@ -444,7 +444,7 @@ useHead({ title: "Catálogo · Gestor" });
                             class="size-2.5"
                             :class="rowStatuses[row.sku]?.off
                               ? 'text-muted-foreground/60'
-                              : (cellPrice(row, cell).delta === 'up' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400')"
+                              : (cellPrice(row, cell).delta === 'up' ? 'text-amber-600 dark:text-amber-400' : 'text-success dark:text-lime-400')"
                           />
                         </span>
                         <span class="text-xs font-semibold tabular-nums" :class="cell.is_sellable ? 'text-foreground' : 'text-muted-foreground line-through'">{{ cell.price_display.replace("R$ ", "") }}</span>

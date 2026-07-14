@@ -45,15 +45,15 @@ function onClick() {
     :class="[
       showLabels ? 'w-full gap-3 px-2.5' : 'w-10 justify-center',
       active
-        ? 'bg-primary-foreground/15 text-primary-foreground'
-        : 'text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground',
+        ? 'bg-rail-foreground/15 text-rail-foreground'
+        : 'text-rail-foreground/80 hover:bg-rail-foreground/10 hover:text-rail-foreground',
     ]"
     @click="onClick"
   >
     <!-- Anel de atenção quando `attention` (e não ativo): sobrevive ao estado compacto. -->
     <span
       v-if="attention && !active"
-      class="grid size-7 shrink-0 place-items-center rounded-md ring-2 ring-primary-foreground/45"
+      class="grid size-7 shrink-0 place-items-center rounded-md ring-2 ring-rail-foreground/45"
     >
       <Icon :name="iconName" class="size-5" />
     </span>

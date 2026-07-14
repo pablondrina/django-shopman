@@ -342,7 +342,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         </UiButton>
         <span
           v-if="inSaleView && !checkoutMode && unsaved"
-          class="inline-flex shrink-0 items-center gap-1 rounded-md border border-amber-500/50 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-400"
+          class="inline-flex shrink-0 items-center gap-1 rounded-md border border-warning/50 bg-warning/10 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-400"
           role="status"
           title="A comanda não pôde ser salva — tentando de novo"
         >
@@ -378,20 +378,20 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
 
       <div class="flex min-h-0 w-full flex-1 flex-col gap-3 px-4 py-3 md:min-h-0 md:overflow-hidden">
       <div class="grid shrink-0 gap-3 empty:hidden">
-      <UiAlert v-if="result" class="border-green-500/30 bg-green-500/10 text-green-800">
+      <UiAlert v-if="result" class="border-success/30 bg-success/10 text-success">
         <Icon name="lucide:circle-check" class="size-4" />
         <UiAlertTitle>Pedido criado: {{ result.orderRef }}</UiAlertTitle>
         <UiAlertDescription>
           <div class="flex flex-col gap-2">
             <PosPaymentResult v-if="result.payment?.hasProof" :proof="result.payment" :status="pixStatus" />
             <div class="flex flex-wrap items-center gap-2">
-              <UiButton variant="outline" size="sm" class="gap-1.5 border-green-600/40 text-green-800 hover:bg-green-500/10" @click="printReceipt">
+              <UiButton variant="outline" size="sm" class="gap-1.5 border-success/40 text-success hover:bg-success/10" @click="printReceipt">
                 <Icon name="lucide:printer" class="size-4" />
                 Imprimir recibo
               </UiButton>
               <a
                 v-if="result.issueFiscalDocument"
-                class="inline-flex h-8 items-center gap-1.5 rounded-md border border-green-600/40 px-3 text-sm font-medium text-green-800 transition hover:bg-green-500/10"
+                class="inline-flex h-8 items-center gap-1.5 rounded-md border border-success/40 px-3 text-sm font-medium text-success transition hover:bg-success/10"
                 :href="`${djangoOrigin}/fiscal/danfe/${encodeURIComponent(result.orderRef)}/`"
                 target="_blank" rel="noopener"
               >
@@ -400,7 +400,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
               </a>
               <a class="font-semibold underline underline-offset-4" :href="result.nextUrl">Abrir no gestor</a>
             </div>
-            <div v-if="canCancelRecentSale" class="flex flex-col gap-2 border-t border-green-500/20 pt-2">
+            <div v-if="canCancelRecentSale" class="flex flex-col gap-2 border-t border-success/20 pt-2">
               <UiInput
                 v-model="cancelSaleReason"
                 placeholder="Motivo do cancelamento (opcional)"
@@ -422,7 +422,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         </UiAlertDescription>
       </UiAlert>
 
-      <UiAlert v-if="saleCancelled" class="border-amber-500/30 bg-amber-500/10 text-amber-800">
+      <UiAlert v-if="saleCancelled" class="border-warning/30 bg-warning/10 text-amber-800">
         <Icon name="lucide:circle-check" class="size-4" />
         <UiAlertTitle>Venda cancelada</UiAlertTitle>
         <UiAlertDescription>O pedido foi cancelado dentro da janela do operador.</UiAlertDescription>

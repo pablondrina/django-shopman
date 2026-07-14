@@ -76,12 +76,12 @@ onBeforeUnmount(() => {
         >
           <Icon
             name="lucide:circle-check-big"
-            class="size-7 shrink-0 text-green-500"
+            class="size-7 shrink-0 text-success"
           />
           Pronto para retirar
           <span
             v-if="ready.length"
-            class="rounded-full bg-green-500/15 px-2.5 py-0.5 text-base font-bold tabular-nums text-green-500"
+            class="rounded-full bg-success/15 px-2.5 py-0.5 text-base font-bold tabular-nums text-success"
             >{{ ready.length }}</span
           >
         </h2>
@@ -93,10 +93,10 @@ onBeforeUnmount(() => {
           <article
             v-for="order in ready"
             :key="order.ref"
-            class="rounded-lg border-2 border-green-500/50 bg-green-500/10 px-6 py-5 shadow-sm"
+            class="rounded-lg border-2 border-success/50 bg-success/10 px-6 py-5 shadow-sm"
           >
             <p
-              class="text-xs font-bold uppercase tracking-wider text-green-600 dark:text-green-500"
+              class="text-xs font-bold uppercase tracking-wider text-success dark:text-lime-300"
             >
               {{ splitRef(order.ref).prefix || "Pedido" }}
             </p>

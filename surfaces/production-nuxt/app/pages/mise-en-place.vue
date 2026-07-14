@@ -236,9 +236,9 @@ function refreshAll() {
         </p>
         <div
           v-else-if="error && !lines.length"
-          class="grid place-items-center gap-2 rounded-lg border border-dashed border-red-500/30 py-16 text-center text-muted-foreground"
+          class="grid place-items-center gap-2 rounded-lg border border-dashed border-destructive/30 py-16 text-center text-muted-foreground"
         >
-          <Icon name="lucide:cloud-off" class="size-8 text-red-500/70" />
+          <Icon name="lucide:cloud-off" class="size-8 text-destructive/70" />
           <p class="text-base font-medium text-foreground">
             Não foi possível carregar a lista.
           </p>
@@ -269,7 +269,7 @@ function refreshAll() {
             v-if="staleIngredients"
             role="status"
             aria-live="polite"
-            class="mb-3 flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-700 dark:text-amber-300"
+            class="mb-3 flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm font-medium text-amber-700 dark:text-amber-300"
           >
             <Icon name="lucide:wifi-off" class="size-4 shrink-0" />
             <span>Sem atualizar — mostrando a última lista carregada.</span>
@@ -346,7 +346,7 @@ function refreshAll() {
                       <span
                         :class="
                           line.is_short
-                            ? 'font-semibold text-red-700 dark:text-red-400'
+                            ? 'font-semibold text-destructive dark:text-orange-400'
                             : 'text-muted-foreground'
                         "
                       >
@@ -354,7 +354,7 @@ function refreshAll() {
                       </span>
                       <p
                         v-if="line.is_short"
-                        class="text-xs font-medium text-red-700 dark:text-red-400"
+                        class="text-xs font-medium text-destructive dark:text-orange-400"
                       >
                         falta
                       </p>
@@ -427,9 +427,9 @@ function refreshAll() {
         </p>
         <div
           v-else-if="weighing.error.value && !weighing.tickets.value.length"
-          class="grid place-items-center gap-2 rounded-lg border border-dashed border-red-500/30 py-16 text-center text-muted-foreground"
+          class="grid place-items-center gap-2 rounded-lg border border-dashed border-destructive/30 py-16 text-center text-muted-foreground"
         >
-          <Icon name="lucide:cloud-off" class="size-8 text-red-500/70" />
+          <Icon name="lucide:cloud-off" class="size-8 text-destructive/70" />
           <p class="text-base font-medium text-foreground">
             Não foi possível carregar os preparos.
           </p>
@@ -462,7 +462,7 @@ function refreshAll() {
             v-if="staleWeighing"
             role="status"
             aria-live="polite"
-            class="mb-3 flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-700 dark:text-amber-300"
+            class="mb-3 flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm font-medium text-amber-700 dark:text-amber-300"
           >
             <Icon name="lucide:wifi-off" class="size-4 shrink-0" />
             <span

@@ -71,7 +71,7 @@ describe("OrderCard — render", () => {
   });
 
   it("can_confirm (não selecionado) ganha o filete âmbar à esquerda", () => {
-    expect(mountCard({ card: card({ can_confirm: true }) }).find("article").classes()).toContain("border-l-amber-500");
+    expect(mountCard({ card: card({ can_confirm: true }) }).find("article").classes()).toContain("border-l-warning");
   });
 });
 

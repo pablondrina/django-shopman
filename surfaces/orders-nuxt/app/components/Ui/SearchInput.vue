@@ -28,7 +28,7 @@ defineExpose({ focus: () => input.value?.focus() });
       inputmode="search"
       :placeholder="placeholder"
       :aria-label="ariaLabel"
-      class="h-9 w-44 rounded-md border bg-background pl-8 pr-8 text-sm outline-none transition-[width,box-shadow] focus:w-56 focus:ring-1 focus:ring-ring sm:w-52 sm:focus:w-64"
+      class="h-9 w-44 rounded-md border bg-card pl-8 pr-8 text-sm outline-none transition-[width,box-shadow] focus:w-56 focus:ring-1 focus:ring-ring sm:w-52 sm:focus:w-64"
       @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
     />
     <button

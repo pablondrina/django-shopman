@@ -107,7 +107,7 @@ function confirmTyped() {
             :key="tab.ref"
             type="button"
             class="grid gap-1 rounded-md border px-3 py-2 text-left transition hover:border-primary/50 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-border disabled:hover:bg-transparent"
-            :class="tab.state === 'in_use' ? 'border-amber-500/40 bg-amber-500/10' : ''"
+            :class="tab.state === 'in_use' ? 'border-warning/40 bg-warning/10' : ''"
             :disabled="busy || !canAssociate(tab)"
             @click="selectTab(tab)"
           >

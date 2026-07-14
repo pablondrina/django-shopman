@@ -348,7 +348,7 @@ function printQueue() {
 
     <section class="min-h-0 flex-1 overflow-auto p-3 md:p-4">
       <p v-if="pending && !zones.length" class="text-sm text-muted-foreground">Carregando…</p>
-      <p v-else-if="error" class="rounded-md border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-700 dark:text-red-400">
+      <p v-else-if="error" class="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive dark:text-orange-400">
         Falha ao carregar a fila. Reconectando…
       </p>
 
@@ -480,7 +480,7 @@ function printQueue() {
                       type="button"
                       :disabled="isBusy(row.card.ref)"
                       class="grid size-7 place-items-center rounded border transition disabled:opacity-50"
-                      :class="a.priority === 'primary' ? 'border-transparent bg-primary text-primary-foreground hover:bg-primary/90' : a.priority === 'danger' ? 'border-red-500/40 text-red-700 hover:bg-red-500/10 dark:text-red-300' : 'hover:bg-accent'"
+                      :class="a.priority === 'primary' ? 'border-transparent bg-primary text-primary-foreground hover:bg-primary/90' : a.priority === 'danger' ? 'border-destructive/40 text-destructive hover:bg-destructive/10 dark:text-orange-300' : 'hover:bg-accent'"
                       :aria-label="a.label"
                       :title="a.label"
                       @click="onAction(row.card.ref, a.ref)"
@@ -493,10 +493,10 @@ function printQueue() {
               <!-- action error sub-row: the backend's specific reason, inline -->
               <tr v-if="actionError(row.card.ref)" class="border-b last:border-0">
                 <td colspan="9" class="px-3 pb-2">
-                  <div class="flex items-start gap-1.5 rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1.5 text-xs text-red-700 dark:text-red-300" role="alert">
+                  <div class="flex items-start gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive dark:text-orange-300" role="alert">
                     <Icon name="lucide:alert-triangle" class="mt-px size-3.5 shrink-0" />
                     <span class="min-w-0 flex-1">{{ actionError(row.card.ref) }}</span>
-                    <button type="button" class="shrink-0 rounded p-0.5 transition hover:bg-red-500/20" aria-label="Dispensar aviso" @click="clearActionError(row.card.ref)">
+                    <button type="button" class="shrink-0 rounded p-0.5 transition hover:bg-destructive/20" aria-label="Dispensar aviso" @click="clearActionError(row.card.ref)">
                       <Icon name="lucide:x" class="size-3.5" />
                     </button>
                   </div>
@@ -544,7 +544,7 @@ function printQueue() {
           <button
             type="button"
             :disabled="!canConfirmReject"
-            class="rounded-md border border-transparent bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+            class="rounded-md border border-transparent bg-destructive px-3 py-2 text-sm font-semibold text-white transition hover:bg-destructive/90 disabled:opacity-50"
             @click="confirmReject"
           >
             Recusar pedido

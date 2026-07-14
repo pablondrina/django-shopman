@@ -12,9 +12,9 @@ import type { PaymentProofView } from "~/presentation/payment";
 const props = defineProps<{ proof: PaymentProofView; status?: "idle" | "polling" | "paid" | "expired" }>();
 
 const TONE_CLASS: Record<PaymentProofView["tone"], string> = {
-  info: "border-sky-500/30 bg-sky-500/10 text-sky-800",
-  warning: "border-amber-500/30 bg-amber-500/10 text-amber-800",
-  success: "border-green-500/30 bg-green-500/10 text-green-800",
+  info: "border-info/30 bg-info/10 text-info",
+  warning: "border-warning/30 bg-warning/10 text-amber-800",
+  success: "border-success/30 bg-success/10 text-success",
   danger: "border-destructive/40 bg-destructive/5 text-destructive",
   neutral: "border bg-muted/40",
 };
@@ -34,7 +34,7 @@ async function copyCode() {
   <!-- PIX confirmado: o polling detectou o pagamento — troca a tela por "Pago". -->
   <div
     v-if="proof.isPix && status === 'paid'"
-    class="grid gap-1 rounded-md border border-green-500/40 bg-green-500/10 p-3 text-green-800 dark:text-green-300"
+    class="grid gap-1 rounded-md border border-success/40 bg-success/10 p-3 text-success dark:text-lime-300"
     role="status"
     aria-live="polite"
   >
