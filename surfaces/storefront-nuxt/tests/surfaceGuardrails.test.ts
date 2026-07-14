@@ -663,7 +663,7 @@ describe('surface UX guardrails', () => {
     expect(cartPage).toContain('data-cart-line-awaiting')
     expect(cartPage).toContain('data-cart-line-ready')
     expect(cartPage).toContain('data-cart-hold-banner')
-    expect(cartPage).toContain('Aguardando confirmação')
+    expect(cartPage).toContain('Lista de espera')
     expect(cartPage).toContain('Tudo pronto! Confirme')
     expect(cartPage).toContain('Tempo restante:')
   })
