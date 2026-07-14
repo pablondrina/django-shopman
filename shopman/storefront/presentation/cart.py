@@ -244,7 +244,7 @@ def build_cart(
             resolve_copy("CART_UNAVAILABLE_BANNER", moment="*", audience="*").message or ""
         ).strip(),
         awaiting_confirmation_notice=(
-            resolve_copy("PICKUP_READY_NOTICE", moment="*", audience="*").message or ""
+            resolve_copy("CART_WAITLIST_NOTICE", moment="*", audience="*").message or ""
         ).strip(),
         minimum_order_progress=min_order,
         delivery_minimum_progress=delivery_minimum,

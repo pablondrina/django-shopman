@@ -1410,7 +1410,7 @@ useSeoMeta({
           <BottomSheet
             v-model:open="confirmOpen"
             max-width="md"
-            title="Confirmar pedido"
+            title="Revise seu pedido"
             :description="confirmSheetDescription"
           >
             <!-- Superfície única, diagramação enxuta. O corpo rola; o rodapé fica
@@ -1426,8 +1426,18 @@ useSeoMeta({
                 <li v-for="line in cart?.items || []" :key="line.line_id" class="shop-body">
                   <span class="font-semibold tabular-nums">{{ line.qty }}×</span>
                   {{ line.name }}
+                  <UiBadge v-if="line.is_awaiting_confirmation" variant="outline" class="ml-1 align-middle">
+                    Lista de espera
+                  </UiBadge>
                 </li>
               </ul>
+
+              <!-- Itens em lista de espera: o "avisamos quando ficar pronto" vive AQUI
+                   (revisão), não na sacola. Na sacola o aviso orienta a enviar o pedido. -->
+              <p v-if="cart?.has_awaiting_confirmation_items" class="mt-2 shop-meta">
+                <Icon name="lucide:clock" class="mr-1 inline size-3.5 align-text-bottom" />
+                Itens em lista de espera: avisamos quando ficarem prontos.
+              </p>
 
               <UiSeparator class="my-3" />
 

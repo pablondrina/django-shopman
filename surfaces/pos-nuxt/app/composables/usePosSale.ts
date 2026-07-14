@@ -569,20 +569,26 @@ export function usePosSale(deps: PosSaleDeps) {
     cart.deliveryTimeSlot = payload.delivery_time_slot || "";
     cart.deliveryFeeInput = payload.delivery_fee_q ? (Number(payload.delivery_fee_q) / 100).toFixed(2).replace(".", ",") : "";
     cart.orderNotes = payload.order_notes || "";
-    cart.paymentMethod = payload.payment_method || cart.paymentMethod || pos.value?.payment_methods[0]?.ref || "cash";
-    cart.paymentCollection = payload.payment_collection === "on_delivery" ? "on_delivery" : "terminal";
-    // Spec: do not replay saved/default tender lines as operator payment input.
-    cart.paymentTenders = [];
-    selectedTenderIndex.value = -1;
-    cart.tenderedAmountInput = payload.tendered_amount_q ? (Number(payload.tendered_amount_q) / 100).toFixed(2).replace(".", ",") : "";
-    cart.issueFiscalDocument = !!payload.issue_fiscal_document;
-    cart.receiptMode = payload.receipt_mode || "none";
-    cart.receiptEmail = payload.receipt_email || "";
-    cart.discountType = "percent";
-    cart.discountValue = "";
-    cart.discountReason = "";
-    cart.managerUsername = "";
-    cart.managerPin = "";
+    // preserveCheckout: o operador pode JÁ estar lançando o pagamento (método,
+    // tenders, valor recebido) enquanto a comanda recarrega por baixo do shell —
+    // sobrescrever aqui apagava a entrada dele no meio do gesto. Os campos de
+    // ENTRADA do checkout são do operador; o payload só manda fora do checkout.
+    if (!options.preserveCheckout) {
+      cart.paymentMethod = payload.payment_method || cart.paymentMethod || pos.value?.payment_methods[0]?.ref || "cash";
+      cart.paymentCollection = payload.payment_collection === "on_delivery" ? "on_delivery" : "terminal";
+      // Spec: do not replay saved/default tender lines as operator payment input.
+      cart.paymentTenders = [];
+      selectedTenderIndex.value = -1;
+      cart.tenderedAmountInput = payload.tendered_amount_q ? (Number(payload.tendered_amount_q) / 100).toFixed(2).replace(".", ",") : "";
+      cart.issueFiscalDocument = !!payload.issue_fiscal_document;
+      cart.receiptMode = payload.receipt_mode || "none";
+      cart.receiptEmail = payload.receipt_email || "";
+      cart.discountType = "percent";
+      cart.discountValue = "";
+      cart.discountReason = "";
+      cart.managerUsername = "";
+      cart.managerPin = "";
+    }
     cart.clientRequestId = "";
     customerLookup.value = null;
     // preserveCheckout: o checkout otimista recarrega a comanda POR BAIXO do shell

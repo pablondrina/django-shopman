@@ -149,8 +149,11 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "CART_UNAVAILABLE_BANNER": {
         WILDCARD: {WILDCARD: CopyEntry(message="O estoque de alguns itens mudou. Veja as opções em cada item abaixo.")},
     },
-    "PICKUP_READY_NOTICE": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Avisamos quando ficar pronto.")},
+    # Aviso da linha em LISTA DE ESPERA na sacola: orienta o cliente a enviar o
+    # pedido para entrar na fila com prioridade (decisão Pablo 2026-07-14). O
+    # "avisamos quando ficar pronto" migrou para a revisão do pedido.
+    "CART_WAITLIST_NOTICE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Envie o pedido para garantir a sua prioridade.")},
     },
     "MIN_ORDER_WARNING": {
         WILDCARD: {WILDCARD: CopyEntry(message="Adicionar mais itens")},

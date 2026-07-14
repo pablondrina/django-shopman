@@ -161,6 +161,41 @@ describe("usePosSale — checkout otimista (sem flash)", () => {
     h.handles.dispose();
   });
 
+  it("entrada de pagamento digitada durante o load do checkout não é perdida", async () => {
+    let resolveOpen!: (value: unknown) => void;
+    const actionCall = vi.fn().mockImplementation((path: string) => {
+      const p = String(path);
+      if (p.includes("/tabs/save/")) return Promise.resolve({});
+      if (p.includes("/open/")) return new Promise((resolve) => { resolveOpen = resolve; });
+      if (p.includes("/sale/review/")) return Promise.resolve({ review: { total_q: 1000, total_display: "R$ 10,00" } });
+      return Promise.resolve({});
+    });
+    const h = makeSale({ projection: freeCartProjection(), actionCall });
+    Object.assign(h.sale.cart, { tabRef: "M1", tabDisplay: "M1", tabSessionKey: "sess-1" });
+    const pao = h.handles.posValue.value!.products[0]!;
+    h.sale.addProduct(pao);
+
+    const pending = h.sale.submitSale(); // shell aberto, reload da comanda pendente
+    expect(h.sale.checkoutMode.value).toBe(true);
+    await vi.waitFor(() => {
+      if (!resolveOpen) throw new Error("open_tab ainda não chamado");
+    });
+    // Operador já lança dinheiro + valor enquanto a comanda recarrega por baixo.
+    h.sale.cart.paymentMethod = "cash";
+    h.sale.cart.paymentTenders.push({ method: "cash", amount_q: 2000 });
+    h.sale.cart.tenderedAmountInput = "20,00";
+
+    resolveOpen(makeTabPayload({
+      items: [{ sku: "PAO", name: "Pão", qty: 2, unit_price_q: 500, price_q: 500 }],
+    }));
+    await pending;
+
+    expect(h.sale.cart.paymentTenders).toHaveLength(1); // entrada preservada
+    expect(h.sale.cart.tenderedAmountInput).toBe("20,00");
+    expect(h.sale.cart.paymentMethod).toBe("cash");
+    h.handles.dispose();
+  });
+
   it("com comanda aberta, o reload da comanda não derruba o checkout otimista", async () => {
     const actionCall = vi.fn().mockImplementation(async (path: string) => {
       const p = String(path);
