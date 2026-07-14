@@ -26,6 +26,7 @@ export interface KDSTicketProjection {
   items: KDSItemProjection[];
   status: string;
   all_checked: boolean;
+  is_expedition: boolean;
   status_label: string;
   is_cancelled: boolean;
   cancelled_at_display: string;
@@ -47,6 +48,7 @@ export interface KDSExpeditionCardProjection {
   line_count: number;
   total_display: string;
   items: KDSItemProjection[];
+  is_expedition: boolean;
 }
 
 /** A KDS instance in the index (station selector). */

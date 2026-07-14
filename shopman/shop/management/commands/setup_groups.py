@@ -49,6 +49,8 @@ class Command(BaseCommand):
             "Gerente": [
                 shop_shop("manage_orders"),
                 shop_cash("operate_pos"),
+                shop_cash("adjust_cashshift"),
+                shop_cash("manage_operators"),
                 shop_dclo("perform_closing"),
                 shop_dclo("operate_production"),
                 shop_shop("view_reports"),

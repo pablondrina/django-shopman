@@ -254,3 +254,35 @@ class CommitStockGateCheckOnCommitTests(TestCase):
         # O pedido nasce (gate transacional não se aplica) e o dispatch
         # assume a decisão de disponibilidade na fase on_commit.
         self.assertTrue(Order.objects.filter(ref=result.order_ref).exists())
+
+
+class CommitStockGateBalcaoNeverRejectsTests(TestCase):
+    """Balcão (pdv): item esgotado NÃO auto-rejeita — a mercadoria já saiu da
+    vitrine. Config-driven via ``stock.check_on_commit=False`` (mesma semântica do
+    marketplace). Regressão do P0 "venda-fantasma" (QA backstage 2026-07-13, Q1)."""
+
+    SKU = "GATE-SKU-BALCAO"
+
+    def setUp(self):
+        _make_shop()
+        self.channel = _make_channel(
+            "gate-balcao",
+            config={
+                "confirmation": {"mode": "immediate"},
+                "payment": {"method": "cash", "timing": "external"},
+                "stock": {"check_on_commit": False},
+            },
+        )
+        _make_tracked_product(self.SKU, qty=0)  # esgotado
+
+    def test_out_of_stock_balcao_sale_is_not_auto_cancelled(self) -> None:
+        from shopman.orderman.models import Order
+
+        _open_session(self.channel.ref, "GATE-BALCAO-001", self.SKU, qty=1)
+        result = _commit("GATE-BALCAO-001", self.channel.ref, "GATE-BALCAO-KEY-001")
+
+        order = Order.objects.get(ref=result.order_ref)
+        # A venda vale: nunca cancelada por auto_reject_unavailable.
+        self.assertNotEqual(order.status, Order.Status.CANCELLED)
+        decision = (order.data or {}).get("availability_decision", {})
+        self.assertNotEqual(decision.get("source"), "stock.promise_decision")
