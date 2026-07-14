@@ -354,7 +354,9 @@ def test_trusted_device_login_preserves_cart_when_session_flushes(client, monkey
 # ── QA repro fiel (staging 2026-07-14 19:58 UTC): checkout para AMANHÃ ───────
 
 
-def test_checkout_tomorrow_with_todays_planned_batch_is_accepted_as_preorder(client):
+def test_checkout_tomorrow_with_todays_planned_batch_is_accepted_as_preorder(
+    client, django_capture_on_commit_callbacks
+):
     """A reprodução EXATA do commit falho do QA (evidência do DB staging:
     ``SESS-S37K9EYXUGUH``, ``delivery_date=2026-07-15``, fornada só em 14/07).
 
@@ -412,3 +414,43 @@ def test_checkout_tomorrow_with_todays_planned_batch_is_accepted_as_preorder(cli
     assert _active_hold_ids(cart_key) == [], (
         "commit deixou holds planejados eternos órfãos na sessão"
     )
+
+    # A demanda ficou REGISTRADA na data-alvo: hold de demanda (quant=None,
+    # sem TTL até materializar), dono = pedido, com prioridade de pedido.
+    order_holds = [
+        Hold.objects.get(pk=int(e["hold_id"].split(":")[1]))
+        for e in order.data["hold_ids"]
+        if e.get("hold_id")
+    ]
+    assert order_holds, "encomenda sem demanda registrada não alimenta a produção"
+    for hold in order_holds:
+        assert hold.quant is None, "sem plano p/ amanhã, o hold é de DEMANDA"
+        assert hold.target_date.isoformat() == tomorrow
+        assert hold.expires_at is None
+        assert hold.metadata.get("reference") == f"order:{order.ref}"
+        assert hold.metadata.get("priority") == 0, "pedido enviado > sacola na fila"
+
+    # O trabalho físico espera o dia: ao CONFIRMAR (confirmação otimista),
+    # nada de ticket KDS hoje — o despertador (directive preorder.activate)
+    # fica agendado para a madrugada da data.
+    from shopman.orderman.models import Directive
+    from shopman.orderman.models import Order as OrderModel
+
+    from shopman.backstage.models import KDSTicket
+
+    order.refresh_from_db()
+    with django_capture_on_commit_callbacks(execute=True):
+        order.transition_status(OrderModel.Status.CONFIRMED, actor="test:operator")
+
+    assert not KDSTicket.objects.filter(session_key=order.session_key).exists(), (
+        "pedido de amanhã não pode disparar pra cozinha hoje"
+    )
+    order.refresh_from_db()
+    assert order.status == OrderModel.Status.CONFIRMED, (
+        "encomenda não pode virar PREPARING antes da data"
+    )
+    alarm = Directive.objects.filter(
+        topic="preorder.activate", payload__order_ref=order.ref
+    ).first()
+    assert alarm is not None, "encomenda confirmada sem despertador na data"
+    assert timezone.localtime(alarm.available_at).date().isoformat() == tomorrow

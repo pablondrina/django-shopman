@@ -412,6 +412,18 @@ Write-back: `holds` (list de hold objects do backend)
 | `order_ref` | `string` | hooks._on_order_created | ConfirmationTimeoutHandler |
 | `expires_at` | `string` | hooks._on_order_created | ConfirmationTimeoutHandler |
 
+#### `preorder.activate`
+
+Despertador da encomenda (pedido com `delivery_date` futura): o lifecycle adia
+KDS e baixa e agenda esta directive com `available_at` na madrugada da data.
+Dedupe: `preorder.activate:{order_ref}`.
+
+| Chave | Tipo | Escrito por | Lido por |
+|-------|------|-------------|----------|
+| `order_ref` | `string` | lifecycle._schedule_preorder_activation | PreorderActivateHandler |
+| `channel_ref` | `string` | lifecycle._schedule_preorder_activation | PreorderActivateHandler |
+| `delivery_date` | `string` (ISO) | lifecycle._schedule_preorder_activation | auditoria |
+
 #### `pix.generate`
 
 | Chave | Tipo | Escrito por | Lido por |

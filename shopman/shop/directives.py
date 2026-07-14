@@ -44,6 +44,11 @@ PAYMENT_REFUND = "payment.refund"  # retry assíncrono de estorno com backoff
 # esquecidas, criando OperatorAlerts sem depender de tela aberta.
 PRODUCTION_LATE_CHECK = "production.late_check"
 
+# Preorder (encomenda com data futura)
+# O trabalho físico (KDS/baixa) de um pedido para data futura só dispara NA
+# data — esta directive é o despertador (available_at = meia-noite da data).
+PREORDER_ACTIVATE = "preorder.activate"
+
 
 # Fiscal
 FISCAL_EMIT_NFCE = "fiscal.emit_nfce"

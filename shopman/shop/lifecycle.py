@@ -401,14 +401,17 @@ def _on_confirmed(order, config: ChannelConfig) -> None:
             notification.send(order, "payment_requested")
             return
 
+    # Encomenda: pedido para data FUTURA confirma hoje, mas o trabalho físico
+    # (KDS) e a baixa de estoque só disparam NA data — a directive é o
+    # despertador. O pedido de sábado não pode ir pra cozinha na terça.
+    if _physical_work_deferred(order):
+        _schedule_preorder_activation(order)
+        notification.send(order, "order_confirmed")
+        return
+
     physical_work_dispatched = _dispatch_physical_work(order)
 
-    if config.payment.timing == "external" and config.payment.method != "external":
-        # Counter payment — no digital payment step, fulfill immediately
-        stock.fulfill(order)
-    elif _payment_is_captured(order):
-        # Payment may have arrived while the order was still NEW. In that case
-        # the paid hook deliberately waited for operational confirmation.
+    if _stock_fulfill_allowed(order, config):
         stock.fulfill(order)
     notification.send(order, "order_confirmed")
     if physical_work_dispatched:
@@ -434,6 +437,11 @@ def _on_paid(order, config: ChannelConfig) -> None:
                 action="confirm" if config.confirmation.mode == "auto_confirm" else "cancel",
                 source="payment_confirmed",
             )
+        notification.send(order, "payment_confirmed")
+        return
+    if _physical_work_deferred(order):
+        # Encomenda paga antes da data: a baixa e o KDS esperam o dia certo.
+        _schedule_preorder_activation(order)
         notification.send(order, "payment_confirmed")
         return
     physical_work_dispatched = False
@@ -696,6 +704,81 @@ def _dispatch_physical_work(order) -> bool:
     except Exception:
         logger.debug("lifecycle._dispatch_physical_work degraded; using fallback", exc_info=True)
         return False
+
+
+def _stock_fulfill_allowed(order, config: ChannelConfig) -> bool:
+    """Baixa de estoque liberada: pagamento no balcão ou já capturado."""
+    if config.payment.timing == "external" and config.payment.method != "external":
+        # Counter payment — no digital payment step, fulfill immediately.
+        return True
+    # Payment may have arrived while the order was still NEW. In that case
+    # the paid hook deliberately waited for operational confirmation.
+    return _payment_is_captured(order)
+
+
+def _physical_work_deferred(order) -> bool:
+    """True quando o pedido é para data FUTURA (encomenda): KDS e baixa esperam o dia."""
+    from shopman.shop.services.order_helpers import get_commitment_date
+
+    target = get_commitment_date(order)
+    return target is not None and target > timezone.localdate()
+
+
+def _schedule_preorder_activation(order) -> None:
+    """Agenda o despertador da encomenda: directive na meia-noite da data.
+
+    Dedupe por pedido — confirmado e pago agendam o mesmo despertador uma vez.
+    O worker de directives (``process_directives``) entrega na manhã da data;
+    o handler dispara KDS + baixa pelo caminho normal.
+    """
+    from datetime import datetime
+    from datetime import time as time_type
+
+    from shopman.shop.directives import PREORDER_ACTIVATE, create_deduped
+    from shopman.shop.services.order_helpers import get_commitment_date
+
+    target = get_commitment_date(order)
+    if target is None:
+        return
+    available_at = timezone.make_aware(datetime.combine(target, time_type(0, 5)))
+    create_deduped(
+        PREORDER_ACTIVATE,
+        payload={
+            "order_ref": order.ref,
+            "channel_ref": order.channel_ref,
+            "delivery_date": target.isoformat(),
+        },
+        dedupe_key=f"preorder.activate:{order.ref}",
+        available_at=available_at,
+    )
+
+
+def activate_preorder(order) -> None:
+    """Dispara o trabalho físico adiado de uma encomenda NA data dela.
+
+    Chamado pelo handler da directive ``preorder.activate``: cria os tickets
+    de KDS, baixa o estoque (se o pagamento permite) e marca PREPARING —
+    exatamente o que ``_on_confirmed`` teria feito se a data fosse hoje.
+    A baixa tolera holds ainda não materializados (fornada da manhã): o
+    receiver de ``holds_materialized`` completa quando o pão existir.
+    """
+    if order.status not in (Order.Status.CONFIRMED, Order.Status.PREPARING):
+        logger.info(
+            "lifecycle.activate_preorder: skip order=%s status=%s", order.ref, order.status
+        )
+        return
+    if _physical_work_deferred(order):
+        # Despertador tocou cedo demais (fuso/reagendamento) — reagendar é
+        # responsabilidade do handler; aqui só recusamos disparar antes do dia.
+        logger.warning("lifecycle.activate_preorder: too early order=%s", order.ref)
+        return
+
+    config = ChannelConfig.for_channel(order.channel_ref)
+    physical_work_dispatched = _dispatch_physical_work(order)
+    if _stock_fulfill_allowed(order, config):
+        stock.fulfill(order, pending_materialization_ok=True)
+    if physical_work_dispatched:
+        _mark_preparing_after_physical_work_dispatch(order)
 
 
 def _mark_preparing_after_physical_work_dispatch(order) -> bool:

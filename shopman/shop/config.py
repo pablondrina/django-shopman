@@ -96,6 +96,10 @@ class ChannelConfig:
         # (staff-only) fora do escopo de check/reserve do cliente.
         check_on_commit: bool = False  # validate per-item availability at commit
         low_stock_threshold: int = 5  # acima de 0 e <= este valor → "Últimas unidades" no cardápio
+        preorder: bool = True  # canal aceita encomenda p/ data futura sem plano
+        # (commit registra DEMANDA — hold quant=None — em vez de recusar; a
+        # janela continua sendo orders.max_preorder_days no checkout). PDV e
+        # marketplaces devem declarar False no Channel.config.
 
     # ── 5. Notificações ──
     @dataclass

@@ -11,10 +11,14 @@ Este teste exercita o gate REAL de commit/hold (`CommitService.commit` →
 `lifecycle.secure_stock` → `stock.hold(target_date=futuro)`), sem depender do
 seed: planta estoque planejado datado direto no ledger e comita contra ele.
 
-Invariante canonizada:
+Invariante canonizada (atualizada pelo WP-C do AVAILABILITY-SALE-PRODUCTION-PLAN,
+decisão de produto 2026-07-14 — encomenda é cidadã de 1ª classe):
 - há Quant planejado para a data alvo → o pedido futuro FECHA (com hold datado);
-- não há produção planejada para a data alvo → o gate REPROVA (`insufficient_stock`)
-  e nenhum pedido nasce (o caso "segunda sem produção" do relatório).
+- NÃO há produção planejada e o canal aceita encomenda (``stock.preorder``,
+  default) → o commit FECHA registrando DEMANDA (hold ``quant=None`` datado),
+  que alimenta a sugestão de produção e materializa com prioridade na fornada;
+- canal com ``stock.preorder=False`` (PDV, marketplace) → o gate REPROVA
+  (`insufficient_stock`) e nenhum pedido nasce.
 
 É a versão determinística (sequencial, SQLite) do gate; irmã de
 `test_commit_stock_gate.py`, mas no eixo de DATA (encomenda), não de quantidade.
@@ -132,12 +136,41 @@ class PreorderClosedStoreCommitTests(TestCase):
         self.assertTrue(hold_ids[0].get("hold_id"))
         self.assertEqual(hold_ids[0].get("sku"), SKU)
 
-    def test_preorder_for_day_without_production_is_rejected(self) -> None:
-        """Dia sem produção planejada ("segunda"): o gate reprova, nenhum pedido nasce."""
+    def test_preorder_for_day_without_production_registers_demand(self) -> None:
+        """Dia sem produção planejada ("segunda"): a encomenda FECHA registrando demanda.
+
+        Era o beco sem saída do QA (recusa por ``insufficient_stock``); a
+        decisão de produto do WP-C inverte: o canal aceita encomenda por
+        padrão, a demanda vira hold datado ``quant=None`` que alimenta a
+        sugestão de produção e materializa com prioridade de pedido.
+        """
+        from shopman.orderman.models import Order
+        from shopman.stockman.models import Hold
+
+        # Produção existe só para o dia POSTERIOR — nada para o dia alvo.
+        _plan_dated_stock(self.position, self.day_with_production, qty=50)
+        _open_session(self.channel.ref, "PRE-DEM", self.day_without_production, qty=5)
+
+        result = _commit("PRE-DEM", self.channel.ref, "PRE-KEY-DEM")
+
+        order = Order.objects.get(ref=result.order_ref)
+        self.assertTrue(order.data.get("is_preorder"))
+        hold_ids = (order.data or {}).get("hold_ids", [])
+        self.assertEqual(len(hold_ids), 1)
+        hold = Hold.objects.get(pk=int(hold_ids[0]["hold_id"].split(":")[1]))
+        self.assertIsNone(hold.quant, "sem plano p/ a data, a encomenda é DEMANDA")
+        self.assertEqual(hold.target_date, self.day_without_production)
+        self.assertEqual(hold.metadata.get("reference"), f"order:{order.ref}")
+        self.assertEqual(hold.metadata.get("priority"), 0)
+
+    def test_preorder_rejected_when_channel_disables_preorder(self) -> None:
+        """Canal com ``stock.preorder=False``: dia sem produção segue reprovando."""
         from shopman.orderman.exceptions import ValidationError
         from shopman.orderman.models import Order, Session
 
-        # Produção existe só para o dia POSTERIOR — nada para o dia alvo.
+        self.channel.config = {"stock": {"preorder": False}}
+        self.channel.save(update_fields=["config"])
+
         _plan_dated_stock(self.position, self.day_with_production, qty=50)
         _open_session(self.channel.ref, "PRE-REJ", self.day_without_production, qty=5)
 

@@ -162,7 +162,39 @@ telefone) segurando a fornada contra outros clientes não é órfã — é
 concorrência real de lista de espera. O tratamento certo é o WP-C (demanda
 além do plano vira encomenda/registro de demanda, não 409 no add).
 
-### WP-C — Desenho proposto (2026-07-14, AGUARDANDO OK DO PABLO)
+### WP-C — Desenho proposto (2026-07-14, APROVADO e IMPLEMENTADO)
+
+**Implementado (2026-07-14):**
+- Stockman: `StockHolds.hold(allow_demand=True)` — canal autoriza registrar
+  demanda quando a política do produto não é `demand_ok`; pausado continua
+  recusando. `retag_reference` aceita metadata extra (ex.: `priority`).
+- Materialização (`StockPlanning.realize`): o pool inclui holds FLUTUANTES de
+  demanda (quant=None) do sku/data e ordena por `metadata.priority` asc
+  (ausente = por último), FIFO dentro da classe — pedido enviado (priority=0)
+  materializa antes da sacola quando a fornada é curta.
+- Gate de commit (`shop/services/stock.py`): data futura + canal com
+  `stock.preorder` → holds de hoje da sessão são liberados (leftover) e a
+  reserva nasce na data-alvo; sem plano → demanda registrada
+  (`reference=order:<ref>`, `priority=0`, `expires_at=None`).
+- `ChannelConfig.stock.preorder: bool = True` (PDV/marketplace declaram False).
+- Lifecycle: `_on_confirmed`/`_on_paid` ADIAM KDS + baixa quando a data é
+  futura e agendam a directive `preorder.activate` (despertador, dedupe por
+  pedido, `available_at` = madrugada da data). Handler → `activate_preorder`:
+  dispara KDS, baixa o que materializou (`fulfill(pending_materialization_ok)`)
+  e marca PREPARING. O receiver de `holds_materialized` estende o backstop de
+  48h dos holds de pedido (o TTL de vitrine de 30min não evapora encomenda) e
+  completa a baixa adiada quando a fornada da data materializa.
+- Produção: `suggest` JÁ enxergava a demanda registrada — o
+  `OrderingDemandBackend.committed()` conta holds de demanda por data (Core
+  já resolvia; nenhuma mudança).
+- Invariante antiga "dia sem produção → recusa" (test_preorder_closed_store_
+  commit) atualizada para a decisão nova: registra demanda; canal com
+  `preorder=False` mantém a recusa.
+- Testes: e2e da encomenda (o vermelho do QA agora VERDE, com demanda/
+  despertador/sem-KDS-hoje), `test_preorder_activation.py` (3),
+  `stockman/tests/test_preorder_demand.py` (4).
+
+Desenho aprovado (referência):
 
 O contrato observável já está fixado pelo teste vermelho
 `test_checkout_tomorrow_with_todays_planned_batch_is_accepted_as_preorder`.
