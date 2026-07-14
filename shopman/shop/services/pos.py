@@ -1036,9 +1036,9 @@ def build_session_ops(payload: dict, operator_username: str) -> list[dict]:
         if item.get("price_overridden"):
             # Freeze the operator's unit price: the pricing modifier honors this
             # flag and skips re-pricing. The flag is server-derived
-            # (``derive_price_overrides``), not the client's advisory value, so
-            # only a genuinely off-catalog price freezes. Stamp who approved
-            # (manager PIN gate).
+            # (``derive_price_overrides``) — an operator hand-fixed price off the
+            # catalog anchor, not an automatic promotion/D-1 discount — so only a
+            # genuine override freezes. Stamp who approved (manager PIN gate).
             meta["price_overridden"] = True
             if approved_by:
                 meta["price_approved_by"] = approved_by
@@ -1382,21 +1382,36 @@ def _canonical_pos_unit_price_q(sku: str, channel: Channel, qty: int) -> int | N
 
 
 def derive_price_overrides(payload: dict, *, channel: Channel) -> None:
-    """Stamp ``price_overridden`` on each line from server-resolved catalog truth.
+    """Stamp ``price_overridden`` on lines the OPERATOR fixed off the catalog.
 
-    Server-side authority over the price-trust gate: for every merchandise line,
-    ``price_overridden`` is DERIVED by comparing the declared ``unit_price_q``
-    against the canonical POS catalog price — the client's advisory flag is
-    overwritten. A crafted request that lowers a price without the flag is caught
-    (the derivation flips it on) and the manager PIN gate fires. A line whose SKU
-    has no catalog anchor is treated as an override: there is no trusted price to
-    charge against, so it needs manager sign-off. Legitimate D-1/happy-hour lines
-    do not read as overrides — their payload price is the pre-modifier catalog
-    price, which matches the canonical resolved here.
+    Server-side authority over the price-trust gate. ``price_overridden`` marks the
+    one manual action that both freezes a line (the pricing modifier honors it and
+    skips re-pricing — see ``build_session_ops``) and needs a manager PIN: the
+    operator fixing a unit price by hand (numpad "Preço") away from the catalog
+    anchor. It is DERIVED, never taken raw — stamped only when the client declared
+    that override intent AND the fixed price differs from the canonical POS catalog
+    price (or the SKU has no catalog anchor, so there is no trusted price to charge
+    against, and the line needs manager sign-off).
+
+    Why the intent gate, not a bare catalog comparison:
+
+    * Automatic system discounts (D-1, happy-hour, promotion) are NOT operator
+      overrides. They are applied by later modifiers on commit; a previous persist
+      bakes the discounted price into ``unit_price_q`` and the reload echoes it
+      back, so a plain catalog comparison read every promotion/D-1 line as an
+      override and demanded a manager for a cart nobody discounted (the seed bug
+      B1-2). Those lines carry no override intent, so they no longer read as one.
+    * A crafted request that lowers a price WITHOUT the intent flag cannot
+      undercharge, so it needs no gate here: without the flag the line is never
+      frozen, and the ``internal`` pricing modifier (POS is always internal)
+      reprices it back to catalog − legitimate discounts on commit. The only
+      undercharge vector is a frozen override, and that is exactly what this catches
+      — a flagged line below (or above) the anchor still fires the manager gate.
     """
     for item in payload.get("items", []):
         if _is_delivery_fee_item(item):
             continue
+        operator_fixed_price = bool(item.get("price_overridden"))
         try:
             unit_price_q = int(item.get("unit_price_q", 0))
             qty = int(item.get("qty", 1))
@@ -1404,7 +1419,9 @@ def derive_price_overrides(payload: dict, *, channel: Channel) -> None:
             item["price_overridden"] = True
             continue
         canonical_q = _canonical_pos_unit_price_q(str(item.get("sku") or ""), channel, qty)
-        item["price_overridden"] = canonical_q is None or unit_price_q != canonical_q
+        item["price_overridden"] = canonical_q is None or (
+            operator_fixed_price and unit_price_q != canonical_q
+        )
 
 
 def _payload_manual_discount(payload: dict) -> dict:
