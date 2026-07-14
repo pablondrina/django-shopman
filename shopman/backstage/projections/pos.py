@@ -673,7 +673,7 @@ def _pos_actions() -> tuple[Action, ...]:
             method="POST",
             href="/api/v1/backstage/pos/sale/recent/cancel/",
             payload_schema={
-                "required": ["order_ref"],
+                "required": ["order_ref", "manager_approval"],
                 "optional": ["reason"],
             },
             confirmation={"style": "destructive"},
@@ -1158,6 +1158,7 @@ def _checkout_contract(
                 "cancel_recent_action_ref": "cancel_recent_sale",
                 "max_age_minutes": 5,
                 "supports_reason": True,
+                "requires_manager_approval": True,
                 "allowed_statuses": ("new", "confirmed"),
             },
             "idempotent_replay": {

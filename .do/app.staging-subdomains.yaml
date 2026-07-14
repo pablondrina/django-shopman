@@ -373,6 +373,12 @@ services:
         value: "https://central.boulangerie.com.br"
         scope: RUN_AND_BUILD_TIME
         type: GENERAL
+      # Gestor de Pedidos → destino do link pós-venda "Abrir no gestor" do PDV.
+      # Sem isto, o default de dev (127.0.0.1:3004) vaza em prod.
+      - key: NUXT_PUBLIC_ORDERS_URL
+        value: "https://gestor.boulangerie.com.br/"
+        scope: RUN_AND_BUILD_TIME
+        type: GENERAL
       - key: NUXT_DJANGO_BASE_URL
         value: "https://api.boulangerie.com.br"
         scope: RUN_TIME

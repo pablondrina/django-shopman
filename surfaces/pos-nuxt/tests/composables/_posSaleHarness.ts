@@ -83,7 +83,7 @@ export function makeSale(opts: HarnessOptions = {}) {
     action: { call: actionCall as <T = unknown>(...args: unknown[]) => Promise<T> },
     apiPath: (path: string) => path,
     requestHeaders: {} as Record<string, string>,
-    djangoOrigin: computed(() => "http://api.test"),
+    ordersUrl: computed(() => "http://gestor.test/"),
   };
 
   const scope = effectScope();

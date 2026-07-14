@@ -15,6 +15,8 @@ const runtimeConfig = useRuntimeConfig();
 // relative to the POS origin. After login the operator lands on the Admin home,
 // whose sidebar links back to the apps (POS/Produção/…).
 const djangoOrigin = computed(() => String(runtimeConfig.public.djangoPublicBaseUrl || ""));
+// Gestor de Pedidos (orders-nuxt) — destino do link pós-venda "Abrir no gestor".
+const ordersUrl = computed(() => String(runtimeConfig.public.ordersUrl || ""));
 const requestHeaders = import.meta.server ? useRequestHeaders(["cookie"]) : undefined;
 
 // Login NO PRÓPRIO caixa (sem bounce pro Django admin): usuário+senha → sessão de
@@ -89,6 +91,8 @@ const {
   firing,
   cancellingSale,
   cancelSaleReason,
+  cancelSaleDialogOpen,
+  cancelApprovalError,
   saleCancelled,
   lookupBusy,
   managerApprovalError,
@@ -163,12 +167,13 @@ const {
   unfireTab,
   unfireSelected,
   renameTab,
+  openCancelSaleDialog,
   cancelRecentSale,
   openCashShift,
   closeCashShift,
   closeBlockingShift,
   registerCashMovement,
-} = usePosSale({ pos, tabs, actions, refresh, action, apiPath, requestHeaders, djangoOrigin });
+} = usePosSale({ pos, tabs, actions, refresh, action, apiPath, requestHeaders, ordersUrl });
 
 // Kitchen handoff affordances (spec §2.5): the fire/unfire CTAs come from the
 // Projection's Actions (label + enabled), never invented in the screen.
@@ -364,22 +369,15 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
                 DANFE
               </a>
               <a class="font-semibold underline underline-offset-4" :href="result.nextUrl">Abrir no gestor</a>
-            </div>
-            <div v-if="canCancelRecentSale" class="flex flex-col gap-2 border-t border-success/20 pt-2">
-              <UiInput
-                v-model="cancelSaleReason"
-                placeholder="Motivo do cancelamento (opcional)"
-                class="h-8 text-sm"
-              />
+              <!-- Cancelar é EXCEÇÃO, não fluxo: entrada discreta que abre a
+                   confirmação destrutiva com desafio de PIN gerencial. -->
               <UiButton
-                variant="destructive"
+                v-if="canCancelRecentSale"
+                variant="ghost"
                 size="sm"
-                class="self-start"
-                :loading="cancellingSale"
-                :disabled="cancellingSale"
-                @click="cancelRecentSale"
+                class="ml-auto text-muted-foreground hover:text-destructive"
+                @click="openCancelSaleDialog"
               >
-                <Icon name="lucide:rotate-ccw" class="size-4" />
                 Cancelar venda
               </UiButton>
             </div>
@@ -603,6 +601,15 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
       @close-shift="closeCashShift"
       @close-blocking-shift="closeBlockingShift"
       @movement="registerCashMovement"
+    />
+
+    <PosCancelSaleDialog
+      v-model:open="cancelSaleDialogOpen"
+      v-model:reason="cancelSaleReason"
+      :order-ref="result?.orderRef || ''"
+      :busy="cancellingSale"
+      :error="cancelApprovalError"
+      @confirm="cancelRecentSale"
     />
 
     <PosMoveLinesDialog

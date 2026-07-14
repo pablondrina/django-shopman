@@ -219,19 +219,50 @@ describe("usePosSale — comandos de sessão (path + body + flags)", () => {
     h.handles.dispose();
   });
 
-  it("cancelRecentSale só age quando há resultado e envia order_ref + reason", async () => {
+  it("cancelRecentSale só age quando há resultado e envia order_ref + reason + manager_approval", async () => {
     const h = openTabSale();
     // sem result → no-op
-    await h.sale.cancelRecentSale();
+    await h.sale.cancelRecentSale("gerente", "4321");
     expect(actionCall.mock.calls.some((c) => String(c[0]).includes("/recent/cancel/"))).toBe(false);
 
     h.sale.result.value = { orderRef: "PED-7", nextUrl: "", payment: null, receipt: {} as never, issueFiscalDocument: false };
     h.sale.cancelSaleReason.value = "cliente desistiu";
-    await h.sale.cancelRecentSale();
+    h.sale.cancelSaleDialogOpen.value = true;
+    await h.sale.cancelRecentSale("gerente", "4321");
     const call = actionCall.mock.calls.find((c) => String(c[0]).includes("/recent/cancel/"))!;
-    expect(call[1]!.body).toEqual({ order_ref: "PED-7", reason: "cliente desistiu" });
+    expect(call[1]!.body).toEqual({
+      order_ref: "PED-7",
+      reason: "cliente desistiu",
+      manager_approval: { username: "gerente", pin: "4321" },
+    });
     expect(h.sale.saleCancelled.value).toBe(true);
     expect(h.sale.result.value).toBeNull();
+    expect(h.sale.cancelSaleDialogOpen.value).toBe(false);
+    h.handles.dispose();
+  });
+
+  it("cancelRecentSale com PIN recusado mantém o diálogo aberto com o motivo", async () => {
+    const rejectingCall = vi.fn().mockImplementation(async (path: string) => {
+      if (String(path).includes("/recent/cancel/")) {
+        throw {
+          data: {
+            detail: "Aprovação gerencial inválida.",
+            error: { code: "manager_approval_invalid", message: "Aprovação gerencial inválida.", recovery: "Revise o gerente e o PIN." },
+          },
+        };
+      }
+      return {};
+    });
+    const h = makeSale({ projection: freeCartProjection(), actionCall: rejectingCall });
+    h.sale.result.value = { orderRef: "PED-8", nextUrl: "", payment: null, receipt: {} as never, issueFiscalDocument: false };
+    h.sale.cancelSaleDialogOpen.value = true;
+
+    await h.sale.cancelRecentSale("gerente", "0000");
+
+    expect(h.sale.cancelSaleDialogOpen.value).toBe(true);
+    expect(h.sale.cancelApprovalError.value).toBe("Revise o gerente e o PIN.");
+    expect(h.sale.saleCancelled.value).toBe(false);
+    expect(h.sale.result.value?.orderRef).toBe("PED-8"); // venda continua de pé
     h.handles.dispose();
   });
 

@@ -1765,6 +1765,13 @@ class POSCancelRecentSaleView(APIView):
         if not order_ref:
             return Response({"detail": "Referência do pedido não informada."}, status=422)
         try:
+            # Cancelar venda fechada é exceção auditada: sempre sob PIN de gerente,
+            # mesmo dentro da janela otimista do operador.
+            pos_tabs_service.validate_manager_override(
+                request.data.get("manager_approval"),
+                operator_username=_username(request),
+                action="cancel_recent_sale",
+            )
             if reason:
                 pos_tabs_service.reopen_recent_order_for_correction(
                     order_ref=order_ref,
@@ -1776,6 +1783,8 @@ class POSCancelRecentSaleView(APIView):
                     order_ref=order_ref,
                     actor=_actor_pos(request),
                 )
+        except PosIntentError as exc:
+            return Response({"detail": exc.message, "error": exc.as_dict()}, status=exc.status)
         except PosRecentSaleNotFound as exc:
             return Response({"detail": str(exc)}, status=404)
         except ValueError as exc:
