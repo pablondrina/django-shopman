@@ -151,7 +151,16 @@ const approvalBlocking = computed(() =>
 const managerThresholdQ = computed(() => props.review?.manager_approval_threshold_q || 0);
 // Avisos não-bloqueantes da review (disponibilidade no balcão, pagamento): o
 // operador VÊ a ressalva antes de finalizar; nunca bloqueiam a venda.
-const reviewWarnings = computed(() => props.review?.warnings ?? []);
+// O aviso "valor recebido em dinheiro não informado" só faz sentido DEPOIS que o
+// operador escolheu dinheiro — o backend assume `cash` por padrão quando nada foi
+// escolhido, então na 1ª abertura do checkout ele disparava prematuramente (antes
+// de qualquer ação). Suprimido enquanto não há tender de dinheiro em jogo.
+const hasCashTender = computed(() => props.paymentTenders.some((t) => t.method === "cash"));
+const reviewWarnings = computed(() =>
+  (props.review?.warnings ?? []).filter((w) =>
+    w.code === "cash_tendered_amount_blank" ? hasCashTender.value : true,
+  ),
+);
 
 // On-demand sale-data drawers (Odoo-style: customer/fulfillment/discount are
 // actions that open a sheet, not a wall of fields next to the payment).
