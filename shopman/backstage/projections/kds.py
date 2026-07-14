@@ -64,6 +64,10 @@ class KDSTicketProjection:
     items: tuple[KDSItemProjection, ...]
     status: str
     all_checked: bool
+    # Discriminante explícito da união ticket|expedição no front (nunca inferir por
+    # presença de campo: foi o que quebrou a Expedição quando `items` passou a existir
+    # nos dois). Ticket de preparo é sempre False.
+    is_expedition: bool = False
     status_label: str = ""
     is_cancelled: bool = False
     cancelled_at_display: str = ""
@@ -89,6 +93,9 @@ class KDSExpeditionCardProjection:
     line_count: int
     total_display: str
     items: tuple[KDSItemProjection, ...] = ()
+    # Discriminante explícito da união ticket|expedição (ver KDSTicketProjection).
+    # Card de expedição é sempre True.
+    is_expedition: bool = True
 
 
 @dataclass(frozen=True)

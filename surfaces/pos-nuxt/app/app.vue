@@ -40,7 +40,7 @@ async function submitLogin() {
   }
 }
 
-const { data, pos, shift, tabs, operators, actions, pending, error, refresh } = await usePosTerminal();
+const { pos, shift, tabs, actions, pending, refresh } = await usePosTerminal();
 
 // Resiliência de rede (kit): reconciliação ao reconectar/reganhar foco — o tablet do
 // balcão que dormiu não fica com dados velhos. O <OfflineBanner> (auto-import do kit)
@@ -51,39 +51,56 @@ onReconnect(() => refresh());
 // Re-gate global de sessão (kit): um 401 no meio do turno (sessão de dispositivo
 // expirada) sobe a tela de login em vez de o operador bater numa sessão morta.
 const { expired: sessionExpired, reset: resetSession } = useOperatorSession();
-const needsLogin = computed(() => Boolean(error.value) || sessionExpired.value);
 
 // Operator identity / lock screen (PIN attribution). Instantiated here in the
 // shell's <script setup> so its lifecycle hooks (auto-lock idle timer) survive
 // the await above — Vue/Nuxt only preserve setup context across awaits inside
-// `<script setup>`, not inside a plain composable module.
+// `<script setup>`, not inside a plain composable module. Its auth state (device
+// session, active operator, eligible operators, must-change) comes from the SHARED
+// operator lock (operator/session|eligible), independent of `/pos/` — so the PIN
+// picker still works while the station is locked (C1-01).
 const {
   activeOperator,
   locked,
+  authenticated,
+  mustChange,
+  eligible,
+  loadEligible,
   busy: lockBusy,
   error: lockError,
   unlock,
   lock,
   changePin,
   changeError,
+  refreshSession,
 } = usePosOperatorLock({
-  initialOperator: data.value?.operator ?? null,
-  autoLockSeconds: pos.value?.auto_lock_seconds ?? 60,
+  autoLockSeconds: () => pos.value?.auto_lock_seconds ?? 60,
 });
+
+// A tela de login sobe SÓ quando não há sessão de dispositivo (device_user ausente)
+// ou ela expirou no meio do turno. Estação COM sessão mas sem operador ativo →
+// PosLockScreen (picker de PIN), nunca a tela de login (C1-01).
+const needsLogin = computed(() => !authenticated.value || sessionExpired.value);
+
+// Operadores elegíveis (picker do PIN) vêm de operator/eligible — carrega assim que
+// a sessão de dispositivo existe e recarrega ao (re)autenticar após um login.
+onMounted(loadEligible);
+watch(authenticated, (ok) => { if (ok) loadEligible(); });
+
 async function onUnlock(operatorId: number, pin: string) {
   if (await unlock(operatorId, pin)) await refresh();
 }
 
-// Forced PIN change after a manager reset: the terminal read carries the flag for
+// Forced PIN change after a manager reset: the shared session carries the flag for
 // the active operator. While set, the lock screen stays up (in change mode) even
 // though an operator is "active", until the temp PIN is rotated.
-const mustChange = computed(() => Boolean(data.value?.pin_must_change));
 const changeNonce = ref(0);
 async function onChangePin(operatorId: number, currentPin: string, newPin: string) {
   if (await changePin(operatorId, currentPin, newPin)) {
     changeNonce.value += 1;
     useSonner.success("PIN atualizado.");
-    await refresh(); // clears must_change (forced flow) and reflects the new state.
+    await refreshSession(); // clears must_change on the shared session
+    await refresh(); // reloads the terminal projection now that we can read it
   }
 }
 
@@ -101,6 +118,7 @@ const {
   cancelSaleReason,
   saleCancelled,
   lookupBusy,
+  managerApprovalError,
   result,
   pixStatus,
   checkoutMode,
@@ -294,8 +312,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
 
     <div class="flex min-w-0 flex-1 flex-col md:min-h-0 md:overflow-hidden">
       <PosLockScreen
-        v-if="(locked || mustChange) && !!pos"
-        :operators="operators"
+        v-if="authenticated && (locked || mustChange)"
+        :operators="eligible"
         :busy="lockBusy"
         :error="lockError"
         :forced="mustChange"
@@ -459,6 +477,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         v-model:discount-reason="cart.discountReason"
         v-model:manager-username="cart.managerUsername"
         v-model:manager-pin="cart.managerPin"
+        :manager-approval-error="managerApprovalError"
         v-model:fulfillment-type="cart.fulfillmentType"
         v-model:payment-collection="cart.paymentCollection"
         v-model:customer-name="cart.customerName"
