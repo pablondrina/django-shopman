@@ -260,9 +260,28 @@ describe("usePosSale — comandos de sessão (path + body + flags)", () => {
     await h.sale.cancelRecentSale("gerente", "0000");
 
     expect(h.sale.cancelSaleDialogOpen.value).toBe(true);
-    expect(h.sale.cancelApprovalError.value).toBe("Revise o gerente e o PIN.");
+    expect(h.sale.cancelSaleError.value).toBe("Revise o gerente e o PIN.");
     expect(h.sale.saleCancelled.value).toBe(false);
     expect(h.sale.result.value?.orderRef).toBe("PED-8"); // venda continua de pé
+    h.handles.dispose();
+  });
+
+  it("cancelRecentSale com erro de negócio também fica inline (diálogo aberto ≠ sucesso)", async () => {
+    const rejectingCall = vi.fn().mockImplementation(async (path: string) => {
+      if (String(path).includes("/recent/cancel/")) {
+        throw { data: { detail: "Pedido PED-9 não pode ser cancelado (status: ready)" } };
+      }
+      return {};
+    });
+    const h = makeSale({ projection: freeCartProjection(), actionCall: rejectingCall });
+    h.sale.result.value = { orderRef: "PED-9", nextUrl: "", payment: null, receipt: {} as never, issueFiscalDocument: false };
+    h.sale.cancelSaleDialogOpen.value = true;
+
+    await h.sale.cancelRecentSale("gerente", "4321");
+
+    expect(h.sale.cancelSaleDialogOpen.value).toBe(true); // não fecha fingindo sucesso
+    expect(h.sale.cancelSaleError.value).toContain("não pode ser cancelado");
+    expect(h.sale.saleCancelled.value).toBe(false);
     h.handles.dispose();
   });
 

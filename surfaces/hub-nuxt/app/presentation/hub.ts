@@ -7,9 +7,9 @@ export function tileIcon(icon: string): string {
   return icon.startsWith("lucide:") ? icon : `lucide:${icon}`;
 }
 
-/** Launch abre a superfície num destino próprio; config (Unfold) fica na mesma aba. */
+/** Launch (superfície de operador) fica na mesma aba; external (loja do cliente) abre em nova. */
 export function tileTarget(tile: Pick<HubTileProjection, "kind">): "_self" | "_blank" {
-  return tile.kind === "config" ? "_blank" : "_self";
+  return tile.kind === "external" ? "_blank" : "_self";
 }
 
 /** Grade vazia = operador autenticado sem nenhum app liberado (estado acolhedor). */

@@ -6,6 +6,7 @@ const props = defineProps<{
   open: boolean;
   orderRef: string;
   reason: string;
+  maxAgeMinutes?: number;
   busy?: boolean;
   error?: string;
 }>();
@@ -39,6 +40,9 @@ function confirm() {
         <UiDialogTitle class="text-lg">Cancelar venda</UiDialogTitle>
         <UiDialogDescription>
           O pedido {{ orderRef }} será cancelado. Esta operação exige a autorização de um gerente.
+          <template v-if="maxAgeMinutes">
+            Disponível por até {{ maxAgeMinutes }} minutos após a venda; depois, cancele pelo gestor.
+          </template>
         </UiDialogDescription>
       </UiDialogHeader>
 

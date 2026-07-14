@@ -59,8 +59,9 @@ def test_hub_superuser_sees_all_tiles(client, db):
     assert by_ref["gestor"]["icon"] == "clipboard-list"
     assert by_ref["production"]["icon"] == "croissant"
     assert by_ref["loja"]["icon"] == "store"
-    # Loja é deep-link de config (Unfold), não launch de superfície.
-    assert by_ref["loja"]["kind"] == "config"
+    # Loja abre a loja do cliente (storefront) em nova aba — fora da zona de operador.
+    assert by_ref["loja"]["kind"] == "external"
+    assert by_ref["loja"]["url"] == "http://127.0.0.1:3000/"
     assert by_ref["pos"]["kind"] == "launch"
     # Contrato do tile.
     for tile in hub["tiles"]:
@@ -79,4 +80,4 @@ def test_hub_filters_by_permission(client, db):
     assert "gestor" in refs
     assert "pos" not in refs
     assert "kds" not in refs
-    assert "loja" not in refs  # config só p/ superuser
+    assert "loja" not in refs  # loja só p/ superuser

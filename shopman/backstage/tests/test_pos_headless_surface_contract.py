@@ -709,6 +709,28 @@ class POSHeadlessSurfaceContractTests(TestCase):
         self.assertEqual(order.status, Order.Status.CANCELLED)
         self.assertEqual(order.data["pos_correction_reason"], "Erro de lançamento")
 
+    def test_api_cancel_recent_sale_allows_preparing_order(self) -> None:
+        # Venda de balcão com item de cozinha nasce "em preparo" (KDS despacha no
+        # fechamento) — o undo do operador continua valendo dentro da janela.
+        self._create_manager()
+        order_ref = self._close_sale("pos-headless-cancel-004")
+        order = Order.objects.get(ref=order_ref)
+        if order.status == Order.Status.NEW:
+            order.transition_status(Order.Status.CONFIRMED, actor="test")
+        order.transition_status(Order.Status.PREPARING, actor="test")
+
+        cancelled = self.client.post(
+            "/api/v1/backstage/pos/sale/recent/cancel/",
+            data=json.dumps({
+                "order_ref": order_ref,
+                "manager_approval": {"username": "pos-manager", "pin": "4321"},
+            }),
+            content_type="application/json",
+        )
+
+        self.assertEqual(cancelled.status_code, 200)
+        self.assertEqual(Order.objects.get(ref=order_ref).status, Order.Status.CANCELLED)
+
     def test_api_cancel_recent_sale_requires_manager_approval(self) -> None:
         # Cancelar venda fechada é exceção auditada: sem o desafio gerencial o
         # endpoint recusa ANTES de qualquer efeito, no dialeto de erro do POS.
