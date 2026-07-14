@@ -4,7 +4,6 @@ import {
   appendPinDigit,
   backspacePin,
   isIdleBeyond,
-  unlockBody,
 } from "../app/utils/operatorLock";
 
 describe("operator lock — idle / auto-lock", () => {
@@ -30,11 +29,5 @@ describe("operator lock — PIN buffer", () => {
   it("backspaces the last digit", () => {
     expect(backspacePin("123")).toBe("12");
     expect(backspacePin("")).toBe("");
-  });
-});
-
-describe("operator lock — request body", () => {
-  it("builds the unlock body", () => {
-    expect(unlockBody(7, "1234")).toEqual({ operator_id: 7, pin: "1234" });
   });
 });

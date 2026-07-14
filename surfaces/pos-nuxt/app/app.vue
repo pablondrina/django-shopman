@@ -52,57 +52,30 @@ onReconnect(() => refresh());
 // expirada) sobe a tela de login em vez de o operador bater numa sessão morta.
 const { expired: sessionExpired, reset: resetSession } = useOperatorSession();
 
-// Operator identity / lock screen (PIN attribution). Instantiated here in the
-// shell's <script setup> so its lifecycle hooks (auto-lock idle timer) survive
-// the await above — Vue/Nuxt only preserve setup context across awaits inside
-// `<script setup>`, not inside a plain composable module. Its auth state (device
-// session, active operator, eligible operators, must-change) comes from the SHARED
-// operator lock (operator/session|eligible), independent of `/pos/` — so the PIN
-// picker still works while the station is locked (C1-01).
+// Identidade do operador (PIN/crachá) pelo LOCK COMPARTILHADO do kit — o MESMO
+// `useOperatorLock` + `<OperatorLock>` dos outros 4 apps de operador. Unifica a UI
+// de identificação (o PDV não tem mais tela própria) e ganha o leitor de crachá de
+// graça. A sessão de dispositivo / operador ativo / must-change vêm de
+// operator/session|eligible, independentes do `/pos/` gated (C1-01). O `<OperatorLock>`
+// se autogerencia: carrega elegíveis, destrava por PIN OU crachá, troca PIN, e ao
+// destravar chama refreshNuxtData → o `/pos/` recarrega sozinho.
+const OPERATOR_PERM = "backstage.operate_pos";
 const {
-  activeOperator,
+  operator: activeOperator,
   locked,
   authenticated,
   mustChange,
-  eligible,
-  loadEligible,
-  busy: lockBusy,
-  error: lockError,
-  unlock,
   lock,
-  changePin,
-  changeError,
-  refreshSession,
-} = usePosOperatorLock({
-  autoLockSeconds: () => pos.value?.auto_lock_seconds ?? 60,
-});
+} = useOperatorLock(OPERATOR_PERM);
+
+// Auto-lock por ociosidade é a única particularidade de kiosk do PDV (os outros apps
+// não auto-travam). Vive à parte do lock compartilhado, sobre o `lock()` dele.
+usePosAutoLock({ locked, lock, autoLockSeconds: () => pos.value?.auto_lock_seconds ?? 60 });
 
 // A tela de login sobe SÓ quando não há sessão de dispositivo (device_user ausente)
-// ou ela expirou no meio do turno. Estação COM sessão mas sem operador ativo →
-// PosLockScreen (picker de PIN), nunca a tela de login (C1-01).
+// ou ela expirou no meio do turno. Estação COM sessão mas sem operador ativo → o
+// `<OperatorLock>` (picker de PIN/crachá), nunca a tela de login (C1-01).
 const needsLogin = computed(() => !authenticated.value || sessionExpired.value);
-
-// Operadores elegíveis (picker do PIN) vêm de operator/eligible — carrega assim que
-// a sessão de dispositivo existe e recarrega ao (re)autenticar após um login.
-onMounted(loadEligible);
-watch(authenticated, (ok) => { if (ok) loadEligible(); });
-
-async function onUnlock(operatorId: number, pin: string) {
-  if (await unlock(operatorId, pin)) await refresh();
-}
-
-// Forced PIN change after a manager reset: the shared session carries the flag for
-// the active operator. While set, the lock screen stays up (in change mode) even
-// though an operator is "active", until the temp PIN is rotated.
-const changeNonce = ref(0);
-async function onChangePin(operatorId: number, currentPin: string, newPin: string) {
-  if (await changePin(operatorId, currentPin, newPin)) {
-    changeNonce.value += 1;
-    useSonner.success("PIN atualizado.");
-    await refreshSession(); // clears must_change on the shared session
-    await refresh(); // reloads the terminal projection now that we can read it
-  }
-}
 
 // Write-side of the open sale: cart draft + every session command. The shell
 // owns the Nuxt-bound primitives and hands them to the composable (a plain .ts
@@ -311,18 +284,10 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
     />
 
     <div class="flex min-w-0 flex-1 flex-col md:min-h-0 md:overflow-hidden">
-      <PosLockScreen
+      <!-- Identificação unificada (PIN ou CRACHÁ): o mesmo overlay dos outros 4 apps. -->
+      <OperatorLock
         v-if="authenticated && (locked || mustChange)"
-        :operators="eligible"
-        :busy="lockBusy"
-        :error="lockError"
-        :forced="mustChange"
-        :forced-operator-id="activeOperator?.id ?? null"
-        :forced-operator-name="activeOperator?.name || ''"
-        :change-error="changeError"
-        :change-nonce="changeNonce"
-        @unlock="onUnlock"
-        @change-pin="onChangePin"
+        :perm="OPERATOR_PERM"
       />
 
       <header v-if="pos && !needsLogin" class="flex shrink-0 items-center gap-3 border-b border-border bg-card px-4 py-2">
