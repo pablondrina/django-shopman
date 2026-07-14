@@ -106,6 +106,10 @@ export function usePosSale(deps: PosSaleDeps) {
     toast.error(message);
     serverError.value = "";
   });
+  // Falha de aprovação gerencial (PIN inválido/necessário): NÃO é um toast que some
+  // — reabre o diálogo de autorização com a mensagem, senão o CTA vira "Validar" e
+  // reenvia o mesmo PIN errado para sempre (beco sem saída).
+  const managerApprovalError = ref("");
   const result = ref<{ orderRef: string; nextUrl: string; payment: PaymentProofView | null; receipt: PosReceiptSnapshot; issueFiscalDocument: boolean } | null>(null);
 
   // PIX no PDV: o proof mostra o QR e "aguarde confirmação", mas sem polling o
@@ -1026,6 +1030,7 @@ export function usePosSale(deps: PosSaleDeps) {
       return;
     }
     serverError.value = "";
+    managerApprovalError.value = "";
     result.value = null;
     busy.value = true;
     try {
@@ -1067,7 +1072,16 @@ export function usePosSale(deps: PosSaleDeps) {
         await refresh();
       }
     } catch (error) {
-      serverError.value = httpErrorMessage(error, "Falha ao finalizar venda.");
+      const failure = (httpError(error).data as { error?: { code?: string; message?: string; recovery?: string } } | null)?.error;
+      if (failure?.code === "manager_approval_invalid" || failure?.code === "manager_approval_required") {
+        // Aprovação recusada: limpa o gerente/PIN e reabre o diálogo com a mensagem,
+        // em vez de deixar o CTA reenviar as mesmas credenciais erradas.
+        cart.managerUsername = "";
+        cart.managerPin = "";
+        managerApprovalError.value = failure.recovery || failure.message || "Aprovação gerencial inválida.";
+      } else {
+        serverError.value = httpErrorMessage(error, "Falha ao finalizar venda.");
+      }
     } finally {
       busy.value = false;
     }
@@ -1359,6 +1373,7 @@ export function usePosSale(deps: PosSaleDeps) {
     saleCancelled,
     lookupBusy,
     serverError,
+    managerApprovalError,
     result,
     checkoutMode,
     showTabs,

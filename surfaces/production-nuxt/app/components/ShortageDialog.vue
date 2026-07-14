@@ -31,7 +31,7 @@ const isMaterial = computed(() => props.shortage?.code === "material_shortage");
             <span class="font-medium">{{ item.sku }}</span>
             <span class="tabular-nums text-muted-foreground">
               precisa <b class="text-foreground">{{ item.needed }}</b> · tem {{ item.available }} ·
-              <span class="text-red-600 dark:text-red-400">faltam {{ item.shortage }}</span>
+              <span class="text-destructive dark:text-orange-400">faltam {{ item.shortage }}</span>
             </span>
           </li>
         </ul>
@@ -50,7 +50,7 @@ const isMaterial = computed(() => props.shortage?.code === "material_shortage");
         <button
           v-if="isMaterial"
           type="button"
-          class="rounded-md border border-transparent bg-amber-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
+          class="rounded-md border border-transparent bg-warning px-3 py-2 text-sm font-semibold text-warning-foreground transition hover:bg-warning/90"
           @click="emit('confirm')"
         >
           Concluir mesmo assim

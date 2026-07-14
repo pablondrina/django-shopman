@@ -82,7 +82,7 @@ function confirmClose() {
       </UiDialogHeader>
 
       <!-- Occupied: terminal has an open shift under another operator -->
-      <div v-if="occupied" class="grid gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-4">
+      <div v-if="occupied" class="grid gap-2 rounded-md border border-warning/40 bg-warning/10 p-4">
         <div class="flex items-center gap-2">
           <Icon name="lucide:lock" class="size-4 text-amber-700" />
           <p class="text-sm font-semibold text-amber-800">Terminal ocupado</p>
@@ -96,11 +96,11 @@ function confirmClose() {
         <!-- Gerente ou dono do turno: fecha (contagem cega) e libera o terminal aqui mesmo. -->
         <template v-if="cashRuntime.can_close_blocking">
           <div v-if="!confirmingBlocking" class="mt-1">
-            <UiButton variant="outline" size="sm" class="w-full border-amber-600/50 text-amber-800 hover:bg-amber-500/10" :disabled="busy" @click="confirmingBlocking = true">
+            <UiButton variant="outline" size="sm" class="w-full border-warning/50 text-amber-800 hover:bg-warning/10" :disabled="busy" @click="confirmingBlocking = true">
               Fechar turno #{{ cashRuntime.blocking_shift_id }} (contagem cega)
             </UiButton>
           </div>
-          <div v-else class="mt-1 grid gap-2 rounded-md border border-amber-600/40 bg-background p-3">
+          <div v-else class="mt-1 grid gap-2 rounded-md border border-warning/40 bg-background p-3">
             <div class="flex items-start gap-2 text-xs text-muted-foreground">
               <Icon name="lucide:eye-off" class="mt-0.5 size-4 shrink-0" />
               <span>Contagem cega: conte o dinheiro do caixa e informe o valor. A conferência fica no gestor.</span>

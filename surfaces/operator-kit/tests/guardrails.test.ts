@@ -5,15 +5,16 @@ import { describe, expect, it } from "vitest";
 
 // Guardrails de CONSISTÊNCIA do design system canônico do backstage (Lente 7).
 // Fonte: docs/engineering/backstage-design-system.md. Estes testes travam a DRIFT
-// entre as 4 superfícies de operador — falham no instante em que alguém edita um
-// tailwind.css e não os outros. Storefront fica FORA (sistema branded próprio).
+// entre as 5 superfícies de operador — os tokens canônicos vivem num tema central
+// (operator-theme.css) e cada app o importa; o guardrail garante fonte única +
+// importação. Storefront fica FORA (sistema branded próprio).
 
 const surfacesDir = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const OPERATOR_APPS = ["pos-nuxt", "kds-nuxt", "orders-nuxt", "production-nuxt", "hub-nuxt"] as const;
 
-// Tokens canônicos que DEVEM ter o mesmo valor nos 4 apps (cor neutra, raio, semânticos).
+// Tokens canônicos que vivem no tema central e chegam aos 5 apps pela importação.
 // Cada app pode ter tokens ADICIONAIS (print no POS, dark no KDS) — o guardrail checa
-// paridade só dos canônicos, não igualdade byte-a-byte do arquivo.
+// a presença dos canônicos na fonte única + a importação, não igualdade byte-a-byte.
 const CANONICAL_TOKENS = ["--radius", "--primary", "--destructive", "--background", "--foreground"] as const;
 
 function cssFor(app: string): string {
@@ -26,25 +27,30 @@ function tokenValue(css: string, token: string): string | null {
   return match ? match[1].trim() : null;
 }
 
-describe("design-system: paridade de tokens canônicos entre os 4 apps de operador", () => {
-  const reference = cssFor(OPERATOR_APPS[0]);
+describe("design-system: tema operador centralizado (operator-theme.css) herdado por todos", () => {
+  // O tema quente do operador vive num ÚNICO arquivo no kit (operator-theme.css),
+  // importado por cada app via @import. A paridade de tokens deixa de ser "mesmo
+  // valor copiado em 5 tailwind.css" e passa a ser "fonte única + todos importam" —
+  // drift torna-se impossível por construção.
+  const operatorTheme = readFileSync(
+    resolve(surfacesDir, "operator-kit", "app/assets/css/operator-theme.css"),
+    "utf8",
+  );
 
-  for (const token of CANONICAL_TOKENS) {
-    it(`'${token}' é idêntico nos 4 apps`, () => {
-      const refValue = tokenValue(reference, token);
-      expect(refValue, `${token} ausente em ${OPERATOR_APPS[0]}`).not.toBeNull();
-      for (const app of OPERATOR_APPS) {
-        expect(tokenValue(cssFor(app), token), `${token} diverge em ${app}`).toBe(refValue);
-      }
+  it("os tokens canônicos vivem no operator-theme.css central (fonte única)", () => {
+    for (const token of CANONICAL_TOKENS) {
+      expect(
+        tokenValue(operatorTheme, token),
+        `${token} ausente no operator-theme.css central`,
+      ).not.toBeNull();
+    }
+  });
+
+  for (const app of OPERATOR_APPS) {
+    it(`${app} importa o operator-theme.css do kit (herda os tokens, zero drift)`, () => {
+      expect(cssFor(app), `${app} não importa o tema central`).toMatch(/operator-theme\.css/);
     });
   }
-
-  it("o token neutro do canon (--primary) permanece neutro (sem matiz de marca)", () => {
-    // Disciplina Odoo/ERP: primary é cinza OKLch (chroma ~0), a marca vive no storefront.
-    const value = tokenValue(reference, "--primary") ?? "";
-    const chroma = Number(value.replace(/oklch\(|\)/g, "").trim().split(/\s+/)[1] ?? "1");
-    expect(chroma).toBeLessThan(0.02);
-  });
 });
 
 // --- Escala tipográfica (DS §3): só os 6 papéis; sem `text-2xl` nem `text-[..]`

@@ -20,9 +20,9 @@ type StatusMeta = {
 };
 
 const STATUS_META: Record<string, StatusMeta> = {
-  ready: { label: "OK", dot: "bg-green-500", text: "text-green-700", badge: "success" },
-  warning: { label: "Atenção", dot: "bg-amber-500", text: "text-amber-700", badge: "warning" },
-  error: { label: "Erro", dot: "bg-red-500", text: "text-red-700", badge: "destructive" },
+  ready: { label: "OK", dot: "bg-success", text: "text-success", badge: "success" },
+  warning: { label: "Atenção", dot: "bg-warning", text: "text-amber-700", badge: "warning" },
+  error: { label: "Erro", dot: "bg-destructive", text: "text-destructive", badge: "destructive" },
 };
 
 function meta(status: string): StatusMeta {

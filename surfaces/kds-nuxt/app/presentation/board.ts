@@ -50,11 +50,13 @@ export function toneTimer(tone: KDSTone): string {
   return "border-white/10 bg-white/5 text-muted-foreground";
 }
 
-/** Type guard: expedition boards hold expedition cards, prep boards hold tickets. */
+/** Type guard: expedition boards hold expedition cards, prep boards hold tickets.
+ *  Discriminated by the explicit `is_expedition` flag — never by field presence
+ *  (sniffing `items` broke when the expedition card gained an items list). */
 export function isExpeditionCard(
   card: KDSTicketProjection | KDSExpeditionCardProjection,
 ): card is KDSExpeditionCardProjection {
-  return "fulfillment_label" in card && !("items" in card);
+  return card.is_expedition;
 }
 
 const TONE_RANK: Record<KDSTone, number> = { late: 0, warning: 1, ok: 2 };

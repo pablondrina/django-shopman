@@ -1,23 +1,12 @@
-// Pure logic for the POS operator lock screen. Kept framework-free so it can be
-// unit-tested without a Nuxt runtime (the composable is the thin glue around it).
-
-export interface OperatorCard {
-  id: number;
-  username: string;
-  name: string;
-}
+// Pure logic ainda usada pelo PDV: o teclado de PIN (PosPinPad, reusado pelo diálogo
+// de autorização de gerente) e o auto-lock de kiosk (usePosAutoLock). A identificação
+// (PIN/crachá) em si mora no lock compartilhado do kit (useOperatorLock/OperatorLock).
+// Framework-free para ser testável sem runtime Nuxt.
 
 /** Whether the terminal should auto-lock given idle time. timeoutSec<=0 disables. */
 export function isIdleBeyond(lastActivityMs: number, nowMs: number, timeoutSec: number): boolean {
   if (timeoutSec <= 0) return false;
   return nowMs - lastActivityMs >= timeoutSec * 1000;
-}
-
-/** Build the unlock request body for the generic operator endpoint. PIN is sent
- *  as-is (digits); the server hashes/validates. ``perm`` (the surface capability,
- *  e.g. operate_pos) restricts who may unlock here. */
-export function unlockBody(operatorId: number | string, pin: string, perm?: string): Record<string, unknown> {
-  return { operator_id: operatorId, pin, ...(perm ? { perm } : {}) };
 }
 
 /** Append a digit to a PIN buffer, capped at maxLength. Ignores non-digits. */

@@ -181,12 +181,15 @@ class TestPriceOverrideIntentAndOps:
 
 @pytest.mark.django_db
 class TestServerSidePriceAuthority:
-    """The price-trust gate derives ``price_overridden`` from the canonical
-    catalog price on the server — the client's advisory flag is never trusted.
+    """The price-trust gate stamps ``price_overridden`` for the one manual action
+    that both freezes a line and needs a manager PIN: the operator fixing a unit
+    price by hand off the catalog anchor. It is derived server-side (client intent
+    plus an off-catalog price), never taken raw.
 
-    A crafted request that lowers a price without the flag is caught; a
-    modifier-driven line (D-1/happy-hour, whose payload carries the pre-modifier
-    catalog price) is not a false override; a plain catalog sale has no friction.
+    An automatic system discount (D-1/happy-hour/promotion) baked into the reloaded
+    ``unit_price_q`` is NOT a false override (the seed bug B1-2); a crafted low price
+    without the operator intent is repriced by the ``internal`` pricing modifier on
+    commit, so it needs no gate here; a genuine hand-fixed price still fires it.
     """
 
     def _channel(self):
@@ -202,16 +205,31 @@ class TestServerSidePriceAuthority:
             is_published=True, is_sellable=True,
         )
 
-    def test_crafted_low_price_without_flag_is_derived_as_override(self) -> None:
+    def test_operator_override_below_catalog_requires_manager(self) -> None:
         channel = self._channel()
         self._product(base_price_q=1300)
-        # Crafted request: price below catalog, NO client flag.
-        payload = {"items": [{"sku": "BAGUETE", "qty": 1, "unit_price_q": 100}]}
+        # Operator hand-fixed the price below catalog (numpad "Preço"): the client
+        # sends the override intent. This freezes the line and needs a manager PIN.
+        payload = {"items": [{"sku": "BAGUETE", "qty": 1, "unit_price_q": 100,
+                              "price_overridden": True}]}
         pos_service.derive_price_overrides(payload, channel=channel)
         assert payload["items"][0]["price_overridden"] is True
         with pytest.raises(PosIntentError) as exc:
             pos_service.validate_manager_approval(payload, operator_username="op")
         assert exc.value.code == "manager_approval_required"
+
+    def test_low_price_without_override_intent_is_not_gated(self) -> None:
+        # A crafted request that lowers a price WITHOUT the operator intent flag is
+        # not flagged here: it never freezes, so the internal pricing modifier
+        # reprices it back to catalog on commit — it cannot undercharge, so the gate
+        # would be pure friction. (Contrast the flagged case above.)
+        channel = self._channel()
+        self._product(base_price_q=1300)
+        payload = {"items": [{"sku": "BAGUETE", "qty": 1, "unit_price_q": 100}]}
+        pos_service.derive_price_overrides(payload, channel=channel)
+        assert payload["items"][0]["price_overridden"] is False
+        # No friction: gate does not fire.
+        pos_service.validate_manager_approval(payload, operator_username="op")
 
     def test_catalog_price_is_not_an_override(self) -> None:
         channel = self._channel()
@@ -222,18 +240,32 @@ class TestServerSidePriceAuthority:
         # No friction: gate does not fire for a plain catalog sale.
         pos_service.validate_manager_approval(payload, operator_username="op")
 
-    def test_d1_line_at_catalog_price_is_not_an_override(self) -> None:
-        # D-1 (and happy-hour, employee) discounts are applied by later modifiers
-        # on commit; the payload carries the PRE-modifier catalog price, so the
-        # derivation must not read a D-1 line as a manual override.
+    def test_baked_d1_discount_price_is_not_an_override(self) -> None:
+        # THE SEED BUG (B1-2): a previous persist baked the D-1 discount into
+        # unit_price_q (650 = 1300 − 50%) and the reload echoes it back WITHOUT any
+        # override intent. The old catalog comparison read this as a manual override
+        # and demanded a manager for every D-1 line. It must not.
         channel = self._channel()
         self._product(base_price_q=1300)
-        payload = {"items": [{"sku": "BAGUETE", "qty": 1, "unit_price_q": 1300, "is_d1": True}]}
+        payload = {"items": [{"sku": "BAGUETE", "qty": 1, "unit_price_q": 650, "is_d1": True}]}
         pos_service.derive_price_overrides(payload, channel=channel)
         assert payload["items"][0]["price_overridden"] is False
+        pos_service.validate_manager_approval(payload, operator_username="op")
+
+    def test_baked_promotion_price_is_not_an_override(self) -> None:
+        # THE SEED BUG (B1-2), promotion arm: an active promotion baked the
+        # discounted price into unit_price_q (1000 < 1300 catalog); reloaded with no
+        # override intent. A cart with an item on promotion must not demand a manager.
+        channel = self._channel()
+        self._product(base_price_q=1300)
+        payload = {"items": [{"sku": "BAGUETE", "qty": 1, "unit_price_q": 1000}]}
+        pos_service.derive_price_overrides(payload, channel=channel)
+        assert payload["items"][0]["price_overridden"] is False
+        pos_service.validate_manager_approval(payload, operator_username="op")
 
     def test_client_flag_is_ignored_when_price_matches_catalog(self) -> None:
-        # A stray client flag must not create a false gate when the price is legit.
+        # A stray override flag must not create a false gate when the price is legit:
+        # a hand-fixed price that equals the catalog anchor is a no-op, not a markdown.
         channel = self._channel()
         self._product(base_price_q=1300)
         payload = {"items": [{"sku": "BAGUETE", "qty": 1, "unit_price_q": 1300,
@@ -242,15 +274,16 @@ class TestServerSidePriceAuthority:
         assert payload["items"][0]["price_overridden"] is False
 
     def test_unknown_sku_without_catalog_anchor_is_an_override(self) -> None:
-        # No catalog price to charge against → conservative: needs manager sign-off.
+        # No catalog price to charge against → conservative: needs manager sign-off,
+        # regardless of intent (the internal modifier cannot reprice it either).
         channel = self._channel()
         payload = {"items": [{"sku": "GHOST", "qty": 1, "unit_price_q": 100}]}
         pos_service.derive_price_overrides(payload, channel=channel)
         assert payload["items"][0]["price_overridden"] is True
 
     def test_listing_price_is_the_anchor_over_base(self) -> None:
-        # When a POS ListingItem exists, its price is the canonical anchor; a line
-        # at the base price (below the listing price) is a derived override.
+        # When a POS ListingItem exists, its price is the canonical anchor; a
+        # hand-fixed line at the base price (below the listing price) is an override.
         from shopman.offerman.models import Listing, ListingItem
 
         channel = self._channel()
@@ -263,7 +296,8 @@ class TestServerSidePriceAuthority:
         payload = {"items": [{"sku": "BAGUETE", "qty": 1, "unit_price_q": 1500}]}
         pos_service.derive_price_overrides(payload, channel=channel)
         assert payload["items"][0]["price_overridden"] is False
-        below = {"items": [{"sku": "BAGUETE", "qty": 1, "unit_price_q": 1200}]}
+        below = {"items": [{"sku": "BAGUETE", "qty": 1, "unit_price_q": 1200,
+                            "price_overridden": True}]}
         pos_service.derive_price_overrides(below, channel=channel)
         assert below["items"][0]["price_overridden"] is True
 
@@ -277,15 +311,41 @@ class TestTabPayloadRestore:
         assert pos_projection._tab_payload_line_discount({"sku": "X", "meta": {}}) is None
 
     def test_display_price_uses_pre_discount_when_manual_applied(self) -> None:
-        # After the modifier ran, unit_price_q is discounted; display restores base.
+        # After the modifier ran, unit_price_q is discounted; the reload restores the
+        # base price from session.pricing (NOT from the item's modifiers_applied,
+        # which is stripped on save) so the descriptor is not double-applied (B1-3).
         item = {
             "sku": "X",
             "unit_price_q": 1170,  # 1300 - 10%
             "meta": {"manual_discount": {"value": 10, "reason": "cortesia"}},
-            "modifiers_applied": [{"type": "manual", "original_price_q": 1300, "discount_q": 130}],
         }
-        assert pos_projection._tab_line_display_price_q(item) == 1300
+        originals = {"X": 1300}
+        assert pos_projection._tab_line_display_price_q(item, originals) == 1300
+
+    def test_display_price_falls_back_when_no_pricing_record(self) -> None:
+        # No surviving pricing record → fall back to the stored (baked) unit price
+        # rather than guessing; the descriptor path only triggers with an original.
+        item = {"sku": "X", "unit_price_q": 1170, "meta": {"manual_discount": {"value": 10}}}
+        assert pos_projection._tab_line_display_price_q(item, {}) == 1170
 
     def test_display_price_falls_back_to_unit_price(self) -> None:
         item = {"sku": "X", "unit_price_q": 1300, "meta": {}}
-        assert pos_projection._tab_line_display_price_q(item) == 1300
+        assert pos_projection._tab_line_display_price_q(item, {}) == 1300
+
+    def test_manual_originals_map_from_session_pricing(self) -> None:
+        # The surviving source: session.pricing["discount"]["items"]. Only manual
+        # records with an original price map; promotion/coupon records are ignored
+        # (their baked price is repriced on commit, not restored here).
+        from types import SimpleNamespace
+
+        session = SimpleNamespace(pricing={"discount": {"items": [
+            {"sku": "X", "type": "manual", "original_price_q": 1300, "discount_q": 1170, "qty": 1},
+            {"sku": "Y", "type": "promotion", "original_price_q": 900, "discount_q": 90, "qty": 1},
+            {"sku": "", "type": "coupon", "original_price_q": 0, "discount_q": 500, "qty": 1},
+        ]}})
+        assert pos_projection._manual_discount_originals(session) == {"X": 1300}
+
+    def test_manual_originals_map_empty_without_pricing(self) -> None:
+        from types import SimpleNamespace
+
+        assert pos_projection._manual_discount_originals(SimpleNamespace(pricing=None)) == {}

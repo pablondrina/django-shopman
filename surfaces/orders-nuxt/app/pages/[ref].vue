@@ -103,7 +103,7 @@ const fiscalHref = (link: { href?: string; url?: string }) => link.href || link.
     </header>
 
     <p v-if="pending && !order" class="text-sm text-muted-foreground">Carregando…</p>
-    <p v-else-if="error || !order" class="rounded-md border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-700 dark:text-red-400">
+    <p v-else-if="error || !order" class="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive dark:text-orange-400">
       Pedido não encontrado ou falha ao carregar.
     </p>
 
@@ -146,7 +146,7 @@ const fiscalHref = (link: { href?: string; url?: string }) => link.href || link.
         <button v-if="order.fiscal_status === 'failed'" type="button" :disabled="busy" class="inline-flex items-center gap-1.5 rounded-md border px-3.5 py-2 text-sm font-semibold transition hover:bg-accent disabled:opacity-50" @click="requeueFiscal">
           <Icon name="lucide:file-text" class="size-4" /> Reprocessar fiscal
         </button>
-        <button type="button" :disabled="busy" class="inline-flex items-center gap-1.5 rounded-md border border-red-500/40 px-3.5 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-500/10 disabled:opacity-50 dark:text-red-300" @click="openDialog('reject')">
+        <button type="button" :disabled="busy" class="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 px-3.5 py-2 text-sm font-semibold text-destructive transition hover:bg-destructive/10 disabled:opacity-50 dark:text-orange-300" @click="openDialog('reject')">
           <Icon name="lucide:x" class="size-4" /> Recusar
         </button>
         <button type="button" :disabled="busy" class="inline-flex items-center gap-1.5 rounded-md border px-3.5 py-2 text-sm font-medium text-muted-foreground transition hover:bg-accent disabled:opacity-50" @click="openDialog('cancel')">

@@ -223,7 +223,7 @@ const progress = computed(() =>
           <Icon
             name="lucide:check-check"
             class="size-5"
-            :class="ticket.all_checked ? 'text-green-400' : ''"
+            :class="ticket.all_checked ? 'text-success' : ''"
           />
           {{
             ticket.all_checked ? "Finalizar — tudo pronto" : "Finalizar pedido"

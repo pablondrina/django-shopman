@@ -94,9 +94,10 @@ useHead({
 
 <template>
   <main class="pb-6 pt-0 lg:pb-8">
-    <!-- Breadcrumb full-width encostando na navbar; sem respiro até a foto (a barra
-         dourada encosta direto na imagem da PDP). -->
-    <div v-if="product" class="shop-breadcrumb-bar">
+    <!-- Breadcrumb full-width encostando na navbar. Mobile: sem respiro (a barra
+         dourada encosta direto na foto full-bleed). Desktop: respiro (lg:mb-6)
+         antes do card contido, no mesmo ritmo da tela de conta. -->
+    <div v-if="product" class="shop-breadcrumb-bar lg:mb-6">
       <div class="shop-container py-2">
         <UiBreadcrumbs
           :items="[

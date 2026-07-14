@@ -1,0 +1,135 @@
+/* ============================================================================
+   TEMA OPERADOR — variante QUENTE (decisão Pablo 2026-07-13, piloto no Gestor)
+   Fonte única dos tokens de tema das superfícies de operador. Cada app importa
+   este arquivo no topo do seu app/assets/css/tailwind.css:
+
+     @import "../../../../operator-kit/app/assets/css/operator-theme.css";
+
+   (mesmo caminho relativo do @source que os apps já usam para o kit; o arquivo
+   entra no pipeline Tailwind v4 do próprio app, então o @theme daqui vale.)
+
+   Deriva das MESMAS escalas de matiz da vitrine (shopman/shop/brand_tokens.py:
+   Burgundy · Brass · Moss · Faubourg) — cliente e operador são UM sistema.
+   Diferença de papel: na vitrine a ação é burgundy; no balcão a ação é LATÃO
+   (Brass-700) sobre papel Faubourg — o burgundy fica exclusivo do cliente.
+   Status = eixo terroso da marca (tijolo/âmbar queimado/verde-folha/azul-poeira),
+   tokens info/success/warning/destructive — cor continua significando algo.
+   Espec: projeto Claude Design "Design systems review Storefront".
+   ============================================================================ */
+
+@theme {
+  /* Corpo/UI = Instrument Sans, a família canônica do design system (mesma da
+     vitrine). Cada app declara os pesos no seu nuxt.config (fonts.families:
+     400/500/600/700) — sem isso o @nuxt/fonts baixa só o 400 e o navegador
+     sintetiza os demais (faux bold). */
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
+
+@theme inline {
+  /* Rail de operador (OperatorRail/RailItem) tem cor PRÓPRIA, desacoplada da ação:
+     no escuro a ação é dourada-pop, mas o rail precisa recuar (chrome, não ação). */
+  --color-rail: var(--rail);
+  --color-rail-foreground: var(--rail-foreground);
+}
+
+:root {
+  --radius: 0.625rem; /* soft (10px) — levemente mais arredondado que o antigo 8px */
+
+  --background: #fcf6f1; /* Faubourg-100 — paper quente do balcão */
+  --foreground: #3b2a1e; /* Brass-950 — bronze quase-marrom */
+  --card: #ffffff; /* surface-alt */
+  --card-foreground: #3b2a1e;
+  --popover: #ffffff;
+  --popover-foreground: #3b2a1e;
+
+  --primary: #8b6b2e; /* Brass-700 — latão = ação do operador */
+  --primary-foreground: #ffffff;
+  --secondary: #f5e7dd; /* Faubourg-200 — superfície neutra 2ª */
+  --secondary-foreground: #3b2a1e;
+  --muted: #f5e7dd;
+  --muted-foreground: #6e5a48; /* Faubourg-700 */
+  --accent: #efe2c9; /* dourado pálido — hover */
+  --accent-foreground: #3b2a1e;
+
+  --destructive: #b43325; /* tijolo — erro/destrutivo */
+  --destructive-foreground: #ffffff;
+  --success: #3e7d44; /* verde-folha — confirmação/despacho/dinheiro */
+  --success-foreground: #ffffff;
+  --warning: #c2701c; /* âmbar queimado — atenção/atrasando */
+  --warning-foreground: #ffffff;
+  --info: #3f6e8c; /* azul-poeira — informação neutra */
+  --info-foreground: #ffffff;
+
+  --border: #dec9bb; /* Faubourg-500 (rosé) */
+  --input: #dec9bb;
+  --ring: #6b5019; /* Brass-800 — foco (passa 3:1 no paper) */
+
+  --chart-1: #8b6b2e; /* latão */
+  --chart-2: #7c3a40; /* burgundy */
+  --chart-3: #5e7b3b; /* moss */
+  --chart-4: #3f6e8c; /* azul-poeira */
+  --chart-5: #c8962f; /* dourado vivo */
+
+  --rail: #8b6b2e; /* Brass-700 — rail bronze (mesmo tom da ação no claro) */
+  --rail-foreground: #ffffff;
+
+  --sidebar: #f5e7dd; /* Faubourg-200 */
+  --sidebar-foreground: #3b2a1e;
+  --sidebar-primary: #8b6b2e;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #efe2c9;
+  --sidebar-accent-foreground: #3b2a1e;
+  --sidebar-border: #dec9bb;
+  --sidebar-ring: #6b5019;
+}
+
+.dark {
+  --background: #221610; /* marrom-burgundy quase-preto */
+  --foreground: #f0e6d2; /* creme */
+  --card: #2b1d16;
+  --card-foreground: #f0e6d2;
+  --popover: #2b1d16;
+  --popover-foreground: #f0e6d2;
+
+  --primary: #d4a53f; /* Brass claro — ação dourada pop no escuro */
+  --primary-foreground: #221610;
+  --secondary: #3a2a20;
+  --secondary-foreground: #f0e6d2;
+  --muted: #332419;
+  --muted-foreground: #c2ae96;
+  --accent: #3a2a20;
+  --accent-foreground: #f0e6d2;
+
+  --destructive: #e06a5e;
+  --destructive-foreground: #2b1d16;
+  --success: #7eb26e;
+  --success-foreground: #221610;
+  --warning: #e09a4a;
+  --warning-foreground: #221610;
+  --info: #6fa0c0;
+  --info-foreground: #221610;
+
+  --border: #463528;
+  --input: #463528;
+  --ring: #d4a53f;
+
+  --chart-1: #d4a53f;
+  --chart-2: #b97b82; /* burgundy claro */
+  --chart-3: #8a9a6b; /* moss claro */
+  --chart-4: #6fa0c0;
+  --chart-5: #c8962f;
+
+  --rail: #4c381f; /* Brass-900 — bronze escuro: recua sem perder a identidade
+                      (a ação dourada #d4a53f fica exclusiva de botões/foco) */
+  --rail-foreground: #f0e6d2;
+
+  --sidebar: #2b1d16;
+  --sidebar-foreground: #f0e6d2;
+  --sidebar-primary: #d4a53f;
+  --sidebar-primary-foreground: #221610;
+  --sidebar-accent: #3a2a20;
+  --sidebar-accent-foreground: #f0e6d2;
+  --sidebar-border: #463528;
+  --sidebar-ring: #d4a53f;
+}

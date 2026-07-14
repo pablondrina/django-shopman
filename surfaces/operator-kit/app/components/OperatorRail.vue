@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Rail de operador CANÔNICO — a espinha vertical neutra (`bg-primary` ≈ preto, sem matiz
+// Rail de operador CANÔNICO — a espinha vertical em `bg-rail` (token próprio do chrome,
 // de marca: disciplina de ERP) que TODAS as superfícies de operador adotam. É o portador
 // nº1 da familiaridade: mesma peça em POS/Gestor/KDS/Fournil/Central. Segura o que é
 // COMUM (voltar à Central, operador/travar, tema, e o que o app puser em #status); o
@@ -39,7 +39,7 @@ const appIconName = computed(() => (props.appIcon.startsWith("lucide:") ? props.
        RailToggle no cabeçalho do app. Compacto / estendido: -->
   <aside
     v-if="!isCollapsed"
-    class="flex shrink-0 flex-col bg-primary py-2 text-primary-foreground print:hidden"
+    class="flex shrink-0 flex-col bg-rail py-2 text-rail-foreground print:hidden"
     :class="isExtended ? 'w-52 px-2' : 'w-14 items-center px-2'"
     :aria-label="`Barra do ${appLabel}`"
     :data-rail-state="state"
@@ -56,8 +56,8 @@ const appIconName = computed(() => (props.appIcon.startsWith("lucide:") ? props.
       :class="isExtended ? 'w-full' : ''"
     >
       <span
-        class="grid size-10 shrink-0 place-items-center rounded-md bg-primary-foreground/15 transition"
-        :class="centralUrl ? 'group-hover:bg-primary-foreground/25 group-focus-visible:bg-primary-foreground/25' : ''"
+        class="grid size-10 shrink-0 place-items-center rounded-md bg-rail-foreground/15 transition"
+        :class="centralUrl ? 'group-hover:bg-rail-foreground/25 group-focus-visible:bg-rail-foreground/25' : ''"
       >
         <Icon
           :name="appIconName"
@@ -104,7 +104,7 @@ const appIconName = computed(() => (props.appIcon.startsWith("lucide:") ? props.
           @activate="toggleTheme"
         />
         <template #fallback>
-          <span class="grid h-10 w-10 place-items-center rounded-md text-primary-foreground/80">
+          <span class="grid h-10 w-10 place-items-center rounded-md text-rail-foreground/80">
             <Icon name="lucide:moon" class="size-5" />
           </span>
         </template>

@@ -36,6 +36,16 @@ export default defineNuxtConfig({
     "vue-sonner/nuxt"
   ],
 
+  // Instrument Sans self-hospedada com os PESOS da escala do operador (body=500,
+  // title=600, display/figure=700 — ver ESCALA DE DESIGN no tailwind.css). Sem esta
+  // declaração o @nuxt/fonts baixa só o 400 e o navegador sintetiza os demais (faux
+  // bold). Mesma família da vitrine (design system unificado).
+  fonts: {
+    families: [
+      { name: 'Instrument Sans', provider: 'google', weights: [400, 500, 600, 700], styles: ['normal'] }
+    ]
+  },
+
   imports: {
     imports: [{
       from: 'tailwind-variants',

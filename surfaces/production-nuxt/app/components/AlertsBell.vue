@@ -11,9 +11,9 @@ const open = ref(false);
 const router = useRouter();
 
 function sevChip(sev: AlertProjection["severity"]): string {
-  if (sev === "critical") return "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300";
-  if (sev === "error") return "border-orange-500/40 bg-orange-500/10 text-orange-700 dark:text-orange-300";
-  return "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+  if (sev === "critical" || sev === "error")
+    return "border-destructive/40 bg-destructive/10 text-destructive dark:text-orange-300";
+  return "border-warning/40 bg-warning/10 text-amber-700 dark:text-amber-300";
 }
 
 function follow(alert: AlertProjection) {
@@ -37,7 +37,7 @@ function follow(alert: AlertProjection) {
       <span
         v-if="activeCount"
         class="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full px-1 text-xs font-bold tabular-nums text-white"
-        :class="criticalCount ? 'bg-red-600' : 'bg-amber-500'"
+        :class="criticalCount ? 'bg-destructive' : 'bg-warning'"
       >{{ activeCount }}</span>
     </button>
 

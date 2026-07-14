@@ -40,7 +40,7 @@ async function submitLogin() {
   }
 }
 
-const { data, pos, shift, tabs, operators, actions, pending, error, refresh } = await usePosTerminal();
+const { pos, shift, tabs, actions, pending, refresh } = await usePosTerminal();
 
 // Resiliência de rede (kit): reconciliação ao reconectar/reganhar foco — o tablet do
 // balcão que dormiu não fica com dados velhos. O <OfflineBanner> (auto-import do kit)
@@ -51,41 +51,31 @@ onReconnect(() => refresh());
 // Re-gate global de sessão (kit): um 401 no meio do turno (sessão de dispositivo
 // expirada) sobe a tela de login em vez de o operador bater numa sessão morta.
 const { expired: sessionExpired, reset: resetSession } = useOperatorSession();
-const needsLogin = computed(() => Boolean(error.value) || sessionExpired.value);
 
-// Operator identity / lock screen (PIN attribution). Instantiated here in the
-// shell's <script setup> so its lifecycle hooks (auto-lock idle timer) survive
-// the await above — Vue/Nuxt only preserve setup context across awaits inside
-// `<script setup>`, not inside a plain composable module.
+// Identidade do operador (PIN/crachá) pelo LOCK COMPARTILHADO do kit — o MESMO
+// `useOperatorLock` + `<OperatorLock>` dos outros 4 apps de operador. Unifica a UI
+// de identificação (o PDV não tem mais tela própria) e ganha o leitor de crachá de
+// graça. A sessão de dispositivo / operador ativo / must-change vêm de
+// operator/session|eligible, independentes do `/pos/` gated (C1-01). O `<OperatorLock>`
+// se autogerencia: carrega elegíveis, destrava por PIN OU crachá, troca PIN, e ao
+// destravar chama refreshNuxtData → o `/pos/` recarrega sozinho.
+const OPERATOR_PERM = "backstage.operate_pos";
 const {
-  activeOperator,
+  operator: activeOperator,
   locked,
-  busy: lockBusy,
-  error: lockError,
-  unlock,
+  authenticated,
+  mustChange,
   lock,
-  changePin,
-  changeError,
-} = usePosOperatorLock({
-  initialOperator: data.value?.operator ?? null,
-  autoLockSeconds: pos.value?.auto_lock_seconds ?? 60,
-});
-async function onUnlock(operatorId: number, pin: string) {
-  if (await unlock(operatorId, pin)) await refresh();
-}
+} = useOperatorLock(OPERATOR_PERM);
 
-// Forced PIN change after a manager reset: the terminal read carries the flag for
-// the active operator. While set, the lock screen stays up (in change mode) even
-// though an operator is "active", until the temp PIN is rotated.
-const mustChange = computed(() => Boolean(data.value?.pin_must_change));
-const changeNonce = ref(0);
-async function onChangePin(operatorId: number, currentPin: string, newPin: string) {
-  if (await changePin(operatorId, currentPin, newPin)) {
-    changeNonce.value += 1;
-    useSonner.success("PIN atualizado.");
-    await refresh(); // clears must_change (forced flow) and reflects the new state.
-  }
-}
+// Auto-lock por ociosidade é a única particularidade de kiosk do PDV (os outros apps
+// não auto-travam). Vive à parte do lock compartilhado, sobre o `lock()` dele.
+usePosAutoLock({ locked, lock, autoLockSeconds: () => pos.value?.auto_lock_seconds ?? 60 });
+
+// A tela de login sobe SÓ quando não há sessão de dispositivo (device_user ausente)
+// ou ela expirou no meio do turno. Estação COM sessão mas sem operador ativo → o
+// `<OperatorLock>` (picker de PIN/crachá), nunca a tela de login (C1-01).
+const needsLogin = computed(() => !authenticated.value || sessionExpired.value);
 
 // Write-side of the open sale: cart draft + every session command. The shell
 // owns the Nuxt-bound primitives and hands them to the composable (a plain .ts
@@ -101,6 +91,7 @@ const {
   cancelSaleReason,
   saleCancelled,
   lookupBusy,
+  managerApprovalError,
   result,
   pixStatus,
   checkoutMode,
@@ -293,18 +284,10 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
     />
 
     <div class="flex min-w-0 flex-1 flex-col md:min-h-0 md:overflow-hidden">
-      <PosLockScreen
-        v-if="(locked || mustChange) && !!pos"
-        :operators="operators"
-        :busy="lockBusy"
-        :error="lockError"
-        :forced="mustChange"
-        :forced-operator-id="activeOperator?.id ?? null"
-        :forced-operator-name="activeOperator?.name || ''"
-        :change-error="changeError"
-        :change-nonce="changeNonce"
-        @unlock="onUnlock"
-        @change-pin="onChangePin"
+      <!-- Identificação unificada (PIN ou CRACHÁ): o mesmo overlay dos outros 4 apps. -->
+      <OperatorLock
+        v-if="authenticated && (locked || mustChange)"
+        :perm="OPERATOR_PERM"
       />
 
       <header v-if="pos && !needsLogin" class="flex shrink-0 items-center gap-3 border-b border-border bg-card px-4 py-2">
@@ -324,7 +307,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         </UiButton>
         <span
           v-if="inSaleView && !checkoutMode && unsaved"
-          class="inline-flex shrink-0 items-center gap-1 rounded-md border border-amber-500/50 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-400"
+          class="inline-flex shrink-0 items-center gap-1 rounded-md border border-warning/50 bg-warning/10 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-400"
           role="status"
           title="A comanda não pôde ser salva — tentando de novo"
         >
@@ -360,20 +343,20 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
 
       <div class="flex min-h-0 w-full flex-1 flex-col gap-3 px-4 py-3 md:min-h-0 md:overflow-hidden">
       <div class="grid shrink-0 gap-3 empty:hidden">
-      <UiAlert v-if="result" class="border-green-500/30 bg-green-500/10 text-green-800">
+      <UiAlert v-if="result" class="border-success/30 bg-success/10 text-success">
         <Icon name="lucide:circle-check" class="size-4" />
         <UiAlertTitle>Pedido criado: {{ result.orderRef }}</UiAlertTitle>
         <UiAlertDescription>
           <div class="flex flex-col gap-2">
             <PosPaymentResult v-if="result.payment?.hasProof" :proof="result.payment" :status="pixStatus" />
             <div class="flex flex-wrap items-center gap-2">
-              <UiButton variant="outline" size="sm" class="gap-1.5 border-green-600/40 text-green-800 hover:bg-green-500/10" @click="printReceipt">
+              <UiButton variant="outline" size="sm" class="gap-1.5 border-success/40 text-success hover:bg-success/10" @click="printReceipt">
                 <Icon name="lucide:printer" class="size-4" />
                 Imprimir recibo
               </UiButton>
               <a
                 v-if="result.issueFiscalDocument"
-                class="inline-flex h-8 items-center gap-1.5 rounded-md border border-green-600/40 px-3 text-sm font-medium text-green-800 transition hover:bg-green-500/10"
+                class="inline-flex h-8 items-center gap-1.5 rounded-md border border-success/40 px-3 text-sm font-medium text-success transition hover:bg-success/10"
                 :href="`${djangoOrigin}/fiscal/danfe/${encodeURIComponent(result.orderRef)}/`"
                 target="_blank" rel="noopener"
               >
@@ -382,7 +365,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
               </a>
               <a class="font-semibold underline underline-offset-4" :href="result.nextUrl">Abrir no gestor</a>
             </div>
-            <div v-if="canCancelRecentSale" class="flex flex-col gap-2 border-t border-green-500/20 pt-2">
+            <div v-if="canCancelRecentSale" class="flex flex-col gap-2 border-t border-success/20 pt-2">
               <UiInput
                 v-model="cancelSaleReason"
                 placeholder="Motivo do cancelamento (opcional)"
@@ -404,7 +387,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         </UiAlertDescription>
       </UiAlert>
 
-      <UiAlert v-if="saleCancelled" class="border-amber-500/30 bg-amber-500/10 text-amber-800">
+      <UiAlert v-if="saleCancelled" class="border-warning/30 bg-warning/10 text-amber-800">
         <Icon name="lucide:circle-check" class="size-4" />
         <UiAlertTitle>Venda cancelada</UiAlertTitle>
         <UiAlertDescription>O pedido foi cancelado dentro da janela do operador.</UiAlertDescription>
@@ -459,6 +442,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
         v-model:discount-reason="cart.discountReason"
         v-model:manager-username="cart.managerUsername"
         v-model:manager-pin="cart.managerPin"
+        :manager-approval-error="managerApprovalError"
         v-model:fulfillment-type="cart.fulfillmentType"
         v-model:payment-collection="cart.paymentCollection"
         v-model:customer-name="cart.customerName"
