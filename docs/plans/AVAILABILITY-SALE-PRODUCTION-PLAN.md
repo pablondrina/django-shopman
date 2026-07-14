@@ -162,6 +162,42 @@ telefone) segurando a fornada contra outros clientes não é órfã — é
 concorrência real de lista de espera. O tratamento certo é o WP-C (demanda
 além do plano vira encomenda/registro de demanda, não 409 no add).
 
+### WP-C — Desenho proposto (2026-07-14, AGUARDANDO OK DO PABLO)
+
+O contrato observável já está fixado pelo teste vermelho
+`test_checkout_tomorrow_with_todays_planned_batch_is_accepted_as_preorder`.
+Mecânica proposta, em 4 movimentos:
+
+1. **Gate de commit aceita encomenda** (`shop/services/stock.py`): com
+   `target_date` futuro e canal que permite encomenda, o fluxo vira:
+   (a) holds da sessão (target hoje) são LIBERADOS — o desejo é para outra
+   data, mantê-los roubaria a fornada de hoje; (b) `create_hold` na data-alvo:
+   com plano para a data → hold planejado normal (já funciona); sem plano →
+   **hold de demanda** (`quant=None`, `expires_at=None`, `reference=order:<ref>`).
+   O Stockman JÁ tem o modo demanda (`StockHolds.hold`, política `demand_ok`);
+   a única mudança no Core é um kwarg explícito `allow_demand=True` para o
+   chamador autorizar o fallback quando a política do PRODUTO não é
+   `demand_ok` — extensão mínima do mecanismo existente, sem migração.
+2. **Política por canal** (`ChannelConfig.stock`): novo campo no aspecto
+   Stock (ex.: `preorder: bool = True` no web/WhatsApp, False no PDV/iFood).
+   Horizonte continua sendo o `max_preorder_days` que já governa o checkout;
+   corte por dia continua no business_calendar (fechado/after_close). Nada de
+   seletor novo.
+3. **Produção enxerga a demanda**: `craftsman.suggest` ganha um piso de
+   demanda REGISTRADA — holds de demanda com `target_date=D` entram na
+   sugestão do dia D (além do histórico). Encomendas aparecem no plano do dia
+   (Fournil) na data certa; verificar que KDS/expedição não disparam o pedido
+   de amanhã hoje (gate por `delivery_date` na fila).
+4. **Prioridade na materialização** (`planning.realize` → transferência de
+   holds): pedidos ENVIADOS (`reference=order:*`) materializam antes de
+   holds de sacola, FIFO dentro de cada classe (decisão do §2). Na
+   materialização o hold de demanda ancora no quant físico e o fulfill segue
+   o ciclo normal.
+
+Contrato de erro (WP-E antecipado no que toca o commit): recusa por estoque
+só quando NÃO há caminho de encomenda no canal; a mensagem oferece a data
+("encomende para amanhã") em vez do beco "ficou indisponível".
+
 ### WP-C — Encomenda com data futura (o coração do mandato)
 - Commit com `target_date` futuro SEM plano para a data: aceitar como demanda
   registrada (hold de demanda `quant=None` contra a data), nunca recusar por
