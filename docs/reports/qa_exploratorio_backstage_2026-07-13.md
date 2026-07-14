@@ -138,9 +138,14 @@ empilhamento verificado:
   dentro do gate, porque o `DiscountModifier` (promoções/cupom/coleção/aniversário/best-wins) é
   inviável de replicar sem drift. Cobertura: `test_pos_line_discount.py` (preço assado D-1 e promoção
   NÃO exige; override com intenção exige; preço baixo sem intenção não é gate) + `review_sale`
-  ponta-a-ponta no `pdv` seedado (baked→False, override→True). ⚠️ **Nota:** a divergência de valor
-  observada no e2e do B1-1 (R$1,30 no carrinho vs R$0,13 na review, desconto MANUAL ~2×) é bug
-  SEPARADO da família "review×commit divergem" (B1-3) — este fix não a cobre.
+  ponta-a-ponta no `pdv` seedado (baked→False, override→True). ✅ **A divergência de valor observada no
+  e2e do B1-1** (R$1,30 no carrinho vs R$0,13 na review, desconto MANUAL de linha aplicado ~2×) foi
+  **CORRIGIDA à parte (commit `110050e7`, B1-3):** no save o DiscountModifier assa o preço no
+  `unit_price_q` e grava o original em `session.pricing["discount"]["items"]` porque o
+  `modifiers_applied` do item não sobrevive ao `update_items`; a projection lia o original do campo
+  descartado → recarregava o preço assado JUNTO com o descritor → dobra. A projection passou a restaurar
+  o pré-desconto da fonte que sobrevive (`_manual_discount_originals`). Ciclo save→reload→review devolve
+  R$1,30.
 
 ### Dinheiro: review × commit divergem e o caixa herda a diferença
 
