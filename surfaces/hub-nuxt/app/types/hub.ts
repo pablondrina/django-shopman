@@ -9,8 +9,8 @@ export interface HubTileProjection {
   /** Nome Lucide do ícone forte da superfície (DS §6), sem o prefixo `lucide:`. */
   icon: string;
   url: string;
-  /** "launch" = abre a superfície dedicada; "config" = deep-link pro Unfold. */
-  kind: "launch" | "config";
+  /** "launch" = superfície de operador (mesma aba); "external" = fora da zona, nova aba (ex.: loja do cliente). */
+  kind: "launch" | "external";
 }
 
 export interface OperatorHubProjection {

@@ -2,13 +2,14 @@
 
 Read model do "launcher" do operador: uma grade de tiles das superfícies de operador
 (PDV · Cozinha · Gestor · Fournil · Loja), **permission-aware** — o app que o operador
-não pode acessar nem aparece. É só um índice de navegação; não hospeda CRUD (o tile
-Loja **deep-linka** pro Unfold canônico, ver [ADR]/plano §5).
+não pode acessar nem aparece. É só um índice de navegação; não hospeda CRUD. O tile
+Loja abre a **loja do cliente** (storefront) em nova aba — fora da zona de operador.
 
 Registry declarativo (tipado aqui; caminho claro p/ configurável no Admin depois). Cada
 tile carrega o predicado de permissão canônico de `backstage.permissions` — a mesma regra
 que gateia a superfície dedicada e a sidebar. As URLs vêm de `settings.SHOPMAN_SURFACE_URLS`
-(default de dev abaixo); em prod são os subdomínios (`pdv.`/`kds.`/`gestor.`/`prod.`).
+(default de dev abaixo); em prod são os subdomínios (`pdv.`/`kds.`/`gestor.`/`prod.`) e o
+apex da loja.
 
 Nunca importa de `shopman.backstage.views.*`.
 """
@@ -29,13 +30,13 @@ from shopman.backstage.permissions import (
 )
 
 # URLs das superfícies — dev por padrão; sobrepostas por `settings.SHOPMAN_SURFACE_URLS`
-# (env em prod: os subdomínios `.boulangerie`). O tile Loja aponta pro Unfold canônico.
+# (env em prod: os subdomínios `.boulangerie` + o apex da loja).
 DEFAULT_SURFACE_URLS: dict[str, str] = {
     "pos": "http://127.0.0.1:3002/",
     "kds": "http://127.0.0.1:3003/",
     "gestor": "http://127.0.0.1:3004/",
     "production": "http://127.0.0.1:3005/",
-    "loja": "/admin/shop/shop/",
+    "loja": "http://127.0.0.1:3000/",
 }
 
 
@@ -48,7 +49,7 @@ class HubTileProjection:
     description: str
     icon: str  # nome Lucide (ícone forte da superfície, DS §6)
     url: str
-    kind: str  # "launch" (superfície dedicada) | "config" (deep-link Unfold)
+    kind: str  # "launch" (superfície de operador, mesma aba) | "external" (fora da zona, nova aba)
 
 
 @dataclass(frozen=True)
@@ -74,7 +75,7 @@ _REGISTRY: tuple[_AppSpec, ...] = (
     _AppSpec("kds", "Cozinha", "Preparo e expedição", "chef-hat", "launch", can_operate_kds),
     _AppSpec("gestor", "Gestor de Pedidos", "Fila e acompanhamento", "clipboard-list", "launch", can_manage_orders),
     _AppSpec("production", "Fournil", "Produção e fornadas", "croissant", "launch", can_access_production),
-    _AppSpec("loja", "Loja online", "Configurar a loja", "store", "config", is_superuser),
+    _AppSpec("loja", "Loja online", "Abrir a loja do cliente", "store", "external", is_superuser),
 )
 
 

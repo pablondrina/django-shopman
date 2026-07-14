@@ -969,7 +969,11 @@ def cancel_recent_order(
         raise ValueError(
             f"Pedido {order_ref} criado há mais de {max_age_minutes} minutos — cancelamento não permitido"
         )
-    if order.status not in (Order.Status.NEW, Order.Status.CONFIRMED):
+    # `preparing` entra na janela: venda de balcão com item de cozinha nasce
+    # "em preparo" (o KDS despacha no próprio fechamento), o que matava o undo
+    # para qualquer venda com fire. O cancel já cancela os tickets do KDS e
+    # reverte o estoque baixado (_on_cancelled), então a cozinha vê sumir.
+    if order.status not in (Order.Status.NEW, Order.Status.CONFIRMED, Order.Status.PREPARING):
         raise ValueError(f"Pedido {order_ref} não pode ser cancelado (status: {order.status})")
     if _order_cash_shift_closed(order):
         raise ValueError(

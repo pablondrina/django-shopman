@@ -1159,7 +1159,8 @@ def _checkout_contract(
                 "max_age_minutes": 5,
                 "supports_reason": True,
                 "requires_manager_approval": True,
-                "allowed_statuses": ("new", "confirmed"),
+                # "preparing" incluso: venda de balcão com fire nasce em preparo.
+                "allowed_statuses": ("new", "confirmed", "preparing"),
             },
             "idempotent_replay": {
                 "request_key": "client_request_id",

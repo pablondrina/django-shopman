@@ -97,7 +97,7 @@ export function usePosSale(deps: PosSaleDeps) {
   const cancellingSale = ref(false);
   const cancelSaleReason = ref("");
   const cancelSaleDialogOpen = ref(false);
-  const cancelApprovalError = ref("");
+  const cancelSaleError = ref("");
   const saleCancelled = ref(false);
   const lookupBusy = ref(false);
   const serverError = ref("");
@@ -1282,7 +1282,7 @@ export function usePosSale(deps: PosSaleDeps) {
   }
 
   function openCancelSaleDialog() {
-    cancelApprovalError.value = "";
+    cancelSaleError.value = "";
     cancelSaleReason.value = "";
     cancelSaleDialogOpen.value = true;
   }
@@ -1290,7 +1290,7 @@ export function usePosSale(deps: PosSaleDeps) {
   async function cancelRecentSale(managerUsername: string, managerPin: string) {
     if (!result.value) return;
     serverError.value = "";
-    cancelApprovalError.value = "";
+    cancelSaleError.value = "";
     cancellingSale.value = true;
     try {
       const orderRef = result.value.orderRef;
@@ -1311,15 +1311,12 @@ export function usePosSale(deps: PosSaleDeps) {
       saleCancelled.value = true;
       await refresh();
     } catch (error) {
+      // QUALQUER falha fica inline no diálogo (aberto): um toast passageiro com o
+      // diálogo fechando lê como sucesso — o operador clicava no link de um pedido
+      // que continuava vivo. O PIN é limpo pelo próprio diálogo quando há erro.
       const failure = (httpError(error).data as { error?: { code?: string; message?: string; recovery?: string } } | null)?.error;
-      if (failure?.code === "manager_approval_invalid" || failure?.code === "manager_approval_required") {
-        // Desafio gerencial recusado: mantém o diálogo aberto com o motivo,
-        // o PIN é limpo pelo próprio diálogo.
-        cancelApprovalError.value = failure.recovery || failure.message || "Aprovação gerencial inválida.";
-      } else {
-        cancelSaleDialogOpen.value = false;
-        serverError.value = httpErrorMessage(error, "Falha ao cancelar venda.");
-      }
+      cancelSaleError.value =
+        failure?.recovery || failure?.message || httpErrorMessage(error, "Falha ao cancelar venda.");
     } finally {
       cancellingSale.value = false;
     }
@@ -1405,7 +1402,7 @@ export function usePosSale(deps: PosSaleDeps) {
     cancellingSale,
     cancelSaleReason,
     cancelSaleDialogOpen,
-    cancelApprovalError,
+    cancelSaleError,
     saleCancelled,
     lookupBusy,
     serverError,
@@ -1426,6 +1423,7 @@ export function usePosSale(deps: PosSaleDeps) {
     canRenameTab,
     tabManipulation,
     canCancelRecentSale,
+    saleCorrection,
     movementKinds,
     tabMaxLength,
     tabPlaceholder,

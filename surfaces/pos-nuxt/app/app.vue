@@ -92,7 +92,7 @@ const {
   cancellingSale,
   cancelSaleReason,
   cancelSaleDialogOpen,
-  cancelApprovalError,
+  cancelSaleError,
   saleCancelled,
   lookupBusy,
   managerApprovalError,
@@ -109,6 +109,7 @@ const {
   canRenameTab,
   tabManipulation,
   canCancelRecentSale,
+  saleCorrection,
   movementKinds,
   tabMaxLength,
   tabPlaceholder,
@@ -607,8 +608,9 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
       v-model:open="cancelSaleDialogOpen"
       v-model:reason="cancelSaleReason"
       :order-ref="result?.orderRef || ''"
+      :max-age-minutes="saleCorrection?.max_age_minutes || 0"
       :busy="cancellingSale"
-      :error="cancelApprovalError"
+      :error="cancelSaleError"
       @confirm="cancelRecentSale"
     />
 

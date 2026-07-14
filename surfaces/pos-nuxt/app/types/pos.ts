@@ -94,6 +94,7 @@ export interface POSTabManipulationCapability {
 }
 export interface POSSaleCorrectionCapability {
   cancel_recent_action_ref?: string;
+  max_age_minutes?: number;
   [key: string]: unknown;
 }
 export interface POSCheckoutCapabilities {

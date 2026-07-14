@@ -1075,7 +1075,8 @@ SHOPMAN_OPERATOR_API_HOST = (os.environ.get("SHOPMAN_OPERATOR_API_HOST") or "").
 # públicas que o nav do Admin já usa — UMA fonte por superfície (DRY): quem já configurou
 # os links de operador do Admin (SHOPMAN_POS_BASE_URL etc.) ganha a Central de graça, sem
 # env vars novas. Vazio ⇒ o launcher usa os defaults de dev (127.0.0.1:PORT) de
-# `projections/hub.py`. O tile Loja é deep-link pro Unfold (fica no default, não é URL de app).
+# `projections/hub.py`. O tile Loja abre a loja do cliente (storefront, mesma base dos
+# links de cliente).
 SHOPMAN_SURFACE_URLS = {
     key: url
     for key, url in {
@@ -1083,6 +1084,7 @@ SHOPMAN_SURFACE_URLS = {
         "kds": SHOPMAN_KDS_BASE_URL,
         "gestor": SHOPMAN_ORDERS_BASE_URL,
         "production": SHOPMAN_PRODUCTION_BASE_URL,
+        "loja": SHOPMAN_STOREFRONT_BASE_URL,
     }.items()
     if url
 }

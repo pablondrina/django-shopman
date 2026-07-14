@@ -19,9 +19,9 @@ describe("presentation/hub", () => {
     expect(tileIcon("lucide:store")).toBe("lucide:store");
   });
 
-  it("tileTarget: launch na mesma aba, config (Unfold) em nova aba", () => {
+  it("tileTarget: launch na mesma aba, external (loja do cliente) em nova aba", () => {
     expect(tileTarget(tile({ kind: "launch" }))).toBe("_self");
-    expect(tileTarget(tile({ kind: "config" }))).toBe("_blank");
+    expect(tileTarget(tile({ kind: "external" }))).toBe("_blank");
   });
 
   it("hubIsEmpty reflete a ausência de tiles", () => {
