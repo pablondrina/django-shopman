@@ -4,7 +4,8 @@ O DigitalOcean App Platform não tem cron nativo; este worker roda o ciclo de
 manutenção num loop (default: a cada 5 minutos):
 
   release_expired_holds     — holds vencidos saem do caminho (higiene)
-  cleanup_stale_sessions    — sessões abandonadas antigas
+  cleanup_stale_sessions    — sessões abandonadas antigas (liberando os holds delas)
+  sweep_orphan_holds        — holds indefinidos órfãos (sem sessão viva/data passada)
   cleanup_stale_planning    — quants planejados órfãos
   cleanup_d1                — D-1 vencido vira perda
   reconcile_payments        — PIX pago com webhook perdido é resgatado
@@ -33,6 +34,9 @@ logger = logging.getLogger(__name__)
 MAINTENANCE_COMMANDS = (
     "release_expired_holds",
     "cleanup_stale_sessions",
+    # Depois do cleanup (que já libera ao deletar) e antes do planning: holds
+    # órfãos liberados aqui destravam quants planejados órfãos no mesmo ciclo.
+    "sweep_orphan_holds",
     "cleanup_stale_planning",
     "cleanup_d1",
     "reconcile_payments",

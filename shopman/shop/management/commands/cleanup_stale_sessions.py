@@ -60,6 +60,21 @@ class Command(BaseCommand):
             self.stdout.write("Nenhuma session stale encontrada.")
             return
 
+        # Deletar a Session mata a única referência viva dos holds dela —
+        # liberar ANTES do delete, senão os holds planejados (expires_at=None)
+        # viram órfãos eternos segurando o plano do dia (WP-B).
+        from shopman.shop.services.availability import release_session_holds
+
+        released = 0
+        for session_key in stale.values_list("session_key", flat=True):
+            released += release_session_holds(session_key)
+
         deleted, _ = stale.delete()
-        logger.info("cleanup_stale_sessions: removed %d sessions (cutoff=%s)", deleted, cutoff)
-        self.stdout.write(self.style.SUCCESS(f"Removidas {deleted} sessions stale (> {hours}h sem atividade)."))
+        logger.info(
+            "cleanup_stale_sessions: removed %d sessions, released %d holds (cutoff=%s)",
+            deleted, released, cutoff,
+        )
+        self.stdout.write(self.style.SUCCESS(
+            f"Removidas {deleted} sessions stale (> {hours}h sem atividade); "
+            f"{released} hold(s) liberado(s)."
+        ))

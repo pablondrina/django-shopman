@@ -291,6 +291,7 @@ def test_once_runs_one_cycle_in_order_and_never_sleeps():
     assert cc.call_args_list == [
         call("release_expired_holds"),
         call("cleanup_stale_sessions"),
+        call("sweep_orphan_holds"),
         call("cleanup_stale_planning"),
         call("cleanup_d1"),
         call("reconcile_payments"),

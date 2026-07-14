@@ -124,12 +124,21 @@ def assign_phone_handle(
     except Session.DoesNotExist:
         return
     if abandon_existing:
-        Session.objects.filter(
+        older = Session.objects.filter(
             channel_ref=session.channel_ref,
             handle_type="phone",
             handle_ref=phone,
             state="open",
-        ).exclude(pk=session.pk).update(state="abandoned")
+        ).exclude(pk=session.pk)
+        older_keys = list(older.values_list("session_key", flat=True))
+        older.update(state="abandoned")
+        # Sessão abandonada devolve as reservas — sem isso, os holds planejados
+        # (eternos) da sacola antiga seguram a fornada do dia contra o próprio
+        # cliente (WP-A/WP-B do AVAILABILITY-SALE-PRODUCTION-PLAN).
+        from shopman.shop.services.availability import release_session_holds
+
+        for key in older_keys:
+            release_session_holds(key)
     session.handle_type = "phone"
     session.handle_ref = phone
     session.save(update_fields=["handle_type", "handle_ref"])
@@ -151,10 +160,14 @@ def assign_handle(
 
 
 def abandon_session(*, session_key: str, channel_ref: str) -> bool:
-    """Mark an open session as abandoned."""
+    """Mark an open session as abandoned and release its stock holds."""
     updated = Session.objects.filter(
         session_key=session_key,
         channel_ref=channel_ref,
         state="open",
     ).update(state="abandoned")
+    if updated:
+        from shopman.shop.services.availability import release_session_holds
+
+        release_session_holds(session_key)
     return bool(updated)

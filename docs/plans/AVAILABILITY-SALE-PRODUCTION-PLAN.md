@@ -131,7 +131,7 @@ sessão Django — a rotação de cookie não a destrói por si):
       — reprodução EXATA do QA (mesma assinatura de log); fixa a decisão de
       produto do §2: encomenda para amanhã é aceita, não recusada.
 
-### WP-B — Higiene de reserva: órfãos planejados + janelas de login
+### WP-B — Higiene de reserva: órfãos planejados + janelas de login ✅ (2026-07-14)
 *(Escopo recalibrado pelos achados do WP-A: a adoção através do login FUNCIONA
 — o re-tag por troca de identidade não é necessário, a referência é a chave do
 Orderman e viaja dentro da sessão Django. O problema real são os órfãos.)*
@@ -145,6 +145,22 @@ Orderman e viaja dentro da sessão Django. O problema real são os órfãos.)*
 - **Fechar a janela do trusted-device**: preservar `cart_session_key` em volta
   do `login()` em `trusted_device_login`, mesmo padrão do Doorman.
 - Deixa VERDE: `test_second_round_same_phone_not_blocked_by_abandoned_session_ghost_holds`.
+
+**Implementado (2026-07-14):** `release_session_holds` em
+`shop/services/availability.py`, chamado por `abandon_session` (cobre
+`clear_session`), `assign_phone_handle(abandon_existing)` e
+`cleanup_stale_sessions` (antes do delete). Varredura backstop =
+`sweep_orphan_holds` (novo comando, no ciclo do `maintenance_worker`): libera
+holds indefinidos com referência de sessão morta OU `target_date` passada,
+com `OperatorAlert`; nunca toca `purpose=workorder` nem `order:<ref>`.
+Trusted-device preserva a sacola no flush. Testes:
+`shop/tests/test_orphan_hold_hygiene.py` (6) +
+`test_checkout_hold_adoption_login.py` (fantasma e trusted-device verdes).
+
+**Caso deliberadamente FORA do WP-B:** sacola anônima VIVA (aberta, sem
+telefone) segurando a fornada contra outros clientes não é órfã — é
+concorrência real de lista de espera. O tratamento certo é o WP-C (demanda
+além do plano vira encomenda/registro de demanda, não 409 no add).
 
 ### WP-C — Encomenda com data futura (o coração do mandato)
 - Commit com `target_date` futuro SEM plano para a data: aceitar como demanda

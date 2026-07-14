@@ -89,6 +89,30 @@ def bump_session_hold_expiry(session_key: str, *, ttl_minutes: int = 30) -> int:
     )
 
 
+def release_session_holds(session_key: str) -> int:
+    """Release every active hold tagged with ``session_key``.
+
+    A morte de uma sessão de sacola tem que devolver as reservas dela — em
+    especial os holds PLANEJADOS (``expires_at=None``), que nunca expiram
+    sozinhos e, órfãos, seguram a fornada do dia para sempre (WP-A do
+    AVAILABILITY-SALE-PRODUCTION-PLAN). Chamado por quem encerra sessão:
+    ``abandon_session``, ``assign_phone_handle(abandon_existing)`` e
+    ``cleanup_stale_sessions``.
+
+    Returns the number of holds released.
+    """
+    if not session_key:
+        return 0
+    try:
+        adapter = get_adapter("stock")
+        return adapter.release_holds_for_reference(session_key)
+    except Exception:
+        logger.warning(
+            "availability.release_session_holds degraded session=%s", session_key, exc_info=True
+        )
+        return 0
+
+
 def classify_planned_hold_for_session_sku(
     session_key: str, sku: str,
 ) -> dict:

@@ -178,7 +178,12 @@ def trusted_device_login(request, *, phone: str):
         is_active=True,
     )
     user, _ = get_or_create_user_for_customer(customer_info)
+    # login() dá flush na sessão quando OUTRO usuário estava logado — a sacola
+    # anônima tem que sobreviver à troca, como nos fluxos do Doorman.
+    preserved = preserved_session_values(request.session) if hasattr(request, "session") else {}
     login(request, user, backend="shopman.doorman.backends.PhoneOTPBackend")
+    for key, value in preserved.items():
+        request.session[key] = value
     return customer
 
 

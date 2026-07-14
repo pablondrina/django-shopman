@@ -251,22 +251,47 @@ def test_commit_adopts_planned_holds_after_otp_login(client):
 
 
 def test_second_round_same_phone_not_blocked_by_abandoned_session_ghost_holds(client):
-    """Round 1 abandona a sacola no meio; round 2 (mesmo telefone) faz o pedido.
+    """Round 1 tenta o checkout e falha; round 2 (mesmo telefone) faz o pedido.
 
-    ``assign_phone_handle(abandon_existing=True)`` abandona a Session antiga no
-    checkout do round 2, mas NÃO libera os holds planejados dela (eternos,
-    ``expires_at=None``). Com fornada de 2 e 2 fantasmas, o commit do round 2
-    esbarra em INSUFFICIENT_AVAILABLE — "o cliente compete com o próprio
-    fantasma". Comportamento esperado: abandonar a sessão LIBERA os holds dela.
+    O cenário real do QA staging: o round de 17:29 (``SESS-P8V2TWA4RAHW``)
+    chegou ao checkout — ``assign_phone_handle`` colou o telefone na sessão —
+    e falhou; os holds planejados dele (eternos, ``expires_at=None``) ficaram
+    ativos. No round seguinte, ``assign_phone_handle(abandon_existing=True)``
+    abandona a Session antiga e tem que LIBERAR os holds dela — senão o
+    cliente compete com o próprio fantasma pela fornada do dia.
     """
-    _seed_planned_bakery(planned_qty=2)
+    _seed_planned_bakery(planned_qty=4)
     customer = _customer()
 
-    # Round 1: sacola anônima com holds planejados, abandonada (browser fechado).
+    # Round 1: sacola com holds planejados; o checkout falha DEPOIS do
+    # assign_phone_handle (guarda de total: o total exibido "mudou").
     round1 = Client()
+    _login_via_access_link(round1, customer)
     round1_key = _add_to_cart(round1, qty=2)
     ghost_ids = _active_hold_ids(round1_key)
     assert ghost_ids
+
+    from shopman.storefront.services.pickup_slots import get_slots
+
+    resp = round1.post(
+        "/api/v1/checkout/",
+        data=json.dumps(
+            {
+                "name": "Pablo QA",
+                "phone": "+5543999990001",
+                "fulfillment_type": "pickup",
+                "delivery_date": timezone.localdate().isoformat(),
+                "delivery_time_slot": get_slots()[-1]["ref"],
+                "payment_method": "cash",
+                "expected_total_q": 1,
+            }
+        ),
+        content_type="application/json",
+    )
+    assert resp.status_code != 201, "setup: o checkout do round 1 devia falhar"
+    assert _active_hold_ids(round1_key) == ghost_ids, (
+        "setup: o commit falho do round 1 devia deixar os holds ativos"
+    )
 
     # Round 2: outro browser, mesmo cliente/telefone.
     round2 = Client()
@@ -291,6 +316,38 @@ def test_second_round_same_phone_not_blocked_by_abandoned_session_ghost_holds(cl
     assert still_active == 0, (
         "sessão abandonada por assign_phone_handle deixou holds planejados "
         "eternos segurando a fornada do dia"
+    )
+
+
+def test_trusted_device_login_preserves_cart_when_session_flushes(client, monkeypatch):
+    """Troca de usuário via trusted-device: o ``login()`` dá flush na sessão
+    (outro usuário estava logado) e a sacola anônima tem que sobreviver —
+    mesma garantia dos fluxos de access link e OTP."""
+    from django.contrib.auth import get_user_model
+    from shopman.doorman.services.device_trust import DeviceTrustService
+
+    _seed_planned_bakery()
+    _customer()
+
+    other = get_user_model().objects.create_user(username="outro-usuario", password="x")
+    client.force_login(other)
+    session = client.session
+    session["cart_session_key"] = "cart-anon-flush"
+    session.save()
+
+    monkeypatch.setattr(
+        DeviceTrustService, "check_device_trust", classmethod(lambda cls, request, cid: True)
+    )
+    resp = client.post(
+        "/api/v1/auth/device-check/",
+        data=json.dumps({"phone": "+5543999990001"}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 200, resp.content
+    assert resp.json()["trusted"] is True
+
+    assert client.session.get("cart_session_key") == "cart-anon-flush", (
+        "flush do login() de trusted-device perdeu a sacola anônima"
     )
 
 
