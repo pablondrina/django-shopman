@@ -336,14 +336,21 @@ class CommitService:
             "handle_type": session.handle_type,
             "handle_ref": session.handle_ref,
             "status": Order.Status.NEW,
-            "snapshot": {
+            # Deep copy: o snapshot é o registro SELADO e imutável do pedido, e o
+            # sealed check compara `self.snapshot` contra um baseline deep-copiado.
+            # `order_data["payment"]` (e outras chaves) referenciam os MESMOS objetos
+            # que `session.data`, então sem a cópia `snapshot["data"]` aliasa
+            # `order.data` — uma mutação legítima em order.data["payment"] (ex.:
+            # payment.initiate gravando idempotency_key) vazaria para o snapshot em
+            # memória e derrubaria qualquer save posterior com sealed_field_modified.
+            "snapshot": copy.deepcopy({
                 "items": session.items,
                 "data": session.data,
                 "pricing": session.pricing,
                 "rev": session.rev,
                 "commitment": commitment_snapshot,
                 "lifecycle": effective_config.get("lifecycle", {}),
-            },
+            }),
             "data": order_data,
             "total_q": CommitService._calculate_total(session.items),
         }
