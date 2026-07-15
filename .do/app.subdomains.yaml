@@ -185,6 +185,16 @@ envs:
     value: "false"
     scope: RUN_TIME
     type: GENERAL
+  # Rate-limit por IP atrás da DO App Platform: o rightmost do X-Forwarded-For é
+  # um nó de ingress que rotaciona, então com depth=1 uma request de um cliente
+  # cai em buckets diferentes e o limite se dilui. Descubra o depth em STAGING
+  # (SHOPMAN_LOG_CLIENT_IP=true → linha `client_ip.diagnostic` → posição do IP
+  # real na cadeia `xff=` contando da direita) e replique o número aqui.
+  # NÃO ligue SHOPMAN_LOG_CLIENT_IP em produção (loga IP de cliente = dado pessoal).
+  # - key: DOORMAN_TRUSTED_PROXY_DEPTH
+  #   value: "2"
+  #   scope: RUN_TIME
+  #   type: GENERAL
 
 services:
   - name: web
