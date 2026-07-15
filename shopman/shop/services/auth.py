@@ -61,10 +61,27 @@ def client_ip(request) -> str:
     Resolve via ``X-Forwarded-For`` com o mesmo ``TRUSTED_PROXY_DEPTH`` que os
     endpoints do doorman já usam.
     """
+    import os
+
     from shopman.doorman.conf import get_doorman_settings
     from shopman.doorman.utils import get_client_ip
 
-    return get_client_ip(request, get_doorman_settings().TRUSTED_PROXY_DEPTH)
+    depth = get_doorman_settings().TRUSTED_PROXY_DEPTH
+    resolved = get_client_ip(request, depth)
+    # Diagnóstico controlado (inerte por padrão): quando SHOPMAN_LOG_CLIENT_IP
+    # está ligado, registra a cadeia X-Forwarded-For crua e o IP resolvido, para
+    # descobrir a forma real do XFF atrás do proxy (ex.: DO App Platform) e ajustar
+    # DOORMAN_TRUSTED_PROXY_DEPTH. Ligar só por uma janela curta em staging: é 1
+    # linha de log por request e o XFF pode conter IP de cliente (dado pessoal).
+    if os.environ.get("SHOPMAN_LOG_CLIENT_IP", "").lower() in ("true", "1", "yes"):
+        logger.info(
+            "client_ip.diagnostic xff=%r remote_addr=%r depth=%s resolved=%r",
+            request.META.get("HTTP_X_FORWARDED_FOR"),
+            request.META.get("REMOTE_ADDR"),
+            depth,
+            resolved,
+        )
+    return resolved
 
 
 def request_code(*, phone: str, delivery_method: str, ip_address: str | None):

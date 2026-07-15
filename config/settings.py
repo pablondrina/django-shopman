@@ -27,6 +27,16 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return raw.lower() in ("true", "1", "yes")
 
 
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return int(raw.strip())
+    except ValueError:
+        return default
+
+
 def _materialized_secret_file(*, content: str, filename: str) -> str:
     secret_dir = Path(os.environ.get("SHOPMAN_RUNTIME_SECRET_DIR", "/tmp/shopman-secrets"))
     secret_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -275,6 +285,13 @@ AUTH_PASSWORD_VALIDATORS = [
 
 DOORMAN = {
     "PRESERVE_SESSION_KEYS": ["cart_session_key"],
+    # Nº de proxies confiáveis à frente do app: client_ip usa a N-ésima entrada
+    # a partir da direita do X-Forwarded-For. O default 1 vale para um LB único
+    # que anexa o IP do cliente. Atrás da DO App Platform o rightmost pode ser um
+    # nó de ingress que ROTACIONA por request — aí o rate-limit por IP se dilui
+    # (uma request de um cliente cai em buckets diferentes). Ajuste por env quando
+    # a cadeia real do XFF for conhecida (ver SHOPMAN_LOG_CLIENT_IP).
+    "TRUSTED_PROXY_DEPTH": _env_int("DOORMAN_TRUSTED_PROXY_DEPTH", 1),
     "DEFAULT_DOMAIN": os.environ.get("AUTH_DEFAULT_DOMAIN", "localhost:8000"),
     "USE_HTTPS": not DEBUG,
     "ACCESS_LINK_API_KEY": os.environ.get("DOORMAN_ACCESS_LINK_API_KEY", ""),
