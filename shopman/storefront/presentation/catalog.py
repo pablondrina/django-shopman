@@ -145,6 +145,20 @@ class CatalogSectionProjection:
 
 
 @dataclass(frozen=True)
+class EmptyStateProjection:
+    """A configurable empty-state block: title + message + optional CTA.
+
+    Resolved from ``OmotenashiCopy`` so operators retune it in the Admin. The
+    surface renders it when a list is empty instead of a bare 'vazio'.
+    """
+
+    title: str
+    message: str
+    cta_label: str = ""
+    cta_href: str = ""
+
+
+@dataclass(frozen=True)
 class CatalogProjection:
     """Top-level projection for the storefront menu."""
 
@@ -155,11 +169,38 @@ class CatalogProjection:
     active_category_ref: str | None
     happy_hour: HappyHourProjection | None = None
     favorite_category_ref: str | None = None
+    # Copy configurável para os dois vazios da tela: catálogo sem itens no canal
+    # (``empty_state``) e busca client-side sem resultado (``search_empty_state``).
+    empty_state: EmptyStateProjection | None = None
+    search_empty_state: EmptyStateProjection | None = None
     has_items: bool = field(init=False)
 
     def __post_init__(self) -> None:
         # Dataclass is frozen; use object.__setattr__ for the derived flag.
         object.__setattr__(self, "has_items", bool(self.items))
+
+
+def _catalog_empty_state() -> EmptyStateProjection:
+    from shopman.shop.omotenashi import resolve_copy
+
+    entry = resolve_copy("CATALOG_EMPTY", moment="*", audience="*")
+    return EmptyStateProjection(
+        title=entry.title or "Cardápio em preparo",
+        message=entry.message or "Estamos preparando as novidades. Volte em breve!",
+    )
+
+
+def _search_empty_state() -> EmptyStateProjection:
+    from shopman.shop.omotenashi import resolve_copy
+
+    entry = resolve_copy("SEARCH_EMPTY", moment="*", audience="*")
+    cta = resolve_copy("SEARCH_EMPTY_CTA", moment="*", audience="*")
+    return EmptyStateProjection(
+        title=entry.title or "Nada por aqui",
+        message=entry.message or "Não encontramos esse item. Tente outro termo ou veja o cardápio completo.",
+        cta_label=cta.title or "Ver cardápio completo",
+        cta_href="/menu",
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -222,6 +263,8 @@ def build_catalog(
             active_category_ref=collection_ref if active_collection else None,
             happy_hour=_happy_hour_projection(happy_hour_state()),
             favorite_category_ref=favorite_category_ref,
+            empty_state=_catalog_empty_state(),
+            search_empty_state=_search_empty_state(),
         )
 
     items_flat = _build_items(
@@ -255,6 +298,11 @@ def build_catalog(
         active_category_ref=collection_ref if active_collection else None,
         happy_hour=_happy_hour_projection(happy_hour_state()),
         favorite_category_ref=favorite_category_ref,
+        # Copy do "nada encontrado" da busca client-side viaja sempre; o vazio do
+        # catálogo (empty_state) só faz sentido quando não há itens, mas incluí-lo
+        # aqui é inócuo e mantém o contrato estável.
+        empty_state=_catalog_empty_state(),
+        search_empty_state=_search_empty_state(),
     )
 
 

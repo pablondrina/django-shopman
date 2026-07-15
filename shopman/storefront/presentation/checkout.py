@@ -335,11 +335,14 @@ def _checkout_actions(
     enabled = policy.can_checkout and not cart.is_empty and not auth_blocked
     reason = ""
     if cart.is_empty:
-        reason = "Sacola vazia."
+        reason = resolve_copy("CART_CHECKOUT_BLOCK_EMPTY", moment="*", audience="*").message or "Sacola vazia."
     elif auth_blocked:
         reason = "Entre por telefone para continuar."
     elif not policy.can_checkout:
-        reason = "Checkout indisponível para este canal."
+        reason = (
+            resolve_copy("CART_CHECKOUT_BLOCK_CHANNEL", moment="*", audience="*").message
+            or "Checkout indisponível para este canal."
+        )
 
     return (
         Action(

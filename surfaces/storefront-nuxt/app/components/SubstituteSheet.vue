@@ -27,6 +27,9 @@ const substitutes = computed(() => cartIssue.value?.substitutes ?? [])
 const isPlanned = computed(() => !!cartIssue.value?.is_planned)
 // Pausado ≠ esgotado: a casa tirou o item por ora ("voltamos em breve"), não acabou.
 const isPaused = computed(() => !!cartIssue.value?.is_paused)
+// Esgotado honesto e assinável (WP-3): oferece "Me avise quando disponível" no lugar
+// de um beco sem saída. O StockNotifyButton já faz o POST para o sku do item.
+const isNotifiable = computed(() => !!cartIssue.value?.isNotifiable)
 // Intro dos substitutos e headlines de escassez vêm do registro omotenashi (Kintsugi);
 // o fallback cobre só o intervalo até o payload chegar.
 const substitutesIntro = computed(() => cartIssue.value?.substitutes_intro || 'Que tal um destes no lugar?')
@@ -102,7 +105,7 @@ function tryAgain () {
       </div>
 
       <UiButton
-        v-else-if="!hasAvailable"
+        v-else-if="!hasAvailable && !isNotifiable"
         variant="outline"
         size="lg"
         class="w-full"
@@ -111,6 +114,14 @@ function tryAgain () {
       >
         Tentar de novo
       </UiButton>
+
+      <!-- Esgotou de vez, mas dá para assinar o retorno: caminho acolhedor no lugar
+           do "tentar de novo" seco. -->
+      <StockNotifyButton
+        v-if="isNotifiable && !hasAvailable && cartIssue"
+        :sku="cartIssue.sku"
+        :name="cartIssue.name"
+      />
 
       <UiButton
         variant="ghost"
