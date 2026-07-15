@@ -336,7 +336,7 @@ class ModifyService:
             "line_id": op.get("line_id") or generate_line_id(),
             "sku": op["sku"],
             "qty": qty,
-            "meta": op.get("meta", {}),
+            "meta": dict(op.get("meta") or {}),
         }
         name = str(op.get("name") or "").strip()
         if name:
@@ -344,7 +344,10 @@ class ModifyService:
         if "unit_price_q" in op:
             line["unit_price_q"] = ModifyService._parse_non_negative_price_q(op["unit_price_q"])
         if op.get("is_d1"):
-            line["is_d1"] = True
+            # Contextual line flag → durable JSONField (meta). A top-level ``is_d1``
+            # would be dropped by ``Session._normalize_items`` before the pricing
+            # modifiers run, leaving the D-1 clearance discount dormant.
+            line["meta"]["is_d1"] = True
         items.append(line)
         return items, data
 

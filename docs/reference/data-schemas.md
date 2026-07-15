@@ -329,7 +329,7 @@ Escrito uma única vez por `CommitService._do_commit()`.
 
 | Chave | Tipo | Lido por | Descrição |
 |-------|------|----------|-----------|
-| `items` | `list[dict]` | hooks._build_directive_payload (stock.hold), customers.OrderingOrderHistoryBackend | Itens da sessão: `[{line_id, sku, name, qty, unit_price_q, line_total_q, meta, is_d1?}]` — `is_d1` opcional, setado na inclusão quando o estoque é só D-1 (alinhado à vitrine) |
+| `items` | `list[dict]` | hooks._build_directive_payload (stock.hold), customers.OrderingOrderHistoryBackend | Itens da sessão: `[{line_id, sku, name, qty, unit_price_q, line_total_q, meta}]`. Flag D-1 (sobras) mora em `meta.is_d1` — setada na inclusão quando o estoque é só D-1 (alinhado à vitrine) e consumida pelo AvailabilityDiscountModifier. Um `is_d1` no topo da linha NÃO sobrevive ao `Session._normalize_items` (whitelist), por isso vive em `meta` |
 | `data` | `dict` | handlers/customer.py (fallback), hooks (stock.commit holds) | Cópia integral de `session.data` no momento do commit |
 | `pricing` | `dict` | customers.OrderingOrderHistoryBackend | Pricing da sessão: `{total_q, subtotal_q, discount_q, ...}` |
 | `rev` | `int` | hooks._build_directive_payload (stock.hold) | Revisão da sessão no commit |
