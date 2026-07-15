@@ -105,6 +105,24 @@ def _stock_error_payload(exc, *, product=None) -> dict:
                 },
             },
         ))
+    # "Me avise quando disponível": escassez genuína (não pausa/encomenda, que têm
+    # enquadramento próprio) ganha o caminho de reposição — mesmo fluxo do sino da
+    # PDP. Sem estoque agora (available_qty 0) não há clamp, então esta é a única
+    # ação de avanço além de continuar comprando.
+    is_notifiable = not exc.is_paused and not exc.is_planned
+    if is_notifiable:
+        actions.append(action_payload(
+            ref="notify_when_available",
+            kind="mutation",
+            label=(resolve_copy("SOLDOUT_NOTIFY_CTA", moment="*", audience="*").title or "Me avise quando disponível"),
+            priority="secondary",
+            href=f"/api/v1/availability/{exc.sku}/notify/",
+            method="POST",
+            payload_schema={
+                "type": "object",
+                "properties": {"phone": {"type": "string"}},
+            },
+        ))
     return {
         "detail": reason,
         "title": "Revise este item",
@@ -115,6 +133,7 @@ def _stock_error_payload(exc, *, product=None) -> dict:
         "available_qty": exc.available_qty,
         "is_paused": exc.is_paused,
         "is_planned": exc.is_planned,
+        "is_notifiable": is_notifiable,
         "planned_target_date": exc.planned_target_date,
         # Pré-reserva: item planejado tem próximo lote conhecido. Enquadra a escassez
         # como oferta ("garantir o seu") em vez de só "esgotou". A reserva de fato é o

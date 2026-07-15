@@ -179,8 +179,8 @@ function clearQuery () {
                 <Icon name="lucide:search-x" />
               </UiEmptyMedia>
               <UiEmptyHeader>
-                <UiEmptyTitle>Nada encontrado</UiEmptyTitle>
-                <UiEmptyDescription>Apague a busca ou escolha uma coleção.</UiEmptyDescription>
+                <UiEmptyTitle>{{ catalog?.search_empty_state?.title || 'Nada encontrado' }}</UiEmptyTitle>
+                <UiEmptyDescription>{{ catalog?.search_empty_state?.message || 'Apague a busca ou escolha uma coleção.' }}</UiEmptyDescription>
               </UiEmptyHeader>
             </UiEmpty>
           </template>

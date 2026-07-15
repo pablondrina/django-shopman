@@ -155,6 +155,30 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "CART_WAITLIST_NOTICE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Envie o pedido para garantir a sua prioridade.")},
     },
+    # Motivos do botão de checkout desabilitado — antes hardcoded na presentation,
+    # agora no registro para o operador reescrever como qualquer outra microcopy.
+    "CART_CHECKOUT_BLOCK_EMPTY": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Sacola vazia.")},
+    },
+    "CART_CHECKOUT_BLOCK_UNAVAILABLE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Revise itens indisponíveis antes de finalizar.")},
+    },
+    "CART_CHECKOUT_BLOCK_MIN_ORDER": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Pedido mínimo não atingido.")},
+    },
+    "CART_CHECKOUT_BLOCK_CHANNEL": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Checkout indisponível para este canal.")},
+    },
+    # "Me avise quando disponível" — CTA de reposição no erro de esgotado do carrinho
+    # (reaproveita o fluxo de StockAlertSubscribe já existente).
+    "SOLDOUT_NOTIFY_CTA": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Me avise quando disponível")},
+    },
+    # Checkout recusado por dia/horário fechado: enquadra a encomenda como caminho
+    # adiante, em vez de só "escolha outra data".
+    "CHECKOUT_CLOSED_PREORDER_HINT": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Você pode encomendar para o próximo dia disponível.")},
+    },
     "MIN_ORDER_WARNING": {
         WILDCARD: {WILDCARD: CopyEntry(message="Adicionar mais itens")},
     },
@@ -166,6 +190,24 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
 
     # ── Menu empty state ──────────────────────────────────────────
+    # Catálogo sem itens no canal (loja em preparo). Copy configurável no
+    # payload do menu; o Vue mantém fallback só durante o carregamento.
+    "CATALOG_EMPTY": {
+        WILDCARD: {WILDCARD: CopyEntry(
+            title="Cardápio em preparo",
+            message="Estamos preparando as novidades. Volte em breve!",
+        )},
+    },
+    # Busca client-side sem resultado — orienta a ajustar/limpar em vez de um beco.
+    "SEARCH_EMPTY": {
+        WILDCARD: {WILDCARD: CopyEntry(
+            title="Nada por aqui",
+            message="Não encontramos esse item. Tente outro termo ou veja o cardápio completo.",
+        )},
+    },
+    "SEARCH_EMPTY_CTA": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Ver cardápio completo")},
+    },
 
     # ── Home sections ─────────────────────────────────────────────
     "HOME_HERO_ORDER_TITLE_PREFIX": {
@@ -1002,6 +1044,18 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
             title="Nenhum endereço salvo",
             message="Adicione um endereço para finalizar a próxima entrega com menos passos.",
         )},
+    },
+    # Vazio de Favoritos — mesma família de HISTORY_EMPTY/ADDRESSES_EMPTY, para a
+    # copy do vazio vir do registro (configurável) e não ficar presa no Vue.
+    "FAVORITES_EMPTY": {
+        WILDCARD: {WILDCARD: CopyEntry(
+            title="Você ainda não salvou favoritos",
+            message="Toque no coração de um produto para encontrá-lo aqui na próxima visita.",
+        )},
+    },
+    # CTA do vazio de Favoritos (leva ao cardápio).
+    "FAVORITES_EMPTY_CTA": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Descobrir o cardápio")},
     },
     "ACCOUNT_GREETING_PREFIX": {
         WILDCARD: {WILDCARD: CopyEntry(title="Olá")},

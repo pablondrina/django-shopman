@@ -107,6 +107,9 @@ watch(useLoyalty, async (enabled) => {
 const submitting = ref(false)
 const serverError = ref('')
 const fieldErrors = ref<Record<string, string>>({})
+// Dica de encomenda quando o dia escolhido está fechado (backend: preorder_hint).
+// Aditivo: acompanha o erro do campo de data, não muda o roteamento do fieldError.
+const deliveryDateHint = ref('')
 const attemptKey = ref(createCheckoutAttemptKey())
 const addressSelection = ref<AddressSelection | null>(null)
 const pickupSwapOffer = ref(false)
@@ -782,6 +785,7 @@ async function submitCheckout () {
   if (!checkout.value || !validate()) return
   submitting.value = true
   serverError.value = ''
+  deliveryDateHint.value = ''
   try {
     const idempotencyKey = attemptKey.value
     const response = await $fetch<CheckoutMutationResponse>(apiPath('/api/v1/checkout/'), {
@@ -820,6 +824,11 @@ async function submitCheckout () {
     const data = httpError(e).data || {}
     const field = typeof data.field === 'string' ? data.field : ''
     serverError.value = errorDetail(e, 'Não foi possível confirmar o pedido.')
+    // Dia fechado: o backend sugere a encomenda (preorder_hint) e a próxima data.
+    // Mostramos a dica junto ao campo de data, sem interferir no fieldError.
+    if (typeof data.preorder_hint === 'string' && data.preorder_hint) {
+      deliveryDateHint.value = data.preorder_hint
+    }
     if (field) {
       // Poka-yoke: endereço fora da zona, mas a loja faz retirada → oferecer
       // a troca em 1 clique em vez de deixar o cliente num beco sem saída.
@@ -1157,6 +1166,7 @@ useSeoMeta({
                     </UiPopover>
                   </UiRadioGroup>
                   <UiFieldError v-if="fieldErrors.delivery_date" :errors="fieldErrors.delivery_date" />
+                  <p v-if="deliveryDateHint" class="shop-meta text-muted-foreground" data-checkout-preorder-hint>{{ deliveryDateHint }}</p>
                 </div>
 
                 <div v-if="state.fulfillment_type === 'pickup' && slots.length" class="space-y-2">

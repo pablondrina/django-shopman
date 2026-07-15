@@ -461,8 +461,8 @@ useHead({
                 <Icon name="lucide:croissant" />
               </UiEmptyMedia>
               <UiEmptyHeader>
-                <UiEmptyTitle>Cardápio em preparo</UiEmptyTitle>
-                <UiEmptyDescription>Estamos preparando as novidades. Volte em breve!</UiEmptyDescription>
+                <UiEmptyTitle>{{ catalog.empty_state?.title || 'Cardápio em preparo' }}</UiEmptyTitle>
+                <UiEmptyDescription>{{ catalog.empty_state?.message || 'Estamos preparando as novidades. Volte em breve!' }}</UiEmptyDescription>
               </UiEmptyHeader>
             </UiEmpty>
 
@@ -471,9 +471,12 @@ useHead({
                 <Icon name="lucide:search-x" />
               </UiEmptyMedia>
               <UiEmptyHeader>
-                <UiEmptyTitle>Nada por esse filtro</UiEmptyTitle>
-                <UiEmptyDescription>Limpe a busca ou escolha outra seção.</UiEmptyDescription>
+                <UiEmptyTitle>{{ catalog.search_empty_state?.title || 'Nada por esse filtro' }}</UiEmptyTitle>
+                <UiEmptyDescription>{{ catalog.search_empty_state?.message || 'Limpe a busca ou escolha outra seção.' }}</UiEmptyDescription>
               </UiEmptyHeader>
+              <div v-if="catalog.search_empty_state?.cta_href && catalog.search_empty_state?.cta_label" class="flex justify-center">
+                <UiButton :to="catalog.search_empty_state.cta_href" variant="outline">{{ catalog.search_empty_state.cta_label }}</UiButton>
+              </div>
             </UiEmpty>
           </section>
         </template>

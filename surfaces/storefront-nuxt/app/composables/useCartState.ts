@@ -10,6 +10,8 @@ interface CartIssue {
   requested_qty: number | null
   available_qty: number | null
   is_paused: boolean
+  // Esgotado honesto e assinável: habilita o CTA "Me avise quando disponível" (WP-3).
+  isNotifiable: boolean
   is_planned: boolean
   planned_offer_title: string
   planned_offer_message: string
@@ -158,6 +160,7 @@ function issueFromPayload (data: Record<string, unknown> | null | undefined, met
     requested_qty: numberOrNull(d.requested_qty),
     available_qty: numberOrNull(d.available_qty),
     is_paused: !!d.is_paused,
+    isNotifiable: Boolean(d.is_notifiable),
     is_planned: !!d.is_planned,
     planned_offer_title: String(d.planned_offer_title || ''),
     planned_offer_message: String(d.planned_offer_message || ''),

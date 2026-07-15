@@ -248,6 +248,22 @@ def _addresses_copy() -> dict:
     }
 
 
+def _favorites_copy() -> dict:
+    """Vazio de Favoritos, do registro omotenashi — mesma família de
+    HISTORY_EMPTY/ADDRESSES_EMPTY. O Vue consome com fallback de carregamento e
+    a copy passa a ser configurável no Admin, consistente com as demais telas."""
+    entry = resolve_copy("FAVORITES_EMPTY", moment="*", audience="*")
+    cta = resolve_copy("FAVORITES_EMPTY_CTA", moment="*", audience="*")
+    return {
+        "empty": {
+            "title": entry.title or "Você ainda não salvou favoritos",
+            "message": entry.message or "Toque no coração de um produto para encontrá-lo aqui na próxima visita.",
+            "cta_label": cta.title or "Descobrir o cardápio",
+            "cta_href": "/menu",
+        },
+    }
+
+
 @extend_schema_view(
     get=extend_schema(
         tags=["account"],
@@ -327,9 +343,14 @@ class ProfileView(APIView):
         )
         try:
             updated = account_service.update_profile(customer.ref, intent)
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.debug("account.patch degraded; using fallback", exc_info=True)
-            return Response({"detail": str(exc) or "Não foi possível atualizar."}, status=400)
+        except Exception:
+            # Nunca devolver ``str(exc)`` ao cliente: vazaria nomes de modelo/campo
+            # internos. Mensagem fixa pt-BR; o detalhe técnico fica só no log.
+            logger.exception("storefront_account_profile_update_failed", extra={"customer_ref": customer.ref})
+            return Response(
+                {"detail": "Não foi possível atualizar seu perfil agora. Tente novamente."},
+                status=400,
+            )
 
         return Response(
             CustomerProfileSerializer({
@@ -858,7 +879,12 @@ class FavoriteListView(APIView):
         items = build_catalog_items_for_skus(
             skus, channel_ref=STOREFRONT_CHANNEL_REF, request=request
         )
-        return Response({"items": [projection_data(item) for item in items]})
+        # Envelope com copy do vazio (registro omotenashi) — consistente com a
+        # lista de pedidos/endereços; aditivo (o Vue já lê `items`).
+        return Response({
+            "items": [projection_data(item) for item in items],
+            "copy": _favorites_copy(),
+        })
 
 
 class FavoriteDetailView(APIView):

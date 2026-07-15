@@ -52,6 +52,15 @@ export interface CatalogSectionProjection {
   items: CatalogItemProjection[]
 }
 
+// Copy de empty-state acionável (título/mensagem + CTA opcional). cta_* podem vir
+// vazios (ex.: catálogo vazio não oferece ação). Fallback fica na própria tela.
+export interface EmptyStateCtaCopy {
+  title: string
+  message: string
+  cta_label: string
+  cta_href: string
+}
+
 export interface CatalogProjection {
   items: CatalogItemProjection[]
   categories: CategoryProjection[]
@@ -66,6 +75,9 @@ export interface CatalogProjection {
   } | null
   favorite_category_ref: string | null
   has_items: boolean
+  // Copy de vitrine vazia / busca sem resultado (backend); opcional + fallback na tela.
+  empty_state?: EmptyStateCtaCopy | null
+  search_empty_state?: EmptyStateCtaCopy | null
 }
 
 export interface ComponentProjection {
@@ -1044,4 +1056,10 @@ export interface AccountDeviceCopy {
 export interface AccountDeviceResponse {
   devices: AccountDeviceProjection[]
   copy: AccountDeviceCopy
+}
+
+export interface FavoritesResponse {
+  items: CatalogItemProjection[]
+  // Copy de empty-state (backend); opcional + fallback na própria tela.
+  copy?: { empty?: EmptyStateCtaCopy | null }
 }
