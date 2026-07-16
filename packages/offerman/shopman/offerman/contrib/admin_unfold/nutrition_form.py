@@ -100,9 +100,9 @@ class ProductAdminForm(forms.ModelForm):
         help_text="Ex.: aprox. 24 x 12 x 10 cm.",
     )
     allows_next_day_sale = forms.BooleanField(
-        label="Permite venda D-1",
+        label="Permite venda no dia seguinte",
         required=False,
-        help_text="Produto pode ser vendido no dia seguinte com desconto D-1.",
+        help_text="Produto pode ser vendido no dia seguinte com preço reduzido.",
     )
 
     # Virtual nutrient fields are declared at class scope (dataclass-driven via

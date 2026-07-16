@@ -42,7 +42,7 @@ def _seed_pos_product() -> Product:
 def d1_rule():
     RuleConfig.objects.create(
         ref="d1_discount", rule_path="shopman.shop.rules.pricing.D1Rule",
-        label="Desconto D-1 (sobras)", params={"discount_percent": 50},
+        label="Desconto de ontem", params={"discount_percent": 50},
         enabled=True, priority=15,
     )
     from shopman.shop.rules import engine

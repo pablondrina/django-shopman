@@ -22,7 +22,7 @@ class D1Rule(BaseRule):
     """Desconto D-1 — sobras do dia anterior."""
 
     code = "shop.d1_discount"
-    label = "Desconto D-1 (sobras)"
+    label = "Desconto de ontem"
     rule_type = "modifier"
     default_params = {"discount_percent": 50}
 
