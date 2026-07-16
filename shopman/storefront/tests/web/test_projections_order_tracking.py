@@ -40,7 +40,6 @@ class TestPreorderTracking:
         from datetime import timedelta
 
         from django.utils import timezone as _tz
-
         from shopman.orderman.models import Order as _Order
 
         target = (_tz.localdate() + timedelta(days=days_ahead)).isoformat()
@@ -94,7 +93,6 @@ class TestPreorderTracking:
         from datetime import timedelta
 
         from django.utils import timezone as _tz
-
         from shopman.orderman.models import Order as _Order
 
         data = dict(order_with_payment.data or {})
