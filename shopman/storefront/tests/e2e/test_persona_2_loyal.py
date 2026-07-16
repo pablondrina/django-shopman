@@ -179,14 +179,11 @@ def test_group_coupon_should_discount_for_member(client):
 
 
 @pytest.mark.django_db(transaction=True)  # real commit so on-commit dispatch fires in-request
-@pytest.mark.xfail(
-    strict=True,
-    reason="FINDING: card checkout on the web channel (post_commit) initiates "
-    "payment inside the on-commit dispatch on the sealed order instance and raises "
-    "ImmutabilityError → HTTP 400 sealed_field_modified, while leaving a committed "
-    "order behind. PIX/cash are unaffected.",
-)
-def test_card_checkout_on_web_is_broken(client):
+def test_card_checkout_on_web_succeeds(client):
+    # Regressão do achado da persona 2: o card no web (post_commit) iniciava o
+    # pagamento no dispatch on-commit sobre o pedido já selado e levantava
+    # ImmutabilityError (HTTP 400 sealed_field_modified), deixando um pedido órfão.
+    # Corrigido em #94 (deep-copy do snapshot selado no commit) — agora retorna 201.
     _seed_catalog()
     J.otp_login(client, J.DEFAULT_PHONE)
     J.set_cart_qty(client, CROISSANT, 1)
