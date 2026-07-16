@@ -6,7 +6,7 @@
 // Writes go through the django proxy (CSRF handled there) and reconcile via refresh.
 // SSE/poll are client-only (EventSource is a browser API).
 import type { CancellationReason, OrderQueueResponse, TwoZoneQueueProjection } from "~/types/orders";
-import { zonesView, type ZoneView } from "~/presentation/board";
+import { preorderGroups, zonesView, type PreorderGroup, type ZoneView } from "~/presentation/board";
 
 export type { CancellationReason };
 
@@ -26,6 +26,8 @@ export function useOrdersBoard() {
   const queue = computed<TwoZoneQueueProjection | null>(() => data.value?.queue ?? null);
   const zones = computed<ZoneView[]>(() => (queue.value ? zonesView(queue.value) : []));
   const totalCount = computed(() => queue.value?.total_count ?? 0);
+  // Encomendas confirmadas para datas futuras, agrupadas pela data combinada.
+  const preorders = computed<PreorderGroup[]>(() => (queue.value ? preorderGroups(queue.value) : []));
 
   // Realtime + polling (client only). `realtime` diz honestamente ao operador se o board
   // recebe pushes ao vivo (SSE aberto) ou caiu no poll de 30s — a bolinha "ao vivo" só
@@ -178,5 +180,5 @@ export function useOrdersBoard() {
   const confirmMany = (refs: string[]) => actMany(refs, "confirm");
   const advanceMany = (refs: string[]) => actMany(refs, "advance");
 
-  return { queue, zones, totalCount, realtime, pending, error, refresh, isBusy, actionError, clearActionError, confirm, advance, reject, fetchCancellationReasons, settleCash, assign, unassign, confirmMany, advanceMany };
+  return { queue, zones, totalCount, preorders, realtime, pending, error, refresh, isBusy, actionError, clearActionError, confirm, advance, reject, fetchCancellationReasons, settleCash, assign, unassign, confirmMany, advanceMany };
 }

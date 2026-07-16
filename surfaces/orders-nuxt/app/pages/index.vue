@@ -28,7 +28,7 @@ import {
 import type { OrderCardProjection } from "~/types/orders";
 import type { CancellationReason } from "~/composables/useOrdersBoard";
 
-const { zones, realtime, pending, error, refresh, isBusy, actionError, clearActionError, confirm, advance, reject, fetchCancellationReasons, settleCash, assign, unassign, confirmMany, advanceMany } = useOrdersBoard();
+const { zones, preorders, realtime, pending, error, refresh, isBusy, actionError, clearActionError, confirm, advance, reject, fetchCancellationReasons, settleCash, assign, unassign, confirmMany, advanceMany } = useOrdersBoard();
 
 // Sinal honesto de tempo-real vs poll (indicador de degradação do SSE).
 const realtimeView = computed(() => realtimeIndicator(realtime.value));
@@ -56,6 +56,18 @@ const tableRows = computed(() =>
 // how many cards survive the current filters (for the "no results" affordance).
 const visibleCount = computed(() => zones.value.reduce((n, z) => n + triaged(z).length, 0));
 const hasFilter = computed(() => query.value.trim() !== "" || channel.value !== "all" || fulfillment.value !== "all");
+
+// Encomendas (datas futuras) sob o mesmo triage do board (busca/canal/tipo);
+// o sort não se aplica — a ordem canônica é a data combinada.
+const triagedPreorders = computed(() =>
+  preorders.value
+    .map((group) => ({
+      ...group,
+      cards: triageCards(group.cards, { query: query.value, channel: channel.value, sort: "arrival", fulfillment: fulfillment.value }),
+    }))
+    .filter((group) => group.cards.length),
+);
+const preordersCount = computed(() => triagedPreorders.value.reduce((n, g) => n + g.cards.length, 0));
 
 // ── bulk selection (Arc 4) ──────────────────────────────────────────────────
 const selected = ref<Set<string>>(new Set());
@@ -506,6 +518,35 @@ function printQueue() {
             </tbody>
           </table>
         </div>
+
+        <!-- Encomendas: pedidos confirmados para datas futuras, fora das colunas
+             do dia. Agrupadas pela data combinada; no dia, o despertador devolve
+             o pedido ao fluxo normal do board. -->
+        <section v-if="preordersCount" class="mt-6" data-preorders-section>
+          <div class="flex items-center gap-2 border-b pb-2">
+            <Icon name="lucide:calendar-clock" class="size-4 text-muted-foreground" />
+            <h2 class="text-sm font-bold uppercase tracking-wide">Encomendas</h2>
+            <span class="grid min-w-5 place-items-center rounded-full bg-muted px-1.5 text-xs font-bold tabular-nums">{{ preordersCount }}</span>
+            <span class="ml-auto hidden truncate text-xs text-muted-foreground sm:block">Confirmadas para os próximos dias</span>
+          </div>
+          <div class="mt-3 grid gap-4 lg:grid-cols-3">
+            <div v-for="group in triagedPreorders" :key="group.date" class="flex min-w-0 flex-col gap-3">
+              <h3 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{{ group.label }}</h3>
+              <OrderCard
+                v-for="card in group.cards"
+                :key="card.ref"
+                :card="card"
+                :busy="isBusy(card.ref)"
+                :error="actionError(card.ref)"
+                :selected="isSelected(card.ref)"
+                @action="(action) => onAction(card.ref, action)"
+                @dismiss-error="clearActionError(card.ref)"
+                @toggle-select="toggleSelect(card.ref)"
+                @toggle-assign="onToggleAssign(card)"
+              />
+            </div>
+          </div>
+        </section>
       </template>
     </section>
 

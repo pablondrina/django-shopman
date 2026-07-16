@@ -66,6 +66,7 @@ export interface TwoZoneQueueProjection extends TwoZoneQueueContract {
   expedition_pickup: OrderCardProjection[];
   expedition_delivery: OrderCardProjection[];
   expedition_delivery_transit: OrderCardProjection[];
+  preorders: OrderCardProjection[];
 }
 
 export interface OrderQueueResponse {

@@ -122,6 +122,15 @@ function buttonClass(priority: string): string {
       <span class="inline-flex items-center rounded-md border px-2 py-0.5 font-medium" :class="toneBadge(statusTone(card.status))">
         {{ card.status_label }}
       </span>
+      <!-- encomenda: pedido combinado para data futura -->
+      <span
+        v-if="card.is_preorder"
+        class="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-medium text-muted-foreground"
+        data-preorder-badge
+      >
+        <Icon name="lucide:calendar-clock" class="size-3" />
+        Encomenda{{ card.commitment_date_display ? ` · ${card.commitment_date_display}` : "" }}
+      </span>
       <span
         v-if="card.payment_method_label"
         class="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-muted-foreground"
