@@ -420,15 +420,20 @@ def _cart_actions(
     checkout_reason = ""
     checkout_label = "Finalizar pedido"
 
+    def _reason(key: str, fallback: str) -> str:
+        return resolve_copy(key, moment="*", audience="*").message or fallback
+
     if data.checkout_block_reason == "empty":
-        checkout_reason = "Sacola vazia."
+        checkout_reason = _reason("CART_CHECKOUT_BLOCK_EMPTY", "Sacola vazia.")
     elif data.checkout_block_reason == "unavailable":
-        checkout_reason = "Revise itens indisponíveis antes de finalizar."
+        checkout_reason = _reason(
+            "CART_CHECKOUT_BLOCK_UNAVAILABLE", "Revise itens indisponíveis antes de finalizar."
+        )
     elif data.checkout_block_reason == "below_minimum":
         checkout_reason = (
             f"Faltam {minimum_order_progress.remaining_display} para o pedido mínimo."
             if minimum_order_progress is not None
-            else "Pedido mínimo não atingido."
+            else _reason("CART_CHECKOUT_BLOCK_MIN_ORDER", "Pedido mínimo não atingido.")
         )
     elif data.has_ready_for_confirmation:
         checkout_label = "Confirmar agora"

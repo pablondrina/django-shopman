@@ -149,7 +149,12 @@ class CheckoutView(APIView):
                 if not business_calendar.is_open_on(_parsed_date):
                     message = "Estamos fechados nesse dia. Escolha outra data."
                     return Response(
-                        {"detail": message, "field": "delivery_date", "errors": {"delivery_date": message}},
+                        {
+                            "detail": message,
+                            "field": "delivery_date",
+                            "errors": {"delivery_date": message},
+                            **_closed_shop_hint(),
+                        },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 # Eixo de HORA: dia operante mas já encerrado hoje (entrega e
@@ -159,7 +164,12 @@ class CheckoutView(APIView):
                 if _parsed_date == _today and _state.closure_source == "after_close":
                     message = "Já encerramos o atendimento de hoje. Escolha outra data."
                     return Response(
-                        {"detail": message, "field": "delivery_date", "errors": {"delivery_date": message}},
+                        {
+                            "detail": message,
+                            "field": "delivery_date",
+                            "errors": {"delivery_date": message},
+                            **_closed_shop_hint(),
+                        },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
@@ -378,6 +388,33 @@ class CheckoutView(APIView):
             status=status.HTTP_429_TOO_MANY_REQUESTS,
             headers={"Retry-After": str(CHECKOUT_RATE_LIMIT_RETRY_SECONDS)},
         )
+
+
+def _closed_shop_hint() -> dict:
+    """Enriquece o erro de dia/horário fechado com o caminho adiante (omotenashi):
+    quando reabrimos e a próxima data em que dá para encomendar. Aditivo — um
+    front que só lê ``detail`` ignora sem quebrar; degrada silencioso se o cálculo
+    de calendário falhar (nunca deixa o checkout 500 por causa de uma dica)."""
+    from shopman.shop.omotenashi import resolve_copy
+    from shopman.shop.services import business_calendar
+
+    hint: dict = {}
+    try:
+        state = business_calendar.current_business_state()
+        if state.next_open_at is not None:
+            hint["next_open_at"] = state.next_open_at.isoformat()
+        upcoming = business_calendar.available_dates(max_count=1)
+        if upcoming:
+            hint["earliest_available_date"] = upcoming[0].isoformat()
+    except Exception:
+        logger.debug("closed_shop_hint degraded", exc_info=True)
+        return hint
+    if hint:
+        hint["preorder_hint"] = (
+            resolve_copy("CHECKOUT_CLOSED_PREORDER_HINT", moment="*", audience="*").message
+            or "Você pode encomendar para o próximo dia disponível."
+        )
+    return hint
 
 
 def _delivery_slot_in_past_error(slot: str, delivery_date: str) -> str | None:

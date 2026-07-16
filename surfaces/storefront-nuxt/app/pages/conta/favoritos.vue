@@ -1,17 +1,19 @@
 <script setup lang="ts">
-import type { CatalogItemProjection } from '~/types/shopman'
+import type { FavoritesResponse } from '~/types/shopman'
 
 definePageMeta({ middleware: 'account' })
 
 const apiPath = useShopmanApiPath()
 const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 
-const { data, pending, error, refresh } = await useFetch<{ items: CatalogItemProjection[] }>(
+const { data, pending, error, refresh } = await useFetch<FavoritesResponse>(
   apiPath('/api/v1/account/favorites/'),
   { credentials: 'include', headers: requestHeaders }
 )
 
 const items = computed(() => data.value?.items || [])
+// Copy do empty-state vem do backend; os literais atuais seguem como fallback.
+const emptyCopy = computed(() => data.value?.copy?.empty || null)
 
 useSeoMeta({ title: 'Favoritos', robots: 'noindex, follow' })
 </script>
@@ -48,11 +50,11 @@ useSeoMeta({ title: 'Favoritos', robots: 'noindex, follow' })
           <Icon name="lucide:heart" />
         </UiEmptyMedia>
         <UiEmptyHeader>
-          <UiEmptyTitle>Você ainda não salvou favoritos</UiEmptyTitle>
-          <UiEmptyDescription>Toque no coração de um produto para guardá-lo aqui.</UiEmptyDescription>
+          <UiEmptyTitle>{{ emptyCopy?.title || 'Você ainda não salvou favoritos' }}</UiEmptyTitle>
+          <UiEmptyDescription>{{ emptyCopy?.message || 'Toque no coração de um produto para guardá-lo aqui.' }}</UiEmptyDescription>
         </UiEmptyHeader>
         <div class="flex justify-center">
-          <UiButton to="/menu" icon="lucide:utensils">Ver o cardápio</UiButton>
+          <UiButton :to="emptyCopy?.cta_href || '/menu'" icon="lucide:utensils">{{ emptyCopy?.cta_label || 'Ver o cardápio' }}</UiButton>
         </div>
       </UiEmpty>
 

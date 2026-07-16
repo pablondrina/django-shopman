@@ -208,9 +208,12 @@ useCanonical()
             <Icon name="lucide:search-x" />
           </UiEmptyMedia>
           <UiEmptyHeader>
-            <UiEmptyTitle>Nada encontrado</UiEmptyTitle>
-            <UiEmptyDescription>Apague a busca ou escolha uma coleção.</UiEmptyDescription>
+            <UiEmptyTitle>{{ catalog?.search_empty_state?.title || 'Nada encontrado' }}</UiEmptyTitle>
+            <UiEmptyDescription>{{ catalog?.search_empty_state?.message || 'Apague a busca ou escolha uma coleção.' }}</UiEmptyDescription>
           </UiEmptyHeader>
+          <div v-if="catalog?.search_empty_state?.cta_href && catalog?.search_empty_state?.cta_label" class="flex justify-center">
+            <UiButton :to="catalog.search_empty_state.cta_href" variant="outline">{{ catalog.search_empty_state.cta_label }}</UiButton>
+          </div>
         </UiEmpty>
       </template>
     </div>
