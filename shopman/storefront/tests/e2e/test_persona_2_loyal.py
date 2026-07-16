@@ -4,16 +4,17 @@ A returning, phone-authenticated customer with order history, a loyalty balance,
 a saved default address and favourites. Reorders a past order, redeems points and
 pays. Covers redeem/debit, favourites, saved address, reorder and coupons.
 
-Two customer-facing defects were discovered while writing this persona and are
-pinned as strict ``xfail`` so the suite flags them the moment they are fixed:
+One customer-facing defect discovered while writing this persona remains
+pinned as strict ``xfail`` so the suite flags it the moment it is fixed:
 
   * Group-scoped (loyalty/staff) coupons are ACCEPTED at apply-time but strike a
     zero discount — the eligibility gate reads ``customer.group`` directly while
     the discount modifier reads it from a pricing context the storefront never
     populates. See ``test_group_coupon_should_discount_for_member``.
-  * A card checkout on the ``web`` channel raises HTTP 400 ``sealed_field_modified``
-    (post_commit + card initiates payment inside the on-commit dispatch on the
-    sealed order instance). See ``test_card_checkout_on_web_is_broken``.
+
+The card-checkout-on-web finding graduated to a plain regression
+(``test_card_checkout_on_web_commits``) once the sealed-snapshot aliasing was
+fixed by the deep copy in ``CommitService._do_commit`` (PR #94).
 """
 
 from __future__ import annotations
@@ -179,14 +180,11 @@ def test_group_coupon_should_discount_for_member(client):
 
 
 @pytest.mark.django_db(transaction=True)  # real commit so on-commit dispatch fires in-request
-@pytest.mark.xfail(
-    strict=True,
-    reason="FINDING: card checkout on the web channel (post_commit) initiates "
-    "payment inside the on-commit dispatch on the sealed order instance and raises "
-    "ImmutabilityError → HTTP 400 sealed_field_modified, while leaving a committed "
-    "order behind. PIX/cash are unaffected.",
-)
-def test_card_checkout_on_web_is_broken(client):
+def test_card_checkout_on_web_commits(client):
+    """Regressão do finding: cartão no web commitava e caía em 400
+    ``sealed_field_modified`` (snapshot aliasado). Corrigido pelo deep copy no
+    ``CommitService._do_commit``; cobertura dedicada em
+    ``tests/api/test_checkout_card_web.py``."""
     _seed_catalog()
     J.otp_login(client, J.DEFAULT_PHONE)
     J.set_cart_qty(client, CROISSANT, 1)
