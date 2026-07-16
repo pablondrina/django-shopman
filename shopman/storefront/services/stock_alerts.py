@@ -148,6 +148,12 @@ def _deliver(sub, *, product_name: str) -> bool:
                 "sku": sub.sku,
                 "product_name": product_name,
                 "product_url": storefront_links.product_url(sub.sku),
+                # Placeholders do template compartilhado de stock.arrived: aqui
+                # não há reserva nem prazo — cliente sem hold ("Me avise").
+                "reserve_note": "",
+                "deadline_note": "",
+                "cta": "Garanta o seu:",
+                "action_url": storefront_links.product_url(sub.sku),
             },
             backend=backend,
         )

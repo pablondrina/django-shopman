@@ -38,6 +38,7 @@ MESSAGE_TEMPLATES: dict[str, str] = {
     "payment_expired": "Pedido {order_ref} cancelado: o prazo de pagamento expirou.",
     "payment_failed": "Nao conseguimos preparar o pagamento do pedido {order_ref}. Tente novamente: {payment_url}",
     "preorder_reminder": "Lembrete: seu pedido {order_ref} esta agendado para amanha. Ja estamos preparando tudo!",
+    "stock.arrived": "{product_name} chegou!{reserve_note}{deadline_note} {cta} {action_url}",
 }
 
 _COMTELE_SEND_URL = "https://api.comtele.com.br/messages/sms/send"

@@ -125,6 +125,30 @@ def test_activate_on_the_date_with_demand_hold_waits_materialization(tomorrow):
     )
 
 
+def test_activation_on_the_day_notifies_the_customer(
+    tomorrow, django_capture_on_commit_callbacks
+):
+    """WP-D: quando o despertador dispara o preparo na data, o cliente recebe
+    o ``order_preparing`` pelo lifecycle normal (PREPARING → _on_preparing) —
+    a promessa do tracking ("no dia, avisamos você quando o preparo começar")
+    tem um envio real por trás, nunca só a tela."""
+    hold = _demand_hold(tomorrow)
+    order = _preorder(tomorrow, hold)
+
+    with (
+        patch("django.utils.timezone.localdate", return_value=tomorrow),
+        patch("shopman.shop.lifecycle._dispatch_physical_work", return_value=True),
+        patch("shopman.shop.services.notification.send") as send,
+    ):
+        with django_capture_on_commit_callbacks(execute=True):
+            activate_preorder(order)
+
+    order.refresh_from_db()
+    assert order.status == Order.Status.PREPARING
+    events = [call.args[1] for call in send.call_args_list]
+    assert "order_preparing" in events
+
+
 def test_materialization_completes_the_deferred_fulfill(
     tomorrow, django_capture_on_commit_callbacks
 ):
