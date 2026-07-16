@@ -68,7 +68,7 @@ const fallbackMonogram = computed(() => productMonogram(props.product));
         v-if="product.is_d1"
         class="absolute left-1.5 top-1.5 rounded-full bg-amber-500 px-2 py-0.5 text-xs font-semibold text-white shadow-sm"
       >
-        D-1
+        Ontem
       </span>
     </div>
 

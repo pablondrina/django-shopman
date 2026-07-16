@@ -362,9 +362,9 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
             <span
               v-if="item.is_d1 && !item.price_overridden"
               class="mt-0.5 inline-flex w-fit items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-600"
-              title="Sobra do dia anterior (D-1) — preço de liquidação"
+              title="Produto de ontem — preço reduzido"
             >
-              D-1 · sobra
+              Ontem
             </span>
             <span
               v-if="item.discount && item.discount.value > 0"

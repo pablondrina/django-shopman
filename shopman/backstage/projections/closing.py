@@ -187,7 +187,7 @@ def _build_items() -> list[ClosingItemProjection]:
 
         if allows_d1:
             classification = "d1"
-            badge_label = "D-1"
+            badge_label = "Ontem"
             badge_css = "bg-warning/80 text-warning-foreground"
         elif shelf_life == 0:
             classification = "loss"
