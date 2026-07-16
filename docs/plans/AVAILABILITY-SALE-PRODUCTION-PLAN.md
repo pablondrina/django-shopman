@@ -252,6 +252,43 @@ só quando NÃO há caminho de encomenda no canal; a mensagem oferece a data
 - Notificação ativa na materialização (§8.3 do AVAILABILITY-PLAN) CONFERIDA de
   ponta a ponta (WhatsApp/SMS reais, não toast).
 
+### WP-D — Implementado (2026-07-16, branch wp-d-preorder-surfaces) ✅
+
+Fato central do mapeamento: **nenhuma chave nova em Order.data** — o pedido já
+carrega `is_preorder`/`delivery_date`/`delivery_time_slot`, e a sacola já
+persiste a data da fornada em `Hold.target_date`. A régua única de "é
+encomenda?" é `get_commitment_date(order) > localdate()` (a mesma de
+`_physical_work_deferred`).
+
+1. **Sacola**: `classify_planned_hold_for_session_sku` devolve `planned_for`
+   (min `Hold.target_date`) → `CartLineProjection.planned_for_date` →
+   `CartItemProjection.planned_for_notice` ("Previsto para hoje/amanhã/…",
+   copy `CART_WAITLIST_PLANNED_DATE`) → badge na sacola e na revisão do
+   checkout. Nota: add de sacola só ancora fornada de HOJE; datas futuras
+   chegam pelo commit (WP-C).
+2. **Tracking/confirmação**: `TrackingData.is_preorder/commitment_date/
+   commitment_slot_ref`; promise nova `preorder_scheduled` (entre confirmação
+   e o dia; pagamento continua vindo primeiro); presentation compõe o
+   combinado com slot REAL ("amanhã · A partir das 09h",
+   `Shop.defaults["pickup_slots"]` via `pickup_slots.slot_label`); confirmação
+   mostra o quando no lugar do ETA. `delivery_time_slot` é ref de slot
+   (`slot-09`) — data-schemas.md corrigido.
+3. **Gestor**: card expõe `is_preorder/commitment_date(_display)`; encomenda
+   CONFIRMADA de data futura sai do Preparo para o grupo `preorders` (pedido
+   NOVO fica na Entrada — aceite continua com o operador); orders-nuxt ganha a
+   seção "Encomendas" agrupada por data + badge no card. **KDS**: sem mudança
+   por decisão (ticket nasce na data via despertador; visão antecipada =
+   Gestor + Produção, que já é data-cêntrica). **Fechamento**: reconciliação
+   de estoque passa a contar o vendido pela DATA COMBINADA (deficit falso da
+   encomenda eliminado; contraprova: conta no dia da entrega); caixa segue no
+   dia do pagamento; bloco informativo "Encomendas para os proximos dias".
+4. **Notificação**: `stock.arrived` ganhou template real nos 3 canais (antes:
+   fallback "Notificacao: stock.arrived" no WhatsApp real); emissores
+   (materialização de reserva e "Me avise") preenchem os mesmos placeholders;
+   testes provam o CORPO renderizado. A ativação da encomenda na data envia
+   `order_preparing` pelo lifecycle (PREPARING → `_on_preparing`) — fixado em
+   teste; a promise do tracking promete exatamente isso.
+
 ### WP-E — Guardrails
 - E2e: os 4 fluxos canônicos (pronta-entrega hoje · lista de espera hoje ·
   encomenda com plano futuro · encomenda sem plano) × (anônimo · logando no meio).

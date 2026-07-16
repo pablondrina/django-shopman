@@ -237,7 +237,7 @@ useSeoMeta({
                         <Icon name="lucide:clock" class="mr-1 size-3.5" />
                         Lista de espera
                       </UiBadge>
-                      <p v-if="holdFor(line)!.plannedForNotice" class="mt-1 text-xs font-medium text-foreground" data-cart-line-planned-for>
+                      <p v-if="holdFor(line)!.plannedForNotice" class="mt-1 shop-meta text-foreground" data-cart-line-planned-for>
                         {{ holdFor(line)!.plannedForNotice }}
                       </p>
                       <p class="mt-1 shop-meta">{{ cart.awaiting_confirmation_notice || 'Envie o pedido para garantir a sua prioridade.' }}</p>
