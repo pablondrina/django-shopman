@@ -279,6 +279,34 @@ class TestAwaitingConfirmationIsNotUnavailable:
         )
         checkout = next(action for action in proj.actions if action.ref == "checkout")
         assert checkout.reason != "Revise itens indisponíveis antes de finalizar."
+        # WP-D: a linha em lista de espera diz PARA QUANDO a fornada está prevista.
+        assert item.planned_for_date == date.today().isoformat()
+        assert item.planned_for_notice == "Previsto para hoje"
+
+    def test_planned_for_notice_display_variants(self):
+        """WP-D: display da data prevista — hoje / amanhã / dia da semana.
+
+        A sacola só ancora em fornada de HOJE no add; datas futuras chegam
+        aqui quando o hold é re-ancorado (materialização parcial, encomenda
+        adotada de volta). A presentation cobre todas.
+        """
+        from datetime import date, timedelta
+
+        from django.utils import formats
+
+        from shopman.storefront.presentation.cart import _planned_for_display
+
+        today = date.today()
+        tomorrow = today + timedelta(days=1)
+        later = today + timedelta(days=3)
+
+        assert _planned_for_display(today.isoformat()) == "hoje"
+        assert _planned_for_display(tomorrow.isoformat()) == "amanhã"
+        assert _planned_for_display(later.isoformat()) == (
+            f"{formats.date_format(later, 'l')}, {formats.date_format(later, 'd/m')}"
+        )
+        assert _planned_for_display(None) is None
+        assert _planned_for_display("nonsense") is None
 
 
 # ──────────────────────────────────────────────────────────────────────

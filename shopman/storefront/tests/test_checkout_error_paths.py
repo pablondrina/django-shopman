@@ -48,7 +48,7 @@ def repricing_warnings(cart: dict) -> list[dict]:
             unit_price_q=i["unit_price_q"], line_total_q=i["unit_price_q"] * i.get("qty", 1),
             is_available=True, available_qty=None,
             is_awaiting_confirmation=False, is_ready_for_confirmation=False,
-            confirmation_deadline_iso=None,
+            confirmation_deadline_iso=None, planned_for_date=None,
             original_price_q=None, discount_name=None, discount_is_coupon=False,
         )
         for i in cart.get("items", [])

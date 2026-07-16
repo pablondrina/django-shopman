@@ -34,7 +34,9 @@ function optimisticLine (meta: ProductMutationMeta, qty: number): CartItemProjec
     is_awaiting_confirmation: false,
     is_ready_for_confirmation: false,
     confirmation_deadline_iso: null,
-    confirmation_deadline_display: null
+    confirmation_deadline_display: null,
+    planned_for_date: null,
+    planned_for_notice: null
   }
 }
 
@@ -60,15 +62,16 @@ export type CartLineHold = {
   kind: 'awaiting' | 'ready'
   deadlineIso: string | null
   deadlineDisplay: string | null
+  plannedForNotice: string | null
 }
 
-type HoldFields = Pick<CartItemProjection, 'is_awaiting_confirmation' | 'is_ready_for_confirmation' | 'confirmation_deadline_iso' | 'confirmation_deadline_display'>
+type HoldFields = Pick<CartItemProjection, 'is_awaiting_confirmation' | 'is_ready_for_confirmation' | 'confirmation_deadline_iso' | 'confirmation_deadline_display' | 'planned_for_notice'>
 
 export function lineHoldState (line: HoldFields): CartLineHold | null {
   if (line.is_ready_for_confirmation) {
-    return { kind: 'ready', deadlineIso: line.confirmation_deadline_iso, deadlineDisplay: line.confirmation_deadline_display }
+    return { kind: 'ready', deadlineIso: line.confirmation_deadline_iso, deadlineDisplay: line.confirmation_deadline_display, plannedForNotice: null }
   }
-  if (line.is_awaiting_confirmation) return { kind: 'awaiting', deadlineIso: null, deadlineDisplay: null }
+  if (line.is_awaiting_confirmation) return { kind: 'awaiting', deadlineIso: null, deadlineDisplay: null, plannedForNotice: line.planned_for_notice ?? null }
   return null
 }
 

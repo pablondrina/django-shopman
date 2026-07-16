@@ -95,6 +95,8 @@ class CartLineProjection:
     is_awaiting_confirmation: bool
     is_ready_for_confirmation: bool
     confirmation_deadline_iso: str | None
+    # Batch date the waitlisted line is planned against (None = no plan yet).
+    planned_for_date: str | None
 
     # Pricing transparency — set when a promo/coupon reduced the line.
     original_price_q: int | None
@@ -367,7 +369,7 @@ def _build_line(
     qty = int(Decimal(str(item.get("qty", 0) or 0)))
     name = item.get("name") or names_by_sku.get(sku) or sku
 
-    is_awaiting, is_ready, deadline_iso = _planned_hold(session_key, sku)
+    is_awaiting, is_ready, deadline_iso, planned_for_date = _planned_hold(session_key, sku)
     is_available, available_qty = _line_availability(
         sku, qty, avail_map.get(sku), own_holds,
     )
@@ -389,21 +391,24 @@ def _build_line(
         is_awaiting_confirmation=is_awaiting,
         is_ready_for_confirmation=is_ready,
         confirmation_deadline_iso=deadline_iso,
+        planned_for_date=planned_for_date,
         original_price_q=original_price_q,
         discount_name=discount_name or None,
         discount_is_coupon=discount_is_coupon,
     )
 
 
-def _planned_hold(session_key: str, sku: str) -> tuple[bool, bool, str | None]:
+def _planned_hold(session_key: str, sku: str) -> tuple[bool, bool, str | None, str | None]:
     from shopman.shop.services import availability as availability_service
 
     planned = availability_service.classify_planned_hold_for_session_sku(session_key, sku)
     deadline = planned.get("deadline")
+    planned_for = planned.get("planned_for")
     return (
         planned["is_awaiting_confirmation"],
         planned["is_ready_for_confirmation"],
         deadline.isoformat() if deadline is not None else None,
+        planned_for.isoformat() if planned_for is not None else None,
     )
 
 

@@ -22,6 +22,8 @@ function line (overrides: Partial<CartItemProjection> = {}): CartItemProjection 
     is_ready_for_confirmation: false,
     confirmation_deadline_iso: null,
     confirmation_deadline_display: null,
+    planned_for_date: null,
+    planned_for_notice: null,
     ...overrides
   }
 }
@@ -182,9 +184,16 @@ describe('cart presentation — planned hold', () => {
   it('maps line flags to a hold state, ready taking precedence', () => {
     expect(lineHoldState(line())).toBeNull()
     expect(lineHoldState(line({ is_awaiting_confirmation: true })))
-      .toEqual({ kind: 'awaiting', deadlineIso: null, deadlineDisplay: null })
+      .toEqual({ kind: 'awaiting', deadlineIso: null, deadlineDisplay: null, plannedForNotice: null })
     expect(lineHoldState(line({ is_ready_for_confirmation: true, confirmation_deadline_iso: deadline, confirmation_deadline_display: '12:30' })))
-      .toEqual({ kind: 'ready', deadlineIso: deadline, deadlineDisplay: '12:30' })
+      .toEqual({ kind: 'ready', deadlineIso: deadline, deadlineDisplay: '12:30', plannedForNotice: null })
+  })
+
+  it('carries the expected-batch notice on awaiting lines only', () => {
+    const awaiting = line({ is_awaiting_confirmation: true, planned_for_date: '2026-07-17', planned_for_notice: 'Previsto para amanhã' })
+    expect(lineHoldState(awaiting)?.plannedForNotice).toBe('Previsto para amanhã')
+    const ready = line({ is_ready_for_confirmation: true, planned_for_notice: 'Previsto para amanhã' })
+    expect(lineHoldState(ready)?.plannedForNotice).toBeNull()
   })
 
   it('counts down to the deadline and clamps at zero', () => {

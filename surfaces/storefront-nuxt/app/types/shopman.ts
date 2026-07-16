@@ -195,6 +195,8 @@ export interface CartItemProjection {
   is_ready_for_confirmation: boolean
   confirmation_deadline_iso: string | null
   confirmation_deadline_display: string | null
+  planned_for_date: string | null
+  planned_for_notice: string | null
 }
 
 export interface CartProjection {

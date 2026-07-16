@@ -131,6 +131,7 @@ def classify_planned_hold_for_session_sku(
             "is_awaiting_confirmation": bool,   # any planned hold still pre-materialization
             "is_ready_for_confirmation": bool,  # all planned holds have materialized
             "deadline": datetime | None,        # earliest materialized deadline (min expires_at)
+            "planned_for": date | None,         # earliest batch date the holds wait on
         }
 
     With multiple holds (split reservation, partial materialization) the
@@ -143,6 +144,7 @@ def classify_planned_hold_for_session_sku(
         "is_awaiting_confirmation": False,
         "is_ready_for_confirmation": False,
         "deadline": None,
+        "planned_for": None,
     }
     if not session_key or not sku:
         return empty
@@ -171,11 +173,13 @@ def classify_planned_hold_for_session_sku(
     deadline = None
     if all_ready:
         deadline = min(h.expires_at for h in holds)
+    planned_dates = [h.target_date for h in holds if h.target_date]
 
     return {
         "is_awaiting_confirmation": any_awaiting,
         "is_ready_for_confirmation": all_ready,
         "deadline": deadline,
+        "planned_for": min(planned_dates) if planned_dates else None,
     }
 
 

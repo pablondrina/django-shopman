@@ -1439,6 +1439,7 @@ useSeoMeta({
                   <UiBadge v-if="line.is_awaiting_confirmation" variant="outline" class="ml-1 align-middle">
                     Lista de espera
                   </UiBadge>
+                  <span v-if="line.is_awaiting_confirmation && line.planned_for_notice" class="ml-1 shop-meta">{{ line.planned_for_notice }}</span>
                 </li>
               </ul>
 

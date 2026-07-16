@@ -155,6 +155,11 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "CART_WAITLIST_NOTICE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Envie o pedido para garantir a sua prioridade.")},
     },
+    # Data prevista da fornada na linha em lista de espera. ``{date}`` vira
+    # "hoje" / "amanhã" / "sábado, 19/07" na presentation da sacola.
+    "CART_WAITLIST_PLANNED_DATE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Previsto para {date}")},
+    },
     # Motivos do botão de checkout desabilitado — antes hardcoded na presentation,
     # agora no registro para o operador reescrever como qualquer outra microcopy.
     "CART_CHECKOUT_BLOCK_EMPTY": {
