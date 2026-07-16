@@ -24,7 +24,7 @@ crash, mas uma nuance surpreendente), o docstring/coment marca ``ACHADO:``.
 
 from __future__ import annotations
 
-from datetime import date, time, timedelta
+from datetime import time, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -148,6 +148,7 @@ def _reprice(session, ops):
     """Aplica ops no pipeline REAL (cadeia completa de modifiers) e devolve a
     sessão recarregada do banco."""
     from shopman.orderman.models import Session
+
     from shopman.shop.services import sessions
 
     sessions.modify_session(
@@ -201,7 +202,7 @@ class TestD1Discount:
         from shopman.shop.services import sessions
 
         _shop()
-        ch = _channel("web")
+        _channel("web")
         _product(sku, price_q)
         _rule("d1_discount", D1_RULE, {"discount_percent": d1_percent})
         s = sessions.create_session("web")
@@ -501,7 +502,6 @@ class TestExhaustedCoupon:
 
     def test_exhausted_coupon_does_not_discount(self):
         from shopman.shop.services import sessions
-        from shopman.storefront.models import Coupon
 
         _shop()
         _channel("web")
@@ -687,8 +687,9 @@ class TestHoldExpiry:
     """11. Hold expira → estoque volta a ficar disponível."""
 
     def test_expired_hold_frees_stock(self):
-        from shopman.shop.services import availability
         from shopman.stockman.models import Hold
+
+        from shopman.shop.services import availability
 
         _shop()
         _channel("web")
@@ -712,6 +713,7 @@ class TestCancellationReleasesHold:
 
     def test_cancel_releases_holds_and_restores_stock(self, django_capture_on_commit_callbacks):
         from shopman.orderman.models import Order
+
         from shopman.shop.services import availability, cancellation
 
         _shop()
@@ -859,6 +861,7 @@ class TestDeliveryMinimum:
 
     def test_below_minimum_delivery_rejected(self):
         from shopman.orderman.exceptions import ValidationError as OrderValidationError
+
         from shopman.shop.rules.validation import DeliveryZoneRule
 
         _shop(defaults={"rules": {"delivery_minimum_q": 3000}})
@@ -929,6 +932,7 @@ class TestCancellationTerminalGuard:
 
     def test_cannot_cancel_already_cancelled(self, django_capture_on_commit_callbacks):
         from shopman.orderman.models import Order
+
         from shopman.shop.services import cancellation
 
         _shop()
