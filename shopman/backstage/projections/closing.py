@@ -87,6 +87,21 @@ class PendingProductionProjection:
 
 
 @dataclass(frozen=True)
+class UpcomingPreorderRowProjection:
+    """Encomendas confirmadas para uma data futura (WP-D).
+
+    Informativo no fechamento: vendido hoje (dinheiro no caixa de hoje), sai
+    do estoque na data combinada — por isso NÃO entra na reconciliação do dia.
+    """
+
+    date: str  # ISO
+    date_display: str  # "amanhã", "sáb, 19/07"
+    orders_count: int
+    total_q: int
+    total_display: str
+
+
+@dataclass(frozen=True)
 class DayClosingProjection:
     """Top-level read model for the day closing page."""
 
@@ -103,6 +118,8 @@ class DayClosingProjection:
     reconciliation_errors: tuple[ReconciliationError, ...]
     pending_production: tuple[PendingProductionProjection, ...]
     has_pending_production: bool
+    upcoming_preorders: tuple[UpcomingPreorderRowProjection, ...] = ()
+    has_upcoming_preorders: bool = False
 
 
 # ── Builder ────────────────────────────────────────────────────────────
@@ -133,6 +150,7 @@ def build_day_closing() -> DayClosingProjection:
         )
 
     pending_production = _pending_production(today)
+    upcoming_preorders = _upcoming_preorders(today)
 
     return DayClosingProjection(
         today=today.isoformat(),
@@ -148,6 +166,8 @@ def build_day_closing() -> DayClosingProjection:
         reconciliation_errors=reconciliation_errors,
         pending_production=pending_production,
         has_pending_production=bool(pending_production),
+        upcoming_preorders=upcoming_preorders,
+        has_upcoming_preorders=bool(upcoming_preorders),
     )
 
 
@@ -277,6 +297,60 @@ def _pending_production(today: date) -> tuple[PendingProductionProjection, ...]:
     except Exception:
         logger.debug("closing.pending_production_failed", exc_info=True)
         return ()
+
+
+def _upcoming_preorders(today: date) -> tuple[UpcomingPreorderRowProjection, ...]:
+    """Encomendas vivas para datas futuras, agregadas por data combinada.
+
+    Vendido hoje ≠ sai hoje: o dinheiro conta no caixa do dia da venda e o
+    estoque na data da entrega. O fechamento informa para o operador saber o
+    que já está comprometido nos próximos dias.
+    """
+    try:
+        from shopman.orderman.models import Order
+        from shopman.utils.monetary import format_money
+
+        from shopman.shop.services.order_helpers import get_commitment_date
+
+        by_date: dict[date, dict] = {}
+        orders = (
+            Order.objects.filter(
+                status__in=("new", "confirmed"),
+                data__delivery_date__gt=today.isoformat(),
+            )
+        )
+        for order in orders:
+            commitment = get_commitment_date(order)
+            if commitment is None or commitment <= today:
+                continue
+            row = by_date.setdefault(commitment, {"orders_count": 0, "total_q": 0})
+            row["orders_count"] += 1
+            row["total_q"] += int(order.total_q or 0)
+
+        rows = []
+        for commitment in sorted(by_date):
+            row = by_date[commitment]
+            rows.append(
+                UpcomingPreorderRowProjection(
+                    date=commitment.isoformat(),
+                    date_display=_upcoming_date_display(commitment, today),
+                    orders_count=row["orders_count"],
+                    total_q=row["total_q"],
+                    total_display=f"R$ {format_money(row['total_q'])}",
+                )
+            )
+        return tuple(rows)
+    except Exception:
+        logger.debug("closing.upcoming_preorders_failed", exc_info=True)
+        return ()
+
+
+def _upcoming_date_display(commitment: date, today: date) -> str:
+    from django.utils import formats
+
+    if commitment == today + timedelta(days=1):
+        return "amanhã"
+    return f"{formats.date_format(commitment, 'D')}, {formats.date_format(commitment, 'd/m')}"
 
 
 def _today_production_summary(selected_date: date) -> dict:

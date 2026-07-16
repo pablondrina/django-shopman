@@ -63,6 +63,21 @@
       {% component "unfold/components/table.html" with table=day_closing_production_table striped=1 %}{% endcomponent %}
     </div>
 
+    {% if day_closing.has_upcoming_preorders %}
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center gap-2">
+          {% component "unfold/components/title.html" with class="text-lg" %}
+            Encomendas para os proximos dias
+          {% endcomponent %}
+          {% include "unfold/helpers/label.html" with text=day_closing.upcoming_preorders|length type="info" %}
+        </div>
+        {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
+          Vendidas hoje, saem do estoque na data combinada. Entram no caixa de hoje e na reconciliacao do dia da entrega.
+        {% endcomponent %}
+        {% component "unfold/components/table.html" with table=day_closing_upcoming_preorders_table striped=1 %}{% endcomponent %}
+      </div>
+    {% endif %}
+
     {% if day_closing.reconciliation_errors %}
       <div class="flex flex-col gap-2">
         {% component "unfold/components/title.html" with class="text-lg text-red-600 dark:text-red-400" %}
