@@ -255,25 +255,15 @@ class DiscountModifier:
         if fulfillment_type:
             ctx.setdefault("fulfillment_type", fulfillment_type)
 
-        # Inject is_birthday — needed for birthday_only promotions
-        if "is_birthday" not in ctx:
-            customer_ref = (session.data or {}).get("customer", {}).get("ref")
-            if customer_ref:
-                try:
-                    from shopman.guestman.models import Customer
-                    customer = Customer.objects.filter(ref=customer_ref).only("birthday").first()
-                    if customer and customer.birthday:
-                        today = timezone.localdate()
-                        ctx["is_birthday"] = (
-                            customer.birthday.month == today.month
-                            and customer.birthday.day == today.day
-                        )
-                except Exception:
-                    logger.debug(
-                        "discount_modifier: birthday lookup failed for customer=%s",
-                        customer_ref,
-                        exc_info=True,
-                    )
+        # Customer-derived pricing context (group, RFM segment, birthday) needed
+        # for ``customer_segments``-gated and ``birthday_only`` promotions/coupons.
+        # Resolved from the session's linked customer so it survives EVERY reprice
+        # (each cart mutation re-runs this modifier); a value the caller already
+        # put in ``ctx`` still wins. The POS writes ``customer.group`` straight to
+        # the session; the storefront links the customer (ref + group) when a
+        # segment-gated coupon is applied, and the RFM segment resolves from the
+        # customer's ``insight``.
+        self._resolve_customer_ctx(session, ctx)
 
         now = timezone.now()
 
@@ -458,6 +448,71 @@ class DiscountModifier:
             }
         else:
             session.pricing.pop("coupon", None)
+
+    @staticmethod
+    def _resolve_customer_ctx(session: Any, ctx: dict) -> None:
+        """Populate ``customer_group``, ``customer_segment`` and ``is_birthday``
+        in ``ctx`` from the session's linked customer, without overriding values
+        the caller already supplied.
+
+        ``customer.group`` persisted on the session (POS) is authoritative for the
+        group. Everything else (segment, birthday, and the group when only the ref
+        is on the session) resolves from the ``Customer`` row, so the discount is
+        recomputed correctly on every reprice, not just the moment the coupon is
+        applied.
+        """
+        from django.core.exceptions import ObjectDoesNotExist
+
+        customer_data = (session.data or {}).get("customer") or {}
+
+        needs_group = not ctx.get("customer_group")
+        if needs_group and customer_data.get("group"):
+            ctx["customer_group"] = customer_data["group"]
+            needs_group = False
+
+        needs_segment = not ctx.get("customer_segment")
+        needs_birthday = "is_birthday" not in ctx
+        customer_ref = customer_data.get("ref")
+        if not customer_ref or not (needs_group or needs_segment or needs_birthday):
+            return
+
+        try:
+            from shopman.guestman.models import Customer
+
+            customer = (
+                Customer.objects.filter(ref=customer_ref)
+                .select_related("group", "insight")
+                .first()
+            )
+        except Exception:
+            logger.debug(
+                "discount_modifier: customer lookup failed for customer=%s",
+                customer_ref,
+                exc_info=True,
+            )
+            return
+        if customer is None:
+            return
+
+        if needs_group and customer.group_id:
+            ctx["customer_group"] = customer.group.ref
+
+        if needs_segment:
+            try:
+                ctx["customer_segment"] = customer.insight.rfm_segment or ""
+            except ObjectDoesNotExist:
+                # Insight (OneToOne) not computed yet — the customer still matches
+                # by group; the segment stays empty. Degrade quietly, no traceback.
+                logger.debug(
+                    "discount_modifier: no insight for customer=%s", customer_ref
+                )
+
+        if needs_birthday and customer.birthday:
+            today = timezone.localdate()
+            ctx["is_birthday"] = (
+                customer.birthday.month == today.month
+                and customer.birthday.day == today.day
+            )
 
     @staticmethod
     def _matches(promo: Any, sku: str, ctx: dict) -> bool:

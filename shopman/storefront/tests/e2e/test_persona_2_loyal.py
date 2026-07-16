@@ -4,16 +4,16 @@ A returning, phone-authenticated customer with order history, a loyalty balance,
 a saved default address and favourites. Reorders a past order, redeems points and
 pays. Covers redeem/debit, favourites, saved address, reorder and coupons.
 
-Two customer-facing defects were discovered while writing this persona and are
-pinned as strict ``xfail`` so the suite flags them the moment they are fixed:
+Two customer-facing defects surfaced by this persona are now FIXED and kept here
+as regressions:
 
-  * Group-scoped (loyalty/staff) coupons are ACCEPTED at apply-time but strike a
-    zero discount — the eligibility gate reads ``customer.group`` directly while
-    the discount modifier reads it from a pricing context the storefront never
-    populates. See ``test_group_coupon_should_discount_for_member``.
-  * A card checkout on the ``web`` channel raises HTTP 400 ``sealed_field_modified``
-    (post_commit + card initiates payment inside the on-commit dispatch on the
-    sealed order instance). See ``test_card_checkout_on_web_is_broken``.
+  * Group-scoped (loyalty/staff) coupons were accepted at apply-time but struck a
+    zero discount — the discount modifier read the customer's group from a pricing
+    context the storefront never populated. Fixed by binding the customer's group
+    to the cart session. See ``test_group_coupon_should_discount_for_member``.
+  * A card checkout on the ``web`` channel raised HTTP 400 ``sealed_field_modified``
+    (post_commit + card initiating payment on the sealed order instance). Fixed in
+    #94. See ``test_card_checkout_on_web_succeeds``.
 """
 
 from __future__ import annotations
@@ -157,15 +157,9 @@ def test_group_gated_coupon_is_accepted_for_member(client):
     assert body["cart"]["coupon_code"] == "FIEL10"
 
 
-# ── discovered defects (pinned expectations) ─────────────────────────────────
+# ── regressions for fixed defects ────────────────────────────────────────────
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="FINDING: group-scoped coupon accepted but discounts nothing — the "
-    "storefront pricing context never carries the authenticated customer's group, "
-    "so DiscountModifier._matches rejects the segment-gated promo.",
-)
 def test_group_coupon_should_discount_for_member(client):
     _seed_catalog()
     customer = _loyal_customer(group_ref="fieis")

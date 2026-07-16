@@ -32,6 +32,7 @@ from shopman.shop.projections.types import (
     CategoryProjection,
     HappyHourProjection,
 )
+from shopman.storefront.identity import customer_pricing_hints
 from shopman.storefront.presentation.dietary import dietary_warnings as _dietary_warnings
 from shopman.storefront.presentation.icons import collection_icon
 from shopman.storefront.presentation.status import availability_label
@@ -244,6 +245,7 @@ def build_catalog(
 
     popular = popular_skus(limit=5)
     ft_hint, sub_hint = session_pricing_hints(request)
+    group_hint, segment_hint = customer_pricing_hints(request)
     qty_in_cart_by_sku = _cart_qty_by_sku(request)
 
     # Flatten once for batching; remember grouping for sections.
@@ -273,6 +275,8 @@ def build_catalog(
         popular=popular,
         session_total_q=sub_hint,
         fulfillment_type=ft_hint,
+        customer_group=group_hint,
+        customer_segment=segment_hint,
         low_stock_threshold=low_stock_threshold,
         qty_in_cart_by_sku=qty_in_cart_by_sku,
         favorite_skus=_favorite_skus(request),
@@ -366,6 +370,7 @@ def build_catalog_items_for_skus(
     low_stock_threshold = Decimal(str(config.stock.low_stock_threshold))
     popular = popular_skus(limit=5)
     ft_hint, sub_hint = session_pricing_hints(request)
+    group_hint, segment_hint = customer_pricing_hints(request)
     qty_in_cart_by_sku = _cart_qty_by_sku(request)
 
     return tuple(
@@ -375,6 +380,8 @@ def build_catalog_items_for_skus(
             popular=popular,
             session_total_q=sub_hint,
             fulfillment_type=ft_hint,
+            customer_group=group_hint,
+            customer_segment=segment_hint,
             low_stock_threshold=low_stock_threshold,
             qty_in_cart_by_sku=qty_in_cart_by_sku,
             favorite_skus=_favorite_skus(request),
@@ -391,6 +398,8 @@ def _build_items(
     popular: set[str],
     session_total_q: int,
     fulfillment_type: str,
+    customer_group: str = "",
+    customer_segment: str = "",
     low_stock_threshold: Decimal,
     qty_in_cart_by_sku: dict[str, int] | None = None,
     favorite_skus: set[str] | None = None,
@@ -433,6 +442,8 @@ def _build_items(
                 "sku_collections": cols,
                 "session_total_q": session_total_q,
                 "fulfillment_type": fulfillment_type,
+                "customer_group": customer_group,
+                "customer_segment": customer_segment,
             },
             list_unit_price_q=base_q,
         )

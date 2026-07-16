@@ -53,6 +53,61 @@ class CartService:
         return request.session.get("cart_session_key")
 
     @staticmethod
+    def _customer_link(request: HttpRequest) -> dict | None:
+        """Return ``{"ref", "group"}`` for the authenticated viewer, or ``None``.
+
+        Used to persist the customer's identity onto the cart session so a
+        promotion/coupon gated by customer group/segment discounts on every
+        reprice — the discount modifier resolves the group/segment from the
+        session, not from the request.
+        """
+        from shopman.storefront.identity import get_authenticated_customer
+
+        try:
+            customer = get_authenticated_customer(request)
+        except Exception:
+            # Best-effort pricing context — a resolution failure must never break
+            # the cart mutation itself. Degrade to "not linked".
+            logger.debug("cart customer link resolution failed", exc_info=True)
+            return None
+        if customer is None:
+            return None
+        return {
+            "ref": getattr(customer, "ref", "") or "",
+            "group": customer.group.ref if getattr(customer, "group_id", None) else "",
+        }
+
+    @staticmethod
+    def _link_customer(request: HttpRequest, session_key: str) -> bool:
+        """Idempotently persist the authenticated customer (ref + group) onto the
+        cart session. Returns ``True`` when the session was actually updated.
+
+        No-op for an anonymous viewer or when the session already carries the same
+        identity, so it's cheap to call on every cart write.
+        """
+        payload = CartService._customer_link(request)
+        if not payload:
+            return False
+        session = cart_mutations.get_open_session(
+            session_key=session_key, channel_ref=CHANNEL_REF
+        )
+        if session is None:
+            return False
+        existing = (session.data or {}).get("customer") or {}
+        merged = dict(existing)
+        if payload["ref"]:
+            merged["ref"] = payload["ref"]
+        if payload["group"]:
+            merged["group"] = payload["group"]
+        if merged == existing:
+            return False
+        data = dict(session.data or {})
+        data["customer"] = merged
+        session.data = data
+        session.save(update_fields=["data"])
+        return True
+
+    @staticmethod
     def _get_or_create_session(request: HttpRequest) -> tuple[Session, str]:
         """Return (cart_session, session_key). Creates if needed."""
         cart_session, session_key = cart_mutations.get_or_create_session(
@@ -85,8 +140,16 @@ class CartService:
         For merges (existing line), checks availability for the *additional* qty only
         and adopts an additional hold tagged with the same session_key.
         """
+        # Link the customer to an EXISTING cart before the add reprices, so a
+        # segment/group-gated promo already discounts this line. For a brand-new
+        # cart (no key yet) the session doesn't exist to write to; we link right
+        # after and reprice once below.
+        existing_key = CartService._get_session_key(request)
+        if existing_key:
+            CartService._link_customer(request, existing_key)
+
         session, session_key = cart_mutations.add_item(
-            session_key=CartService._get_session_key(request),
+            session_key=existing_key,
             channel_ref=CHANNEL_REF,
             origin_channel=request.session.get("origin_channel", "web"),
             sku=sku,
@@ -96,6 +159,11 @@ class CartService:
             is_d1=is_d1,
         )
         request.session["cart_session_key"] = session_key
+        if not existing_key and CartService._link_customer(request, session_key):
+            session = (
+                cart_mutations.reprice(session_key=session_key, channel_ref=CHANNEL_REF)
+                or session
+            )
         return session
 
     @staticmethod
@@ -116,6 +184,7 @@ class CartService:
         if not session_key:
             raise ValueError("No active cart")
 
+        CartService._link_customer(request, session_key)
         return cart_mutations.update_qty(
             session_key=session_key,
             channel_ref=CHANNEL_REF,
@@ -140,6 +209,7 @@ class CartService:
         if not session_key:
             raise ValueError("No active cart")
 
+        CartService._link_customer(request, session_key)
         return cart_mutations.remove_item(
             session_key=session_key,
             channel_ref=CHANNEL_REF,
@@ -202,8 +272,8 @@ class CartService:
         return CartService.summary_from_session(session, include_items=include_items)
 
     @staticmethod
-    def _customer_eligible_for_promo(request: HttpRequest, promo) -> bool:
-        """True se o cliente atual satisfaz o alvo POR CLIENTE da promoção.
+    def _customer_eligible_for_promo(customer, promo) -> bool:
+        """True se ``customer`` satisfaz o alvo POR CLIENTE da promoção.
 
         Só valida restrições que dependem de QUEM é o cliente — ``customer_segments``
         (grupo/RFM) e ``birthday_only`` — porque, se não batem, o desconto seria
@@ -211,7 +281,11 @@ class CartService:
         ``fulfillment_types``) NÃO são checadas aqui: elas só afetam QUAIS itens
         recebem desconto, não a elegibilidade do cliente ao cupom. Espelha a
         semântica de ``DiscountModifier._matches`` para esses dois eixos.
+
+        ``customer`` é o cliente já resolvido do request (ou ``None`` para
+        visitante anônimo).
         """
+        from django.core.exceptions import ObjectDoesNotExist
         from django.utils import timezone as tz
 
         segments = list(getattr(promo, "customer_segments", None) or [])
@@ -219,20 +293,17 @@ class CartService:
         if not segments and not birthday_only:
             return True  # cupom aberto a todos
 
-        from shopman.storefront.identity import get_authenticated_customer
-
-        customer = get_authenticated_customer(request)
         if customer is None:
             return False  # alvo exige identidade; visitante anônimo não qualifica
 
         if segments:
-            group_ref = customer.group.ref if getattr(customer, "group", None) else ""
+            group_ref = customer.group.ref if getattr(customer, "group_id", None) else ""
             try:
                 rfm_segment = customer.insight.rfm_segment or ""
-            except Exception:
+            except ObjectDoesNotExist:
                 # Sem insight calculado (OneToOne ausente) o cliente so casa por
                 # grupo; segmento RFM fica vazio. Degrada sem bloquear o cupom.
-                logger.debug("coupon_eligibility_insight_missing", exc_info=True)
+                logger.debug("coupon_eligibility_insight_missing")
                 rfm_segment = ""
             if group_ref not in segments and rfm_segment not in segments:
                 return False
@@ -273,17 +344,33 @@ class CartService:
         if not promo.is_active or now < promo.valid_from or now > promo.valid_until:
             return {"ok": False, "error": "coupon_expired"}
 
+        from shopman.storefront.identity import get_authenticated_customer
+
+        customer = get_authenticated_customer(request)
+
         # Alvo por QUEM é o cliente (segmento/grupo ou aniversário): se ele não se
         # qualifica, o DiscountModifier nunca aplicaria desconto (_matches falha).
         # Recusar no gate em vez de gravar um cupom mudo (desconto 0) no carrinho
         # sem aviso — ex.: FUNCIONARIO (customer_segments=["staff"]) para não-staff.
-        if not CartService._customer_eligible_for_promo(request, promo):
+        if not CartService._customer_eligible_for_promo(customer, promo):
             return {"ok": False, "error": "coupon_not_eligible"}
+
+        # Grava a identidade do cliente (ref + grupo) na sessão junto do cupom: um
+        # cupom segmentado (ex.: "fiéis") só desconta se o DiscountModifier souber
+        # o grupo/segmento do cliente — e ele resolve isso da sessão, a cada
+        # reprice. Sem isto o cupom é aceito mas desconta zero.
+        customer_payload = None
+        if customer is not None:
+            customer_payload = {
+                "ref": getattr(customer, "ref", "") or "",
+                "group": customer.group.ref if getattr(customer, "group_id", None) else "",
+            }
 
         session = cart_mutations.apply_coupon_code(
             session_key=session_key,
             channel_ref=CHANNEL_REF,
             code=code,
+            customer=customer_payload,
         )
         if session is None:
             return {"ok": False, "error": "no_cart"}

@@ -48,6 +48,23 @@ def get_open_session(*, session_key: str, channel_ref: str) -> Session | None:
     ).first()
 
 
+def reprice(*, session_key: str, channel_ref: str) -> Session | None:
+    """Re-run session modifiers without mutating lines.
+
+    Used after a non-line change to ``session.data`` (e.g. linking the customer)
+    so the pricing reflects it — the discount modifier reads customer group/segment
+    from the session. Returns ``None`` if the session is gone.
+    """
+    session = get_open_session(session_key=session_key, channel_ref=channel_ref)
+    if session is None:
+        return None
+    return session_service.modify_session(
+        session_key=session_key,
+        channel_ref=channel_ref,
+        ops=[],
+    )
+
+
 def get_or_create_session(
     *,
     session_key: str | None,
@@ -198,14 +215,35 @@ def get_line(*, session_key: str, channel_ref: str, line_id: str) -> dict | None
     return None
 
 
-def apply_coupon_code(*, session_key: str, channel_ref: str, code: str) -> Session | None:
-    """Attach a validated coupon code and re-run session modifiers."""
+def apply_coupon_code(
+    *,
+    session_key: str,
+    channel_ref: str,
+    code: str,
+    customer: dict | None = None,
+) -> Session | None:
+    """Attach a validated coupon code and re-run session modifiers.
+
+    When ``customer`` (``{"ref", "group"}``) is given, its identity is merged into
+    ``session.data["customer"]`` so a coupon gated by customer group/segment
+    computes its discount — the discount modifier resolves the customer's group
+    and RFM segment from the session, and does so on every later reprice too.
+    Open (non-segmented) coupons pass ``None``.
+    """
     session = get_open_session(session_key=session_key, channel_ref=channel_ref)
     if session is None:
         return None
 
     data = session.data or {}
     data["coupon_code"] = code
+    if customer:
+        merged = dict(data.get("customer") or {})
+        if customer.get("ref"):
+            merged["ref"] = customer["ref"]
+        if customer.get("group"):
+            merged["group"] = customer["group"]
+        if merged:
+            data["customer"] = merged
     session.data = data
     session.save(update_fields=["data"])
 
