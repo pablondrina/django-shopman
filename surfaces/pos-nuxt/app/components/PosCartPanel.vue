@@ -360,6 +360,13 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onWindowKeydown));
               <Icon v-if="item.price_overridden" name="lucide:pencil" class="mr-0.5 inline size-3 align-[-1px]" />{{ item.qty }}× {{ formatBRL(item.price_q) }} · {{ formatBRL(item.qty * item.price_q) }}
             </p>
             <span
+              v-if="item.is_d1 && !item.price_overridden"
+              class="mt-0.5 inline-flex w-fit items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-600"
+              title="Produto de ontem — preço reduzido"
+            >
+              Ontem
+            </span>
+            <span
               v-if="item.discount && item.discount.value > 0"
               class="mt-0.5 inline-flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
               :title="`Desconto: ${item.discount.reason}`"

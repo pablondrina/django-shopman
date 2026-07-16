@@ -30,7 +30,7 @@ class TestD1Rule:
     def test_code_and_label(self):
         rule = D1Rule()
         assert rule.code == "shop.d1_discount"
-        assert rule.label == "Desconto D-1 (sobras)"
+        assert rule.label == "Desconto de ontem"
         assert rule.rule_type == "modifier"
 
     def test_default_params(self):

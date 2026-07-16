@@ -4777,7 +4777,7 @@ class Command(BaseCommand):
             {
                 "ref": "d1_discount",
                 "rule_path": "shopman.shop.rules.pricing.D1Rule",
-                "label": "Desconto D-1 (sobras)",
+                "label": "Desconto de ontem",
                 "params": {"discount_percent": 50},
                 "priority": 15,
             },
@@ -4845,12 +4845,12 @@ class Command(BaseCommand):
         """Brand overrides for generic interface copy.
 
         The pricing modifiers carry generic discount labels; Nelson overrides
-        them with its own wording (e.g. "D-1") via OmotenashiCopy rows.
+        them with its own wording (e.g. "Desconto de ontem") via OmotenashiCopy rows.
         """
         self.stdout.write("  💬 Omotenashi copy (overrides de marca)...")
 
         COPY_OVERRIDES = [
-            {"key": "CART_DISCOUNT_LABEL_AVAILABILITY", "title": "D-1"},
+            {"key": "CART_DISCOUNT_LABEL_AVAILABILITY", "title": "Desconto de ontem"},
             {"key": "CART_DISCOUNT_LABEL_TIME_WINDOW", "title": "Hora da Xepa"},
         ]
 

@@ -47,10 +47,10 @@ RULE_PARAM_SCHEMAS: dict[str, RuleParamSchema] = {
     ),
     "d1_discount": RuleParamSchema(
         ref="d1_discount",
-        title="Desconto D-1 — produto da véspera",
+        title="Desconto de ontem",
         params=(
             RuleParam("discount_percent", PERCENT, "Desconto (%)",
-                      "Percentual sobre itens marcados como D-1 (do dia anterior)."),
+                      "Percentual sobre itens do dia anterior (ontem)."),
         ),
     ),
     "employee_discount": RuleParamSchema(

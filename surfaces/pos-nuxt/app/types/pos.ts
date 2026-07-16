@@ -22,6 +22,11 @@ export interface POSProductProjection {
   collection_ref: string;
   is_d1: boolean;
   image_url: string;
+  /** D-1 (sobras) clearance price — already discounted. Shown and sent by the POS
+   *  when is_d1 so the review total and the committed order agree. Equals price_q
+   *  when the d1_discount rule is off. */
+  d1_price_q: number;
+  d1_price_display: string;
 }
 
 export interface POSCollectionProjection {
