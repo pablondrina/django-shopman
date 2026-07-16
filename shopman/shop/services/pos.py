@@ -1051,6 +1051,11 @@ def build_session_ops(payload: dict, operator_username: str) -> list[dict]:
             if approved_by:
                 line_discount["approved_by"] = approved_by
             meta["manual_discount"] = line_discount
+        if item.get("is_d1"):
+            # Forward the clearance flag into the durable line meta so the
+            # AvailabilityDiscountModifier applies the D-1 discount on commit
+            # (a bare top-level is_d1 would be stripped by _normalize_items).
+            meta["is_d1"] = True
         if meta:
             op["meta"] = meta
         ops.append(op)

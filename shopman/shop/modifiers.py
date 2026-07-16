@@ -54,6 +54,25 @@ def _price_is_frozen(item: dict) -> bool:
     return bool((item.get("meta") or {}).get("price_overridden"))
 
 
+def _line_is_d1(item: dict, availability: dict) -> bool:
+    """True when a line is flagged limited-availability (day-old / last-units).
+
+    The durable home for the flag is ``meta.is_d1`` — a plain top-level ``is_d1``
+    on a session line does NOT survive ``Session._normalize_items`` (which
+    whitelists ``line_id/sku/name/qty/unit_price_q/line_total_q/meta``), so by the
+    time this modifier runs the flag only exists inside ``meta``. The bare
+    ``item.get("is_d1")`` read is kept for direct (unpersisted) callers, and
+    ``session.data["availability"]`` remains an accepted per-sku override.
+    """
+    meta = item.get("meta") or {}
+    sku = item.get("sku", "")
+    return bool(
+        meta.get("is_d1")
+        or item.get("is_d1")
+        or availability.get(sku, {}).get("is_d1", False)
+    )
+
+
 def _discount_label(copy_key: str, fallback: str) -> str:
     """Resolve a customer-facing discount label from OmotenashiCopy.
 
@@ -82,9 +101,10 @@ class AvailabilityDiscountModifier:
     """Discount applied to lines flagged as limited-availability stock.
 
     Generic form of the "day-old / last-units" clearance discount: when a line
-    is flagged ``is_d1`` (either on the item or in ``session.data["availability"]``)
-    it receives a percentage off. Rule-driven — params and channel scope come
-    from the ``d1_discount`` RuleConfig; a disabled rule means no discount.
+    is flagged D-1 (see ``_line_is_d1`` — durably via ``meta.is_d1``, or via a
+    ``session.data["availability"]`` per-sku override) it receives a percentage
+    off. Rule-driven — params and channel scope come from the ``d1_discount``
+    RuleConfig; a disabled rule means no discount.
     """
 
     code = "shop.d1_discount"
@@ -95,11 +115,7 @@ class AvailabilityDiscountModifier:
 
         availability = (session.data or {}).get("availability", {})
         items = session.items or []
-        if not any(
-            item.get("is_d1", False)
-            or availability.get(item.get("sku", ""), {}).get("is_d1", False)
-            for item in items
-        ):
+        if not any(_line_is_d1(item, availability) for item in items):
             return
 
         params = get_channel_rule_params("d1_discount", getattr(channel, "ref", None))
@@ -111,9 +127,7 @@ class AvailabilityDiscountModifier:
         for item in items:
             if _is_non_merchandise_line(item) or _price_is_frozen(item):
                 continue
-            sku = item.get("sku", "")
-            is_d1 = item.get("is_d1", False) or availability.get(sku, {}).get("is_d1", False)
-            if not is_d1:
+            if not _line_is_d1(item, availability):
                 continue
 
             original_q = item.get("unit_price_q", 0)
