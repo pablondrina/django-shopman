@@ -10,8 +10,8 @@ import { usePosSale } from "~/composables/usePosSale";
 export function makeProjection(overrides: Partial<POSProjection> = {}): POSProjection {
   return {
     products: [
-      { sku: "PAO", name: "Pão", price_q: 500, price_display: "R$ 5,00", collection_ref: "padaria", is_d1: false, image_url: "" },
-      { sku: "CAFE", name: "Café", price_q: 300, price_display: "R$ 3,00", collection_ref: "bebidas", is_d1: false, image_url: "" },
+      { sku: "PAO", name: "Pão", price_q: 500, price_display: "R$ 5,00", collection_ref: "padaria", is_d1: false, image_url: "", d1_price_q: 500, d1_price_display: "R$ 5,00" },
+      { sku: "CAFE", name: "Café", price_q: 300, price_display: "R$ 3,00", collection_ref: "bebidas", is_d1: false, image_url: "", d1_price_q: 300, d1_price_display: "R$ 3,00" },
     ],
     collections: [],
     payment_methods: [

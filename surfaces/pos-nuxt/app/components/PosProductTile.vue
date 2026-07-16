@@ -14,6 +14,15 @@ defineEmits<{
 
 const hasImage = computed(() => Boolean(props.product.image_url?.trim()));
 
+// D-1 (sobras) clearance: show the discounted price with the full price struck
+// through. Only when the rule actually lowers the price (rule off → equal).
+const d1Active = computed(
+  () =>
+    props.product.is_d1 &&
+    props.product.d1_price_q > 0 &&
+    props.product.d1_price_q < props.product.price_q,
+);
+
 // Calm, deterministic fallback for products without a photo — derived from the
 // collection ref so a whole collection shares a family tint (presentation/catalog).
 const fallbackStyle = computed(() => productFallbackStyle(props.product));
@@ -65,7 +74,13 @@ const fallbackMonogram = computed(() => productMonogram(props.product));
 
     <div class="grid gap-0.5 px-2.5 py-1.5">
       <p class="line-clamp-2 text-sm font-semibold leading-tight">{{ product.name }}</p>
-      <strong class="text-base tabular-nums">{{ product.price_display }}</strong>
+      <template v-if="d1Active">
+        <div class="flex items-baseline gap-1.5">
+          <strong class="text-base tabular-nums text-amber-600">{{ product.d1_price_display }}</strong>
+          <span class="text-xs tabular-nums text-muted-foreground line-through">{{ product.price_display }}</span>
+        </div>
+      </template>
+      <strong v-else class="text-base tabular-nums">{{ product.price_display }}</strong>
     </div>
   </UiCard>
 </template>

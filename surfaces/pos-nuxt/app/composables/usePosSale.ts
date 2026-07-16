@@ -449,10 +449,14 @@ export function usePosSale(deps: PosSaleDeps) {
       existing.qty += 1;
       return;
     }
+    // D-1 (sobras): seed the line at the already-discounted clearance price so the
+    // operator sees and charges the 50% (auto, but editable via numpad "Preço"/"Desc").
+    // The server re-derives the same price on commit; sending it keeps review == charged.
+    const d1Active = product.is_d1 && product.d1_price_q > 0 && product.d1_price_q < product.price_q;
     cart.items.push({
       sku: product.sku,
       name: product.name,
-      price_q: product.price_q,
+      price_q: d1Active ? product.d1_price_q : product.price_q,
       qty: 1,
       notes: "",
       is_d1: product.is_d1,

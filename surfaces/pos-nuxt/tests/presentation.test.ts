@@ -125,6 +125,8 @@ function product(overrides: Partial<POSProductProjection> & { sku: string }): PO
     collection_ref: "",
     is_d1: false,
     image_url: "",
+    d1_price_q: 0,
+    d1_price_display: "",
     ...overrides,
   };
 }
