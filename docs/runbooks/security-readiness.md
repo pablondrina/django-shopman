@@ -106,6 +106,12 @@ Storefront:
 
 - Login/OTP tem rate limiting via `django-ratelimit`.
 - POSTs públicos de carrinho e lookup de CEP tambem têm rate limiting.
+- **Chave por IP atrás de proxy**: o rate-limit resolve o IP via `client_ip`
+  (rightmost do `X-Forwarded-For`, `DOORMAN_TRUSTED_PROXY_DEPTH`). Atrás de
+  Cloudflare+DigitalOcean o depth correto é **2** (o rightmost é a borda CF
+  rotativa; o 2º-da-direita é o IP real carimbado pela CF, não forjável). Com
+  depth=1 o limite se dilui. Já setado em staging; **replicar em prod no
+  cutover** (ver `go-live-cutover.md` §3).
 - Quantidades de carrinho sao normalizadas e limitadas na borda; payloads
   absurdos da API sao rejeitados antes da regra de negocio.
 - Dados externos do ViaCEP sao escapados antes de entrar em HTML/Alpine.

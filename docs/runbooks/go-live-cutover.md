@@ -40,6 +40,7 @@
 
 - [ ] **2FA do Admin**: rodar `python manage.py setup_admin_totp` p/ cada superuser (enrolla um TOTP device) e ligar o gate `SHOPMAN_ADMIN_REQUIRE_2FA=true`. (Backend já implementado, gated OFF.)
 - [ ] **IP allowlist** no ingress de prod p/ o `admin.` (Django Admin = CRUD/config restrito). A zona de operador (`gestor./kds./pos./fournil.`) fica acessível; só o `admin.` tranca.
+- [ ] **`DOORMAN_TRUSTED_PROXY_DEPTH=2`** no env de prod (componente `web`). Atrás de Cloudflare+DO o rightmost do `X-Forwarded-For` é a borda CF que rotaciona; sem isso o rate-limit por IP (OTP/login/checkout) se dilui e um cliente cai em vários buckets. Verificado em staging (429 no threshold, spoof-safe). Setar pelo **console** (não aplicar o spec do repo — apaga segredos). NUNCA ligar `SHOPMAN_LOG_CLIENT_IP` em prod (loga IP de cliente = dado pessoal). Detalhe: scaffolding comentado em `.do/app.subdomains.yaml`.
 - [ ] `check --deploy` verde com o env real (critério 3): `make deploy-check` no ambiente de prod.
 
 ## 4. QA antes da virada (Pablo — humano)
