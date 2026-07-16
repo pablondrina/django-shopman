@@ -142,6 +142,13 @@ class TrackingData:
     display_status_key: str
     is_delivery: bool
     is_pickup: bool
+    # Encomenda (WP-D): pedido com data futura. ``commitment_date`` é a data
+    # ISO combinada (mesma régua do lifecycle: ``get_commitment_date``);
+    # ``commitment_slot_ref`` é a ref do slot escolhido no checkout
+    # (``Shop.defaults["pickup_slots"]`` resolve o label na presentation).
+    is_preorder: bool
+    commitment_date: str | None
+    commitment_slot_ref: str | None
     promise: TrackingPromiseData
     progress_steps: tuple[TrackingProgressStepData, ...]
     timeline: tuple[TrackingTimelineEventData, ...]
@@ -226,6 +233,7 @@ def build_tracking(order, *, is_debug: bool = False) -> TrackingData:
     )
     whatsapp_url, support_url, shop_name = _contact_and_share(order)
     eta_at = _eta_at(order)
+    commitment_date, is_preorder = _commitment_info(order)
     promise = _build_promise(
         order,
         is_delivery=is_delivery,
@@ -237,6 +245,7 @@ def build_tracking(order, *, is_debug: bool = False) -> TrackingData:
         confirmation_expires_at=confirmation_expires_at,
         eta_at=eta_at,
         business_state=business_state,
+        is_preorder=is_preorder,
     )
 
     can_cancel = payment_status.can_cancel(order)
@@ -254,6 +263,9 @@ def build_tracking(order, *, is_debug: bool = False) -> TrackingData:
         display_status_key=_display_status_key(order),
         is_delivery=is_delivery,
         is_pickup=is_pickup,
+        is_preorder=is_preorder,
+        commitment_date=commitment_date.isoformat() if commitment_date else None,
+        commitment_slot_ref=(order_data.get("delivery_time_slot") or None),
         promise=promise,
         progress_steps=progress_steps,
         timeline=timeline,
@@ -332,6 +344,10 @@ def _display_status_key(order) -> str:
         return "payment_pending"
     if order.status == "new":
         return "waiting_store_confirmation"
+    if order.status == "confirmed":
+        _, is_preorder = _commitment_info(order)
+        if is_preorder:
+            return "preorder_scheduled"
     if order.status == "ready":
         if is_delivery:
             return "ready_delivery"
@@ -585,6 +601,20 @@ def _promise(
     )
 
 
+def _commitment_info(order):
+    """Commitment date + preorder flag, on the lifecycle's own ruler.
+
+    Same predicate as ``lifecycle._physical_work_deferred``: the order is a
+    preorder while its commitment date is in the future — on the day it
+    rejoins the normal flow (KDS, preparing, ready).
+    """
+    from shopman.shop.services.order_helpers import get_commitment_date
+
+    commitment_date = get_commitment_date(order)
+    is_preorder = commitment_date is not None and commitment_date > timezone.localdate()
+    return commitment_date, is_preorder
+
+
 def _build_promise(
     order,
     *,
@@ -597,6 +627,7 @@ def _build_promise(
     confirmation_expires_at: str | None,
     eta_at: str | None,
     business_state: BusinessCalendarState,
+    is_preorder: bool = False,
 ) -> TrackingPromiseData:
     if payment_expired:
         return _promise(
@@ -653,6 +684,16 @@ def _build_promise(
             deadline_kind="availability",
             timer_mode="countdown" if confirmation_expires_at else "none",
             deadline_action="refresh_tracking",
+        )
+
+    # Encomenda agendada (WP-D): entre a confirmação e a data combinada o
+    # pedido não está "em preparo" nem apenas "pago" — está garantido para a
+    # data. A presentation compõe "pedido para sábado, a partir das 09h" com
+    # ``commitment_date``/``commitment_slot_ref`` do TrackingData.
+    if is_preorder and order.status in {"new", "confirmed"}:
+        return _promise(
+            state="preorder_scheduled",
+            tone="success" if payment_confirmed else "info",
         )
 
     if payment_confirmed and order.status in {"new", "confirmed"}:

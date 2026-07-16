@@ -7,6 +7,9 @@ interface ConfirmationResponse {
   customer_name: string
   eta_prefix: string
   eta_display: string
+  is_preorder: boolean
+  when_prefix: string
+  when_display: string
   items_heading: string
   items: OrderItemProjection[]
   total_display: string
@@ -47,7 +50,12 @@ useSeoMeta({ title: 'Pedido recebido' })
           <h1 class="mt-4 shop-title">
             {{ data.heading }}<template v-if="data.customer_name">, {{ data.customer_name }}</template>.
           </h1>
-          <p v-if="data.eta_display" class="mt-2 shop-muted">{{ data.eta_prefix }} {{ data.eta_display }}.</p>
+          <!-- Encomenda: mostra o combinado ("Pedido para sábado, 19/07 · A partir
+               das 09h") no lugar do ETA de preparo. -->
+          <p v-if="data.is_preorder && data.when_display" class="mt-2 shop-muted" data-confirmation-when>
+            {{ data.when_prefix }} {{ data.when_display }}.
+          </p>
+          <p v-else-if="data.eta_display" class="mt-2 shop-muted">{{ data.eta_prefix }} {{ data.eta_display }}.</p>
           <p class="mt-1 shop-meta tabular-nums">{{ data.order_ref }}</p>
         </div>
 

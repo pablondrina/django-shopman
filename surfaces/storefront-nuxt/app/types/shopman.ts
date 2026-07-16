@@ -785,6 +785,8 @@ export interface TrackingResponse {
   status: string
   status_label: string
   status_color: string
+  is_preorder: boolean
+  when_display: string | null
   copy: TrackingCopyProjection
   promise: TrackingPromiseProjection
   promise_rows: TrackingPromiseRowProjection[]

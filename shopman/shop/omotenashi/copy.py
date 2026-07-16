@@ -487,6 +487,29 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "TRACKING_STATUS_READY_PICKUP": {
         WILDCARD: {WILDCARD: CopyEntry(title="Pronto para retirada")},
     },
+    # Encomenda agendada (WP-D): pedido confirmado com data futura, entre a
+    # confirmação e o dia combinado. ``{when}`` vira "sábado, 19/07 · A partir
+    # das 09h" na presentation.
+    "TRACKING_STATUS_PREORDER_SCHEDULED": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Encomenda confirmada")},
+    },
+    "TRACKING_PROMISE_PREORDER_TITLE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Encomenda confirmada")},
+    },
+    "TRACKING_PROMISE_PREORDER_MESSAGE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Seu pedido está garantido para {when}. Preparamos tudo fresco no dia.")},
+    },
+    "TRACKING_PROMISE_PREORDER_MESSAGE_NO_DATE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Seu pedido está garantido. Preparamos tudo fresco no dia combinado.")},
+    },
+    "TRACKING_PROMISE_PREORDER_NEXT": {
+        WILDCARD: {WILDCARD: CopyEntry(message="No dia, avisamos você quando o preparo começar.")},
+    },
+    # Confirmação de encomenda: prefixo do combinado ("Pedido para" + "sábado,
+    # 19/07 · A partir das 09h") no lugar do ETA de preparo.
+    "CONFIRMATION_PREORDER_WHEN_PREFIX": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Pedido para")},
+    },
     "TRACKING_STEP_RECEIVED": {
         WILDCARD: {WILDCARD: CopyEntry(title="Recebemos seu pedido")},
     },

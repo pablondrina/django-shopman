@@ -62,6 +62,10 @@ class OrderConfirmationView(APIView):
             "customer_name": omo.customer_name or "",
             "eta_prefix": message("CONFIRMATION_ETA_PREFIX", "Começamos a preparar"),
             "eta_display": proj.eta_display or "",
+            # Encomenda (WP-D): a confirmação mostra o combinado no lugar do ETA.
+            "is_preorder": proj.is_preorder,
+            "when_prefix": message("CONFIRMATION_PREORDER_WHEN_PREFIX", "Pedido para"),
+            "when_display": proj.when_display or "",
             "items_heading": title("CONFIRMATION_ITEMS_HEADING", "Você encomendou"),
             "items": tdata.get("items", []),
             "total_display": proj.total_display,

@@ -246,6 +246,8 @@ class OrderTrackingSerializer(serializers.Serializer):
     status = serializers.CharField()
     status_label = serializers.CharField()
     status_color = serializers.CharField()
+    is_preorder = serializers.BooleanField()
+    when_display = serializers.CharField(allow_null=True, required=False)
     copy = OrderTrackingCopySerializer()
     promise = OrderTrackingPromiseSerializer()
     promise_rows = OrderTrackingPromiseRowSerializer(many=True)
