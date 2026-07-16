@@ -19,6 +19,7 @@ class OperatorAlert(models.Model):
         ("stock_low", "Estoque baixo"),
         ("marketplace_rejected_unavailable", "Marketplace rejeitado: indisponível"),
         ("marketplace_rejected_oos", "Marketplace rejeitado: sem estoque"),
+        ("coupon_over_redeemed", "Cupom resgatado acima do limite"),
         ("pos_rejected_unavailable", "POS rejeitado: produto indisponível"),
         ("stale_new_order", "Pedido parado aguardando confirmação"),
         ("production_late", "Produção atrasada"),
