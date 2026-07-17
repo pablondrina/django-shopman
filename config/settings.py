@@ -684,7 +684,7 @@ UNFOLD = {
             "models": ["offerman.product", "offerman.collection", "offerman.listing"],
             "items": [
                 {"title": "Produtos", "link": reverse_lazy("admin:offerman_product_changelist")},
-                {"title": "Colecoes", "link": reverse_lazy("admin:offerman_collection_changelist")},
+                {"title": "Coleções", "link": reverse_lazy("admin:offerman_collection_changelist")},
                 {"title": "Listagens", "link": reverse_lazy("admin:offerman_listing_changelist")},
             ],
         },
@@ -717,7 +717,7 @@ UNFOLD = {
             "models": ["orderman.order", "orderman.session", "orderman.directive"],
             "items": [
                 {"title": "Pedidos", "link": reverse_lazy("admin:orderman_order_changelist")},
-                {"title": "Sessoes", "link": reverse_lazy("admin:orderman_session_changelist")},
+                {"title": "Sessões", "link": reverse_lazy("admin:orderman_session_changelist")},
                 {"title": "Diretivas", "link": reverse_lazy("admin:orderman_directive_changelist")},
             ],
         },

@@ -97,8 +97,7 @@ class FiscalProductAdmin(ProductAdmin):
                 "classes": ("tab",),
                 "description": (
                     "Classificação fiscal por produto. CFOP/CSOSN/origem/PIS-COFINS "
-                    "vêm do perfil; NCM e CEST são por produto. "
-                    "Ver docs/plans/FISCALMAN-PLAN.md."
+                    "vêm do perfil; NCM e CEST são por produto."
                 ),
             },
         )

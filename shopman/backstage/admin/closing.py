@@ -15,7 +15,9 @@ from shopman.backstage.models import DayClosing
 @admin.register(DayClosing)
 class DayClosingAdmin(ModelAdmin):
     list_display = ("date", "closed_by", "closed_at", "items_count_display", "errors_count_display", "operation_link_display")
-    list_filter = ("date",)
+    list_filter = ("closed_by",)
+    date_hierarchy = "date"
+    search_fields = ("closed_by",)
     readonly_fields = ("date", "closed_by", "closed_at", "notes", "data")
     compressed_fields = True
     list_fullwidth = True
