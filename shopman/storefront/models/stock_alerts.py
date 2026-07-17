@@ -27,6 +27,8 @@ class StockAlertSubscription(models.Model):
 
     class Meta:
         app_label = "storefront"
+        verbose_name = "aviso de reposição"
+        verbose_name_plural = "avisos de reposição"
         indexes = [
             models.Index(fields=["sku", "notified_at"]),
         ]
