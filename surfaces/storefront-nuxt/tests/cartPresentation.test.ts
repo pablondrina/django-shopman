@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applySkuQty, cartHoldBanner, cartItemsCount, formatCentavos, holdBannerVariant, holdCountdown, isOptimisticLine, lineHoldState, reviewPlannedNotice, substituteSwapPlan } from '~/presentation/cart'
+import { applySkuQty, cartHoldBanner, cartItemsCount, formatCentavos, holdBannerVariant, holdCountdown, isOptimisticLine, lineHoldState, reviewWaitlist, substituteSwapPlan } from '~/presentation/cart'
 import type { CartItemProjection, CartProjection, ProductMutationMeta, SubstituteProjection } from '~/types/shopman'
 
 function line (overrides: Partial<CartItemProjection> = {}): CartItemProjection {
@@ -189,18 +189,23 @@ describe('cart presentation — planned hold', () => {
       .toEqual({ kind: 'ready', deadlineIso: deadline, deadlineDisplay: '12:30', plannedForNotice: null })
   })
 
-  it('review suppresses the batch notice when the chosen date is another day', () => {
+  it('review tells the waitlist story only for same-day orders', () => {
     const today = '2026-07-17'
     const tomorrow = '2026-07-18'
     const awaiting = line({ is_awaiting_confirmation: true, planned_for_date: today, planned_for_notice: 'Previsto para hoje' })
 
-    // Sem data escolhida (sacola) e com a data batendo → mostra.
-    expect(reviewPlannedNotice(awaiting, '')).toBe('Previsto para hoje')
-    expect(reviewPlannedNotice(awaiting, today)).toBe('Previsto para hoje')
-    // Encomenda para amanhã: a reserva re-ancora no commit; "Previsto para
-    // hoje" contradiria o combinado → some.
-    expect(reviewPlannedNotice(awaiting, tomorrow)).toBeNull()
-    expect(reviewPlannedNotice(line(), today)).toBeNull()
+    // Sem data escolhida (sacola) e pedido para HOJE → fila da fornada do dia.
+    expect(reviewWaitlist(awaiting, '', today)).toEqual({ notice: 'Previsto para hoje' })
+    expect(reviewWaitlist(awaiting, today, today)).toEqual({ notice: 'Previsto para hoje' })
+    // Pedido AGENDADO para outra data: não há fila (a reserva nasce na data
+    // com prioridade de pedido) → badge, data e aviso somem juntos.
+    expect(reviewWaitlist(awaiting, tomorrow, today)).toBeNull()
+    // Linha sem espera nunca conta a história.
+    expect(reviewWaitlist(line(), today, today)).toBeNull()
+    // Hold sem data conhecida cai no "hoje": mostra para hoje, some no agendado.
+    const noBatch = line({ is_awaiting_confirmation: true, planned_for_date: null, planned_for_notice: null })
+    expect(reviewWaitlist(noBatch, today, today)).toEqual({ notice: '' })
+    expect(reviewWaitlist(noBatch, tomorrow, today)).toBeNull()
   })
 
   it('carries the expected-batch notice on awaiting lines only', () => {

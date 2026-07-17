@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CheckoutMutationResponse, CheckoutResponse } from '~/types/shopman'
 import { labelPatchPayload, type AddressSelection, type AddressLabelKey } from '~/presentation/address'
-import { reviewPlannedNotice } from '~/presentation/cart'
+import { reviewWaitlist } from '~/presentation/cart'
 import { displayBrazilianPhone, normalizeAuthPhone } from '~/utils/authPhone'
 import { buildCheckoutPayload, createCheckoutAttemptKey, type CheckoutFormState } from '~/utils/checkoutPayload'
 import {
@@ -256,6 +256,11 @@ const fulfillmentIcon = computed(() => resolveFulfillmentIcon(state.fulfillment_
 const selectedDateLabel = computed(() => displayCheckoutDate(state.delivery_date, undefined, true))
 const whenSummary = computed(() => buildWhenSummary(state.delivery_date, selectedSlotLabel.value))
 const fulfillmentSummary = computed(() => buildFulfillmentSummary(fulfillmentLabel.value, whenSummary.value))
+// Lista de espera na revisão: só quando alguma linha realmente disputa a
+// fornada do dia ESCOLHIDO (pedido agendado para outra data não tem fila).
+const hasReviewWaitlist = computed(() =>
+  (cart.value?.items || []).some(line => reviewWaitlist(line, state.delivery_date))
+)
 const confirmItemSummary = computed(() => buildConfirmItemSummary(checkout.value))
 const phoneDisplay = computed(() => displayBrazilianPhone(state.phone || checkout.value?.customer_phone || '', defaultDdd.value))
 const contactComplete = computed(() => buildContactComplete(state, phoneDisplay.value))
@@ -1437,16 +1442,20 @@ useSeoMeta({
                 <li v-for="line in cart?.items || []" :key="line.line_id" class="shop-body">
                   <span class="font-semibold tabular-nums">{{ line.qty }}×</span>
                   {{ line.name }}
-                  <UiBadge v-if="line.is_awaiting_confirmation" variant="outline" class="ml-1 align-middle">
+                  <!-- Lista de espera = história do MESMO dia (fila da fornada de hoje).
+                       Pedido agendado para outra data não tem fila: a reserva nasce na
+                       data com prioridade de pedido, e o "Quando" já conta o combinado. -->
+                  <UiBadge v-if="reviewWaitlist(line, state.delivery_date)" variant="outline" class="ml-1 align-middle">
                     Lista de espera
                   </UiBadge>
-                  <span v-if="reviewPlannedNotice(line, state.delivery_date)" class="ml-1 shop-meta">{{ reviewPlannedNotice(line, state.delivery_date) }}</span>
+                  <span v-if="reviewWaitlist(line, state.delivery_date)?.notice" class="ml-1 shop-meta">{{ reviewWaitlist(line, state.delivery_date)?.notice }}</span>
                 </li>
               </ul>
 
               <!-- Itens em lista de espera: o "avisamos quando ficar pronto" vive AQUI
-                   (revisão), não na sacola. Na sacola o aviso orienta a enviar o pedido. -->
-              <p v-if="cart?.has_awaiting_confirmation_items" class="mt-2 shop-meta">
+                   (revisão), não na sacola. Na sacola o aviso orienta a enviar o pedido.
+                   Só para pedido do MESMO dia — agendado não tem fila. -->
+              <p v-if="hasReviewWaitlist" class="mt-2 shop-meta">
                 <Icon name="lucide:clock" class="mr-1 inline size-3.5 align-text-bottom" />
                 Itens em lista de espera: avisamos quando ficarem prontos.
               </p>

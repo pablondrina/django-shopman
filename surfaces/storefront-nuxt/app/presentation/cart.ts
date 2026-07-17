@@ -75,18 +75,22 @@ export function lineHoldState (line: HoldFields): CartLineHold | null {
   return null
 }
 
-/** Notice da fornada prevista na REVISÃO do pedido: só quando a data escolhida
- *  no checkout bate com a fornada que o hold da sacola espera. Encomenda para
- *  outra data re-ancora a reserva no commit (WP-C) — mostrar "Previsto para
- *  hoje" num pedido para amanhã contradiria o combinado, que o resumo do
- *  "quando" já conta. */
-export function reviewPlannedNotice (
+/** Lista de espera na REVISÃO do pedido: a história inteira (badge + data
+ *  prevista + "avisamos quando ficarem prontos") só vale quando o pedido é
+ *  para o MESMO dia da fornada que o hold da sacola espera. Pedido AGENDADO
+ *  para outra data não tem fila: o commit re-ancora a reserva na data com
+ *  prioridade de pedido (WP-C) — badge de espera ali contradiria o "Quando".
+ *  Retorna null (sem história de espera) ou o notice da fornada (pode ser
+ *  string vazia quando não há data prevista a mostrar). */
+export function reviewWaitlist (
   line: Pick<CartItemProjection, 'is_awaiting_confirmation' | 'planned_for_date' | 'planned_for_notice'>,
-  deliveryDate: string
-): string | null {
-  if (!line.is_awaiting_confirmation || !line.planned_for_notice) return null
-  if (deliveryDate && line.planned_for_date && deliveryDate !== line.planned_for_date) return null
-  return line.planned_for_notice
+  deliveryDate: string,
+  today: string = new Date().toLocaleDateString('en-CA')
+): { notice: string } | null {
+  if (!line.is_awaiting_confirmation) return null
+  const batchDate = line.planned_for_date || today
+  if (deliveryDate && deliveryDate !== batchDate) return null
+  return { notice: line.planned_for_notice || '' }
 }
 
 export function holdCountdown (deadlineIso: string | null | undefined, nowMs: number): { totalSeconds: number, display: string } | null {
