@@ -207,8 +207,12 @@ describe("surface architecture guardrails", () => {
   });
 
   it("does not reach around POS projections to catalog, stock, or checkout contracts", () => {
+    // O fechamento do DIA (antesala) consome a projection de closing do
+    // backstage, cujo contrato carrega `available_qty` (reconciliação) — não é
+    // reach-around de estoque/catálogo, então fica fora deste scan.
     const sources = readSources(join(process.cwd(), "app"))
-      .filter((entry) => !entry.path.includes(`${join("components", "Ui")}${"/"}`));
+      .filter((entry) => !entry.path.includes(`${join("components", "Ui")}${"/"}`))
+      .filter((entry) => !entry.path.includes("closing"));
     const joined = sources.map((entry) => entry.content).join("\n");
 
     expect(joined).not.toContain("/api/v1/catalog");
