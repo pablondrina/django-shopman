@@ -271,7 +271,6 @@ class OrderTrackingSerializer(serializers.Serializer):
     payment_confirmed = serializers.BooleanField()
     show_payment_confirmed_notice = serializers.BooleanField()
     payment_status_label = serializers.CharField(allow_null=True, required=False)
-    payment_status = serializers.CharField(allow_null=True)
     payment_expires_at = serializers.CharField(allow_null=True, required=False)
     requires_payment_gate = serializers.BooleanField(required=False)
     payment_gate_url = serializers.CharField(allow_null=True, required=False)

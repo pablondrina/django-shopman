@@ -65,13 +65,22 @@ class OperationChecklistTemplateAdmin(ModelAdmin):
     list_fullwidth = True
     compressed_fields = True
 
+    def get_queryset(self, request):
+        # Conta as tarefas ligadas num único JOIN em vez de uma query por linha (N+1).
+        from django.db.models import Count
+
+        return super().get_queryset(request).annotate(_task_count=Count("task_links"))
+
     @display(description="ativo")
     def active_badge(self, obj):
         return unfold_badge("ativo" if obj.is_active else "inativo", "green" if obj.is_active else "base")
 
     @display(description="tarefas")
     def task_count_display(self, obj):
-        return unfold_badge_numeric(str(obj.task_links.count()), "base")
+        count = getattr(obj, "_task_count", None)
+        if count is None:
+            count = obj.task_links.count()
+        return unfold_badge_numeric(str(count), "base")
 
 
 class OperationTaskRunInline(TabularInline):

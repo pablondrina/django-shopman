@@ -654,7 +654,9 @@ def _build_promise(
                     ref="pay_now",
                     kind="link",
                     label=_copy_title("TRACKING_PAYMENT_CTA", "Pagar agora"),
-                    href=f"/pedido/{order.ref}/pagamento/",
+                    # Rota Nuxt sem barra final: mesma forma que confirmation/checkout
+                    # e o payment_gate_url emitem (`/pedido/{ref}/pagamento`).
+                    href=f"/pedido/{order.ref}/pagamento",
                 ),
             ),
         )
@@ -758,6 +760,10 @@ def _build_promise(
         "delivered": "success",
         "completed": "success",
         "cancelled": "danger",
+        # Devolvido é terminal e neutro: nem sucesso (não foi entregue e aceito)
+        # nem falha do cliente. Sem ele, um pedido devolvido caía no fallback
+        # "received" e dizia "Recebemos seu pedido" — sinal errado.
+        "returned": "neutral",
     }
     if order.status in terminal_tone:
         return _promise(

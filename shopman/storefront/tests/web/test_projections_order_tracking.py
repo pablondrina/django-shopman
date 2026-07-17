@@ -398,6 +398,10 @@ class TestOrderProgressSteps:
         assert states["dispatched"] == "current"
         assert proj.promise.requires_active_notification is True
         assert proj.promise.notification_topic == "order_dispatched"
+        # P1-2: sem rastreio de courier, o aviso ativo é honesto (avisamos na
+        # entrega), nunca o genérico "a cada atualização" (overpromise).
+        assert proj.promise.active_notification == "Avisamos você assim que o pedido for entregue."
+        assert "a cada atualização" not in proj.promise.active_notification
 
     def test_cancelled_order_has_cancelled_terminal_step(self, order):
         order.transition_status("cancelled", actor="test")
@@ -408,6 +412,45 @@ class TestOrderProgressSteps:
         assert proj.progress_steps[-1].label == "Pedido cancelado"
         assert proj.progress_steps[-1].state == "cancelled"
         assert "Pedido concluído" not in [step.label for step in proj.progress_steps]
+
+
+class TestReturnedOrderTracking:
+    """Pedido devolvido é terminal e neutro. Antes caía no fallback e mostrava
+    "Recebemos seu pedido" (P1-1) — sinal errado num pedido já devolvido."""
+
+    def _make_returned(self, order):
+        from shopman.orderman.models import Order as _Order
+
+        _Order.objects.filter(pk=order.pk).update(status="returned")
+        order.refresh_from_db()
+        return order
+
+    def test_returned_promise_is_explicit_not_received_fallback(self, order):
+        proj = build_order_tracking(self._make_returned(order))
+
+        assert proj.promise.state == "returned"
+        assert proj.promise.title == "Pedido devolvido"
+        assert "devolvido" in proj.promise.message.lower()
+        # O sinal errado do fallback não pode aparecer.
+        assert proj.promise.title != "Recebemos seu pedido"
+
+    def test_returned_promise_tone_is_neutral(self, order):
+        proj = build_order_tracking(self._make_returned(order))
+        assert proj.promise.tone == "neutral"
+
+    def test_returned_is_terminal_and_labelled(self, order):
+        proj = build_order_tracking(self._make_returned(order))
+        assert proj.is_active is False
+        assert proj.status_label == "Devolvido"
+
+    def test_returned_status_colour_is_neutral_token(self, order):
+        proj = build_order_tracking(self._make_returned(order))
+        assert "surface-alt" in proj.status_color
+
+    def test_returned_active_notification_is_empty(self, order):
+        # Terminal: não há o que avisar. O guard de _active_notification corta.
+        proj = build_order_tracking(self._make_returned(order))
+        assert proj.promise.active_notification == ""
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -462,7 +505,7 @@ class TestStatusColours:
         assert proj.copy.progress_heading == "Etapas do pedido"
         # O painel mostra a mensagem do estado + a linha "Próximo passo" (a ação
         # segue como botão, "Atualizado agora" segue standalone).
-        assert proj.promise.message == "Pode retirar quando quiser — estamos esperando você."
+        assert proj.promise.message == "Pode retirar quando quiser. Estamos esperando você."
         assert proj.promise.next_event == "Retire no estabelecimento quando puder."
         assert [row.label for row in proj.promise_rows] == ["Próximo passo"]
 
@@ -880,7 +923,7 @@ class TestStatusColours:
         assert proj.promise.notification_topic == "payment_requested"
         assert proj.promise.actions[0].ref == "pay_now"
         assert proj.promise.actions[0].label == "Pagar agora"
-        assert proj.promise.actions[0].href == f"/pedido/{order_with_payment.ref}/pagamento/"
+        assert proj.promise.actions[0].href == f"/pedido/{order_with_payment.ref}/pagamento"
         assert proj.promise.message == "Confirme o PIX e já começamos a preparar."
         assert proj.promise.next_event == "Depois do pagamento, seguimos com o pedido."
         assert proj.promise.recovery == "Liberamos sua reserva e o pedido é cancelado."

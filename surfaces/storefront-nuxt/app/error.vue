@@ -31,8 +31,8 @@ const title = computed(() =>
 )
 const message = computed(() =>
   is404.value
-    ? 'O item pode ter saído do cardápio ou o endereço está incorreto. Vamos te levar de volta a um lugar seguro.'
-    : 'Tente de novo em instantes. Se precisar fechar um pedido agora, fale conosco no WhatsApp.'
+    ? 'O item pode ter saído do cardápio ou o endereço está incorreto. Vamos levar você de volta ao cardápio.'
+    : 'Tente de novo em alguns segundos. Se precisar fechar um pedido agora, fale conosco no WhatsApp.'
 )
 
 // Páginas de erro nunca devem ser indexadas (o status 404/5xx já sinaliza, isto é
