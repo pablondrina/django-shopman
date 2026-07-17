@@ -8,6 +8,7 @@ from django import forms
 from django.contrib import admin
 from django.utils.html import format_html
 from unfold.admin import ModelAdmin
+from unfold.decorators import display
 from unfold.widgets import UnfoldAdminSelectMultipleWidget
 
 from shopman.shop.models import Showcase
@@ -57,6 +58,7 @@ class ShowcaseAdmin(ModelAdmin):
     list_display = ("ref", "name", "kind_badge", "collections_count", "is_active")
     list_filter = ("kind", "is_active")
     search_fields = ("ref", "name")
+    ordering = ("name",)
     prepopulated_fields = {"ref": ("name",)}
     fieldsets = (
         (None, {
@@ -71,9 +73,18 @@ class ShowcaseAdmin(ModelAdmin):
     )
     readonly_fields = ("surface_links",)
 
-    @admin.display(description="Tipo")
+    _KIND_BADGE = {
+        Showcase.KIND_MENUBOARD: "Menuboard",
+        Showcase.KIND_GOOGLE: "Feed Google",
+        Showcase.KIND_META: "Feed Meta",
+    }
+
+    @display(
+        description="Tipo",
+        label={"Menuboard": "info", "Feed Google": "success", "Feed Meta": "warning"},
+    )
     def kind_badge(self, obj):
-        return dict(Showcase.KIND_CHOICES).get(obj.kind, obj.kind)
+        return self._KIND_BADGE.get(obj.kind, obj.kind)
 
     @admin.display(description="Coleções")
     def collections_count(self, obj):

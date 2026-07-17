@@ -307,7 +307,7 @@ def present_tracking(data: TrackingData) -> OrderTrackingProjection:
         order_ref=data.order_ref,
         status=data.status,
         status_label=_status_label(data.display_status_key, data.status, copy),
-        status_color=status_color(data.status),
+        status_color=status_color(data.display_status_key, data.status),
         is_preorder=data.is_preorder,
         when_display=when_display if data.is_preorder else None,
         copy=_tracking_copy(copy),
@@ -352,7 +352,7 @@ def present_tracking_status(data: TrackingStatusData) -> OrderTrackingStatusProj
         order_ref=data.order_ref,
         status=data.status,
         status_label=_status_label(data.display_status_key, data.status, copy),
-        status_color=status_color(data.status),
+        status_color=status_color(data.display_status_key, data.status),
         progress_steps=_present_progress_steps_from(data.progress_steps, is_pickup=False, copy=copy),
         timeline=_present_timeline(data),
         is_terminal=data.is_terminal,
@@ -464,7 +464,7 @@ def _deadline_label(promise: OrderTrackingPromiseProjection, copy: CopyCatalog) 
         return _clean_label(copy.message("TRACKING_PAYMENT_TIME_LEFT", "Tempo para pagamento:"))
     if promise.deadline_kind == "availability":
         return _clean_label(copy.message("TRACKING_AUTO_CONFIRM_LABEL", "A loja está conferindo a disponibilidade:"))
-    return _clean_label(copy.title("TRACKING_PROMISE_LABEL_DEADLINE", "Prazo"))
+    return _clean_label(copy.title("TRACKING_PROMISE_LABEL_DEADLINE", "Prazo:"))
 
 
 def _support_url(base: str, order_ref: str, *, copy: CopyCatalog) -> str:
@@ -484,17 +484,21 @@ def _support_url(base: str, order_ref: str, *, copy: CopyCatalog) -> str:
 
 
 # Aviso ativo por estado ("também avisamos você por um canal ativo"). Reduz a
-# ansiedade de ficar olhando a tela. Feature já existia inteira no pagamento; no
-# tracking a copy foi escrita e nunca conectada — religada aqui.
+# ansiedade de ficar olhando a tela. Só entram estados que o data projection
+# marca com ``requires_active_notification=True`` E não são terminais — hoje
+# apenas ``payment_requested`` (PIX depende da ação do cliente) e ``dispatched``
+# (avisamos na entrega). Estados sem a flag ligada não podem chegar aqui (o guard
+# em ``_active_notification`` corta antes), então mapeá-los era copy morta.
 _ACTIVE_NOTIFICATION_KEY: dict[str, str] = {
-    "ready_pickup": "TRACKING_PROMISE_READY_PICKUP_ACTIVE_NOTIFICATION",
-    "ready_delivery": "TRACKING_PROMISE_READY_DELIVERY_ACTIVE_NOTIFICATION",
     "payment_requested": "TRACKING_PROMISE_PAYMENT_ACTIVE_NOTIFICATION",
-    "payment_pending": "TRACKING_PROMISE_PAYMENT_ACTIVE_NOTIFICATION",
+    # dispatched: sem rastreio de courier, NÃO prometemos "avisamos a cada
+    # atualização" (default genérico seria overpromise). Prometemos só o que
+    # o sistema cumpre: o aviso de entrega (notification_topic order_delivered).
+    "dispatched": "TRACKING_PROMISE_DISPATCHED_ACTIVE_NOTIFICATION",
 }
 
 
-_TERMINAL_STATES = {"delivered", "completed", "cancelled", "payment_expired"}
+_TERMINAL_STATES = {"delivered", "completed", "cancelled", "returned", "payment_expired"}
 
 
 def _active_notification(data: TrackingPromiseData, copy: CopyCatalog) -> str:
@@ -572,7 +576,7 @@ def _promise_copy(
     if state == "payment_expired":
         title, message = _pair(copy, "TRACKING_PAYMENT_EXPIRED",
                                "O prazo do pagamento acabou",
-                               "Não recebemos a confirmação a tempo, então cancelamos o pedido e liberamos sua reserva.")
+                               "Não recebemos a confirmação a tempo, então cancelamos o pedido e liberamos sua reserva. Se quiser, é só repetir o pedido.")
         next_event = copy.message("TRACKING_PROMISE_PAYMENT_EXPIRED_NEXT", "Você pode refazer o pedido quando quiser.")
         return title, message, next_event, "", ""
 
@@ -699,14 +703,14 @@ def _promise_copy(
         # coletado — não prometer o que não aconteceu.
         title, message = _pair(copy, "TRACKING_DELIVERY_WAITING_COURIER",
                                "Pedido pronto",
-                               "Está tudo pronto! Logo sai para entrega — avisamos você assim que sair.")
+                               "Está tudo pronto! Logo sai para entrega. Avisamos você assim que sair.")
         next_event = copy.message("TRACKING_PROMISE_READY_DELIVERY_NEXT", "Assim que sair para entrega, avisamos você.")
         return title, message, next_event, "", ""
 
     if state == "ready_pickup":
         return (
             copy.title("TRACKING_STEP_READY_PICKUP", "Pronto para retirada"),
-            copy.message("TRACKING_PROMISE_READY_PICKUP_MESSAGE", "Pode retirar quando quiser — estamos esperando você."),
+            copy.message("TRACKING_PROMISE_READY_PICKUP_MESSAGE", "Pode retirar quando quiser. Estamos esperando você."),
             copy.message("TRACKING_PROMISE_READY_PICKUP_NEXT", "Retire no estabelecimento quando puder."),
             "",
             "",
@@ -744,10 +748,22 @@ def _promise_copy(
             "",
         )
 
+    if state == "received":
+        return (
+            copy.title("TRACKING_STEP_RECEIVED", "Recebemos seu pedido"),
+            copy.message("TRACKING_PROMISE_AVAILABILITY_MESSAGE", "Estamos conferindo a disponibilidade dos itens."),
+            copy.message("TRACKING_PROMISE_RECEIVED_NEXT", "O estabelecimento vai conferir a disponibilidade."),
+            "",
+            "",
+        )
+
+    # Estado inesperado (ex.: um terminal novo ainda sem copy dedicada): nunca
+    # afirmar "Recebemos seu pedido" — seria um sinal errado num pedido que já
+    # saiu daquele momento. Mensagem neutra e honesta, sem próximo passo inventado.
     return (
-        copy.title("TRACKING_STEP_RECEIVED", "Recebemos seu pedido"),
-        copy.message("TRACKING_PROMISE_AVAILABILITY_MESSAGE", "Estamos conferindo a disponibilidade dos itens."),
-        copy.message("TRACKING_PROMISE_RECEIVED_NEXT", "O estabelecimento vai conferir a disponibilidade."),
+        copy.title("TRACKING_PROMISE_FALLBACK_TITLE", "Acompanhando seu pedido"),
+        copy.message("TRACKING_PROMISE_FALLBACK_MESSAGE", "Acompanhando atualizações do pedido."),
+        "",
         "",
         "",
     )
@@ -771,6 +787,13 @@ _TERMINAL_PROMISE_COPY: dict[str, tuple[str, str, str, str, str, str]] = {
         "TRACKING_STEP_CANCELLED", "Pedido cancelado",
         "TRACKING_PROMISE_CANCELLED_MESSAGE", "Este pedido foi cancelado. Qualquer dúvida, estamos à disposição.",
         "TRACKING_PROMISE_CANCELLED_NEXT", "Você pode refazer o pedido quando quiser.",
+    ),
+    # Devolvido: terminal e neutro. Antes caía no fallback e dizia "Recebemos
+    # seu pedido" (P1-1). Mesma família de copy do cancelamento, tom sereno.
+    "returned": (
+        "TRACKING_STEP_RETURNED", "Pedido devolvido",
+        "TRACKING_PROMISE_RETURNED_MESSAGE", "Este pedido foi devolvido. Qualquer dúvida, estamos à disposição.",
+        "TRACKING_PROMISE_RETURNED_NEXT", "Você pode refazer o pedido quando quiser.",
     ),
 }
 
@@ -802,12 +825,12 @@ def _build_promise_rows(
     rows: list[OrderTrackingPromiseRowProjection] = []
     if promise.next_event:
         rows.append(OrderTrackingPromiseRowProjection(
-            label=_clean_label(copy.title("TRACKING_PROMISE_LABEL_NEXT", "Próximo passo")),
+            label=_clean_label(copy.title("TRACKING_PROMISE_LABEL_NEXT", "Próximo passo:")),
             value=promise.next_event,
         ))
     if promise.recovery:
         rows.append(OrderTrackingPromiseRowProjection(
-            label=_clean_label(copy.title("TRACKING_PROMISE_LABEL_RECOVERY", "Se o tempo acabar")),
+            label=_clean_label(copy.title("TRACKING_PROMISE_LABEL_RECOVERY", "Se o tempo acabar:")),
             value=promise.recovery,
         ))
     return tuple(rows)
@@ -858,8 +881,8 @@ def _present_timeline(data: TrackingData | TrackingStatusData) -> tuple[Timeline
 def _step_label(key: str, *, is_pickup: bool, copy: CopyCatalog) -> str:
     if key == "ready":
         if is_pickup:
-            return copy.title("TRACKING_STEP_READY_PICKUP", "Seu pedido está pronto para retirada.")
-        return copy.title("TRACKING_STEP_READY_GENERIC", "Seu pedido está pronto.")
+            return copy.title("TRACKING_STEP_READY_PICKUP", "Pronto para retirada")
+        return copy.title("TRACKING_STEP_READY_GENERIC", "Pedido pronto")
     spec = STEP_LABEL_COPY.get(key)
     if spec:
         return copy.title(spec[0], spec[1])
@@ -940,7 +963,7 @@ def _format_opening_hours(opening_hours: dict) -> str:
     for day in DAY_ORDER:
         info = opening_hours.get(day)
         if info and info.get("open") and info.get("close"):
-            day_hours.append((day, f"{_fmt_time(info['open'])} — {_fmt_time(info['close'])}"))
+            day_hours.append((day, f"{_fmt_time(info['open'])} às {_fmt_time(info['close'])}"))
         else:
             day_hours.append((day, "Fechado"))
 
@@ -969,7 +992,7 @@ def _tracking_copy(copy: CopyCatalog) -> OrderTrackingCopyProjection:
         order_ref_label=copy.title("TRACKING_ORDER_REF_LABEL", "Pedido"),
         menu_label=copy.title("TRACKING_MENU_CTA", "Ver cardápio"),
         support_label=copy.title("TRACKING_SUPPORT_CTA", "Ajuda"),
-        progress_heading=copy.title("TRACKING_PROGRESS_HEADING", "Progresso"),
+        progress_heading=copy.title("TRACKING_PROGRESS_HEADING", "Etapas do pedido"),
         live_badge=copy.title("TRACKING_LIVE_BADGE", "Ao vivo"),
         polling_badge=copy.title("TRACKING_POLLING_BADGE", "Atualização periódica"),
         finished_badge=copy.title("TRACKING_FINISHED_BADGE", "Finalizado"),

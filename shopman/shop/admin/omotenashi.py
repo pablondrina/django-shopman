@@ -85,9 +85,9 @@ class OmotenashiCopyAdmin(ModelAdmin):
             return "—"
         entry = default_for(obj.key, obj.moment or "*", obj.audience or "*")
         if not entry:
-            return format_html('<em style="color:#a16207">sem padrão no código</em>')
+            return format_html('<em class="text-yellow-700 dark:text-yellow-500">sem padrão no código</em>')
         return format_html(
-            '<div style="font-size:0.85rem;line-height:1.5">'
+            '<div class="text-sm leading-relaxed">'
             '<div><strong>Título:</strong> {}</div>'
             '<div><strong>Mensagem:</strong> {}</div>'
             "</div>",
