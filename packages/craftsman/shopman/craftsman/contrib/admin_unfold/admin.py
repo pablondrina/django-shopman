@@ -206,7 +206,7 @@ class RecipeAdminForm(forms.ModelForm):
         lifecycle_choices = _production_lifecycle_choices()
         if lifecycle_choices:
             self.fields["production_lifecycle"] = forms.ChoiceField(
-                label=_("Lifecycle de produção"),
+                label=_("Ciclo de produção"),
                 required=False,
                 choices=lifecycle_choices,
                 initial=meta.get("production_lifecycle") or lifecycle_choices[0][0],
