@@ -1584,7 +1584,9 @@ class ShopIntegrationsAdmin(_ShopSingletonAdmin):
 
 @admin.register(NotificationTemplate)
 class NotificationTemplateAdmin(ModelAdmin):
-    list_display = ("event", "subject", "whatsapp_flow_ns", "is_active")
+    # whatsapp_flow_ns é namespace técnico (fica no fieldset "WhatsApp", com ajuda);
+    # não polui a lista, que fala evento → assunto → ativo.
+    list_display = ("event", "subject", "is_active")
     list_filter = ("is_active", "event")
     search_fields = ("event", "subject", "body")
     list_editable = ("is_active",)
