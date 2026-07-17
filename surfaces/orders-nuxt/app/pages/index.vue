@@ -519,15 +519,15 @@ function printQueue() {
           </table>
         </div>
 
-        <!-- Encomendas: pedidos confirmados para datas futuras, fora das colunas
-             do dia. Agrupadas pela data combinada; no dia, o despertador devolve
+        <!-- Agendados: pedidos confirmados para datas futuras, fora das colunas
+             do dia. Agrupados pela data combinada; no dia, o despertador devolve
              o pedido ao fluxo normal do board. -->
         <section v-if="preordersCount" class="mt-6" data-preorders-section>
           <div class="flex items-center gap-2 border-b pb-2">
             <Icon name="lucide:calendar-clock" class="size-4 text-muted-foreground" />
-            <h2 class="text-sm font-bold uppercase tracking-wide">Encomendas</h2>
+            <h2 class="text-sm font-bold uppercase tracking-wide">Agendados</h2>
             <span class="grid min-w-5 place-items-center rounded-full bg-muted px-1.5 text-xs font-bold tabular-nums">{{ preordersCount }}</span>
-            <span class="ml-auto hidden truncate text-xs text-muted-foreground sm:block">Confirmadas para os próximos dias</span>
+            <span class="ml-auto hidden truncate text-xs text-muted-foreground sm:block">Confirmados para os próximos dias</span>
           </div>
           <div class="mt-3 grid gap-4 lg:grid-cols-3">
             <div v-for="group in triagedPreorders" :key="group.date" class="flex min-w-0 flex-col gap-3">
