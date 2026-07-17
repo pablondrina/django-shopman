@@ -13,6 +13,7 @@ from datetime import time
 from django import forms
 from django.contrib import admin
 from unfold.admin import ModelAdmin
+from unfold.decorators import display
 from unfold.widgets import (
     UnfoldAdminIntegerFieldWidget,
     UnfoldAdminTimeWidget,
@@ -45,8 +46,8 @@ class RuleTypeFilter(admin.SimpleListFilter):
 
     def lookups(self, request, model_admin):
         return [
-            ("modifier", "Modifier (pricing)"),
-            ("validator", "Validator"),
+            ("modifier", "Preço"),
+            ("validator", "Validação"),
         ]
 
     def queryset(self, request, queryset):
@@ -189,12 +190,12 @@ class RuleConfigAdmin(ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return request.user.has_perm("shop.manage_rules")
 
-    @admin.display(description="tipo")
+    @display(description="tipo", label={"Preço": "info", "Validação": "warning"})
     def rule_type_display(self, obj):
         if ".pricing." in obj.rule_path:
-            return "Modifier"
+            return "Preço"
         if ".validation." in obj.rule_path:
-            return "Validator"
+            return "Validação"
         return "—"
 
     @admin.display(description="parâmetros")

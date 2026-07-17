@@ -10,7 +10,7 @@ export const operationalCopy = {
   loadFailure: {
     home: {
       title: 'Não foi possível carregar a loja',
-      description: 'Atualize a página ou volte ao cardápio em instantes.'
+      description: 'Atualize a página ou volte ao cardápio para continuar.'
     },
     menu: {
       title: 'Não foi possível carregar o cardápio',

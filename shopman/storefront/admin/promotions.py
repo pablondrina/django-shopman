@@ -47,6 +47,7 @@ class PromotionAdmin(ModelAdmin):
     )
     list_filter = (PromotionStatusFilter, "is_active", "type", "birthday_only")
     search_fields = ("name",)
+    ordering = ("-valid_from",)
     inlines = [CouponInline]
 
     @admin.display(description="desconto", ordering="value")
@@ -77,6 +78,7 @@ class CouponAdmin(ModelAdmin):
     )
     list_filter = ("is_active",)
     search_fields = ("code", "promotion__name")
+    ordering = ("code",)
     readonly_fields = ("uses_count",)
     actions = ["reset_usage"]
 

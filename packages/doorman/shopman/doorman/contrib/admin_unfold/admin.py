@@ -9,6 +9,7 @@ the Unfold versions.
 """
 
 from django.contrib import admin
+from django.utils import timezone
 from shopman.doorman.models import AccessLink, CustomerUser, TrustedDevice, VerificationCode
 from shopman.utils.contrib.admin_unfold.badges import unfold_badge
 from shopman.utils.contrib.admin_unfold.base import BaseModelAdmin
@@ -20,6 +21,24 @@ for model in [CustomerUser, AccessLink, VerificationCode, TrustedDevice]:
         admin.site.unregister(model)
     except admin.sites.NotRegistered:
         pass
+
+
+class ExpiredFilter(admin.SimpleListFilter):
+    """Filtra por validade (usa ``expires_at``). Compartilhado por códigos e dispositivos."""
+
+    title = "validade"
+    parameter_name = "is_expired"
+
+    def lookups(self, request, model_admin):
+        return [("yes", "Expirado"), ("no", "Vigente")]
+
+    def queryset(self, request, queryset):
+        now = timezone.now()
+        if self.value() == "yes":
+            return queryset.filter(expires_at__lt=now)
+        if self.value() == "no":
+            return queryset.filter(expires_at__gte=now)
+        return queryset
 
 
 # =============================================================================
@@ -151,7 +170,7 @@ class VerificationCodeAdmin(BaseModelAdmin):
         "attempts_display",
         "created_at",
     ]
-    list_filter = ["status", "purpose", "delivery_method"]
+    list_filter = ["status", "purpose", "delivery_method", ExpiredFilter]
     search_fields = ["target_value", "customer_id"]
     readonly_fields = [
         "id",
@@ -250,7 +269,7 @@ class TrustedDeviceAdmin(BaseModelAdmin):
         "last_used_at",
         "created_at",
     ]
-    list_filter = ["is_active"]
+    list_filter = ["is_active", ExpiredFilter]
     search_fields = ["customer_id", "label"]
     readonly_fields = [
         "id",
@@ -273,7 +292,7 @@ class TrustedDeviceAdmin(BaseModelAdmin):
         ("Ciclo de vida", {"fields": ["created_at", "expires_at", "last_used_at", "is_active"]}),
     ]
 
-    actions = ["revoke_selected"]
+    actions = ["revoke_selected", "revoke_all_for_customer"]
 
     @display(description="Hash do token")
     def token_hash_short(self, obj):
@@ -296,6 +315,18 @@ class TrustedDeviceAdmin(BaseModelAdmin):
     def revoke_selected(self, request, queryset):
         count = queryset.filter(is_active=True).update(is_active=False)
         self.message_user(request, f"{count} dispositivo(s) revogado(s).")
+
+    @admin.action(description="Revogar TODOS os dispositivos dos clientes selecionados")
+    def revoke_all_for_customer(self, request, queryset):
+        customer_ids = set(queryset.values_list("customer_id", flat=True))
+        count = TrustedDevice.objects.filter(
+            customer_id__in=customer_ids,
+            is_active=True,
+        ).update(is_active=False)
+        self.message_user(
+            request,
+            f"{count} dispositivo(s) revogado(s) em {len(customer_ids)} cliente(s).",
+        )
 
     def has_add_permission(self, request):
         return False
