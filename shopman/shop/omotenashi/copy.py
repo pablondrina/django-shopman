@@ -391,6 +391,9 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "TRACKING_DELIVERY_FEE_LABEL": {
         WILDCARD: {WILDCARD: CopyEntry(title="Entrega")},
     },
+    "TRACKING_PROMISE_FALLBACK_TITLE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Acompanhando seu pedido")},
+    },
     "TRACKING_PROMISE_FALLBACK_MESSAGE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Acompanhando atualizações do pedido.")},
     },
@@ -556,6 +559,9 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "TRACKING_STEP_CANCELLED": {
         WILDCARD: {WILDCARD: CopyEntry(title="Pedido cancelado")},
     },
+    "TRACKING_STEP_RETURNED": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Pedido devolvido")},
+    },
     "TRACKING_PAYMENT_PENDING": {
         WILDCARD: {
             WILDCARD: CopyEntry(
@@ -674,12 +680,6 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "TRACKING_PROMISE_READY_PICKUP_NEXT": {
         WILDCARD: {WILDCARD: CopyEntry(message="Retire no estabelecimento quando puder.")},
     },
-    "TRACKING_PROMISE_READY_PICKUP_ACTIVE_NOTIFICATION": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Avisamos você que o pedido está pronto para retirada.")},
-    },
-    "TRACKING_PROMISE_READY_DELIVERY_ACTIVE_NOTIFICATION": {
-        WILDCARD: {WILDCARD: CopyEntry(message="Avisaremos você quando o pedido sair para entrega.")},
-    },
     "TRACKING_PROMISE_DISPATCHED_MESSAGE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Seu pedido está a caminho.")},
     },
@@ -692,10 +692,21 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "TRACKING_PROMISE_DISPATCHED_NEXT": {
         WILDCARD: {WILDCARD: CopyEntry(message="Quando for entregue, atualizaremos o pedido.")},
     },
+    # Courier terceirizado, sem rastreio: não prometemos "avisamos a cada
+    # atualização". Prometemos só o que o sistema cumpre — o aviso de entrega.
+    "TRACKING_PROMISE_DISPATCHED_ACTIVE_NOTIFICATION": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Avisamos você assim que o pedido for entregue.")},
+    },
     "TRACKING_PROMISE_DELIVERED_NEXT": {
         WILDCARD: {WILDCARD: CopyEntry(message="O pedido será concluído em seguida.")},
     },
     "TRACKING_PROMISE_CANCELLED_NEXT": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Você pode refazer o pedido quando quiser.")},
+    },
+    "TRACKING_PROMISE_RETURNED_MESSAGE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Este pedido foi devolvido. Qualquer dúvida, estamos à disposição.")},
+    },
+    "TRACKING_PROMISE_RETURNED_NEXT": {
         WILDCARD: {WILDCARD: CopyEntry(message="Você pode refazer o pedido quando quiser.")},
     },
     "TRACKING_PROMISE_ACTIVE_UPDATE_NOTIFICATION": {
