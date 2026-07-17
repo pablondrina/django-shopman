@@ -163,7 +163,7 @@ def get_sidebar_navigation(request):
             _item("Faixas de distância", "straighten", _url("admin:storefront_deliverydistanceband_changelist"), permission=_is_staff),
             _item("Zonas de entrega", "pin_drop", _url("admin:storefront_deliveryzone_changelist"), permission=_is_staff),
             _item("Grupos de clientes", "groups", _url("admin:guestman_customergroup_changelist"), permission=_is_staff),
-            _item("Copy Omotenashi", "format_quote", _url("admin:shop_omotenashicopy_changelist"), permission=_is_staff),
+            _item("Copy Omotenashi", "format_quote", _url("admin_console_copy_catalog"), permission=_is_staff),
             _item("Templates de notificação", "mail", _url("admin:shop_notificationtemplate_changelist"), permission=_is_staff),
             _item("Estações KDS", "settings_input_component", _url("admin:backstage_kdsinstance_changelist"), permission=_can_operate_kds),
             _item("POS tabs", "confirmation_number", _url("admin:backstage_postab_changelist"), permission=_can_operate_pos),

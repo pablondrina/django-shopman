@@ -43,7 +43,7 @@ class OmotenashiCopyForm(forms.ModelForm):
 @admin.register(OmotenashiCopy)
 class OmotenashiCopyAdmin(ModelAdmin):
     form = OmotenashiCopyForm
-    list_display = ("key", "moment", "audience", "title_short", "active", "updated_at")
+    list_display = ("key", "where_display", "moment", "audience", "title_short", "active", "updated_at")
     list_filter = ("key", "moment", "audience", "active")
     list_editable = ("active",)
     search_fields = ("key", "title", "message")
@@ -68,6 +68,15 @@ class OmotenashiCopyAdmin(ModelAdmin):
     def title_short(self, obj: OmotenashiCopy) -> str:
         t = obj.title or obj.message
         return (t[:60] + "…") if len(t) > 60 else t
+
+    @admin.display(description="onde aparece")
+    def where_display(self, obj: OmotenashiCopy) -> str:
+        """Telas que consomem a chave (mapa chave↔tela derivado do código)."""
+        from shopman.shop.omotenashi.usage import load_usage_map
+
+        refs = load_usage_map().get(obj.key, ())
+        screens = sorted({ref.screen for ref in refs})
+        return " · ".join(screens) if screens else "—"
 
     @admin.display(description="padrão no código")
     def default_preview(self, obj: OmotenashiCopy) -> str:

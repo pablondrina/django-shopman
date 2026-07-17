@@ -127,6 +127,28 @@ def _glob(pattern: str) -> tuple[Path, ...]:
 # (OPERATOR-APPS-PLAN Fase 2). Deixou de ser superfície Admin/Unfold.
 CANONICAL_ADMIN_SURFACES: tuple[Surface, ...] = (
     Surface(
+        id="admin-console-copy-catalog",
+        kind="canonical-admin-unfold-page",
+        templates=(ROOT / "shopman/backstage/templates/admin_console/copy_catalog",),
+        controllers=(ROOT / "shopman/backstage/admin_console/copy_catalog.py",),
+        projections=(ROOT / "shopman/backstage/projections/copy_catalog.py",),
+        url_prefixes=("/admin/configuracao/copy/",),
+        requires_model_admin_view_mixin=True,
+        required_extends="admin/base.html",
+        required_template_markers=(
+            'include "unfold/helpers/messages.html"',
+            'component "unfold/components/button.html"',
+            'component "unfold/components/container.html"',
+            'component "unfold/components/table.html"',
+            'component "unfold/components/text.html"',
+            'component "unfold/components/title.html"',
+        ),
+        required_controller_markers=(
+            "UnfoldAdminTextInputWidget",
+            "build_copy_catalog",
+        ),
+    ),
+    Surface(
         id="admin-console-day-closing",
         kind="canonical-admin-unfold-page",
         templates=(ROOT / "shopman/backstage/templates/admin_console/closing",),
