@@ -83,7 +83,7 @@ def get_sidebar_navigation(request):
     )
     pos_url = _pos_base_url()
     if pos_url:
-        live_items.append(_item("POS", "point_of_sale", pos_url, permission=_can_operate_pos))
+        live_items.append(_item("PDV", "point_of_sale", pos_url, permission=_can_operate_pos))
     kds_url = _kds_base_url()
     if kds_url:
         live_items.append(_item("KDS", "tv", kds_url, permission=_can_operate_kds))
@@ -129,6 +129,7 @@ def get_sidebar_navigation(request):
             _item("Lotes", "science", _url("admin:stockman_batch_changelist"), permission=_is_staff),
             _item("Posições", "domain", _url("admin:stockman_position_changelist"), permission=_is_staff),
             _item("Alertas de estoque", "notification_important", _url("admin:stockman_stockalert_changelist"), permission=_is_staff),
+            _item("Avisos de reposição", "notifications_active", _url("admin:storefront_stockalertsubscription_changelist"), permission=_is_staff),
         ]),
         _group("Catálogo", "store", [
             _item("Produtos", "bakery_dining", _url("admin:offerman_product_changelist"), permission=_is_staff),
@@ -139,6 +140,7 @@ def get_sidebar_navigation(request):
             _item("Clientes", "person_search", _url("admin:guestman_customer_changelist"), permission=_is_staff),
             _item("Endereços", "location_on", _url("admin:guestman_customeraddress_changelist"), permission=_is_staff),
             _item("Contas de fidelidade", "loyalty", _url("admin:customer_loyalty_loyaltyaccount_changelist"), permission=_is_staff),
+            _item("Favoritos", "favorite", _url("admin:storefront_customerfavorite_changelist"), permission=_is_staff),
         ]),
         # Tudo que é CONFIGURAÇÃO da loja num lugar óbvio e descobrível.
         # Colapsável para não competir com a operação do dia a dia.
@@ -166,12 +168,12 @@ def get_sidebar_navigation(request):
             _item("Copy Omotenashi", "format_quote", _url("admin:shop_omotenashicopy_changelist"), permission=_is_staff),
             _item("Templates de notificação", "mail", _url("admin:shop_notificationtemplate_changelist"), permission=_is_staff),
             _item("Estações KDS", "settings_input_component", _url("admin:backstage_kdsinstance_changelist"), permission=_can_operate_kds),
-            _item("POS tabs", "confirmation_number", _url("admin:backstage_postab_changelist"), permission=_can_operate_pos),
+            _item("Comandas do PDV", "receipt", _url("admin:backstage_postab_changelist"), permission=_can_operate_pos),
         ]),
         _group("Auditoria e acesso", "admin_panel_settings", [
             _item("Fechamentos", "event_available", _url("admin:backstage_dayclosing_changelist"), permission=_can_close_day),
             _item("Pagamentos", "credit_card", _url("admin:payman_paymentintent_changelist"), permission=_can_manage_orders),
-            _item("Turnos de Caixa", "payments", _url("admin:backstage_cashshift_changelist"), permission=_can_operate_pos),
+            _item("Turnos de caixa", "payments", _url("admin:backstage_cashshift_changelist"), permission=_can_operate_pos),
             _item("Usuários", "person", _url("admin:auth_user_changelist"), permission=_is_superuser),
             _item("Grupos", "group", _url("admin:auth_group_changelist"), permission=_is_superuser),
         ]),

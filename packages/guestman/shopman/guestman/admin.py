@@ -44,7 +44,7 @@ class CustomerGroupAdmin(admin.ModelAdmin):
     def customer_count(self, obj):
         return obj._customer_count
 
-    customer_count.short_description = "Guestman"
+    customer_count.short_description = "Clientes"
     customer_count.admin_order_field = "_customer_count"
 
 

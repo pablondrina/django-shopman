@@ -17,6 +17,8 @@ class CustomerFavorite(models.Model):
 
     class Meta:
         app_label = "storefront"
+        verbose_name = "favorito"
+        verbose_name_plural = "favoritos"
         constraints = [
             models.UniqueConstraint(
                 fields=["customer_ref", "sku"], name="uniq_customer_favorite"

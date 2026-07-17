@@ -17,6 +17,7 @@ class KDSInstanceAdmin(ModelAdmin):
     list_display = ["name", "ref", "type_badge", "target_time_minutes", "sound_enabled", "is_active_badge", "open_display"]
     list_filter = ["type", "is_active"]
     search_fields = ["name", "ref"]
+    ordering = ["name"]
     prepopulated_fields = {"ref": ("name",)}
     filter_horizontal = ["collections"]
     compressed_fields = True
@@ -25,7 +26,7 @@ class KDSInstanceAdmin(ModelAdmin):
         (None, {"fields": ("name", "ref", "type")}),
         ("Coleções", {
             "fields": ("collections",),
-            "description": "Categorias de produto que esta estação processa. Vazio = catch-all.",
+            "description": "Categorias de produto que esta estação processa. Vazio = processa todas as categorias.",
         }),
         ("Configuração", {"fields": ("target_time_minutes", "sound_enabled", "is_active", "config")}),
     ]

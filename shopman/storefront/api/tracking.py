@@ -85,7 +85,10 @@ def _tracking_payload(order) -> dict:
     requires_payment_gate = order_service.requires_payment_gate(order)
     fulfillments = (*proj.delivery_fulfillments, *proj.pickup_fulfillments)
     data["ref"] = proj.order_ref
-    data["payment_status"] = proj.payment_status_label
+    # ``payment_status_label`` (rótulo humano) já carrega o estado do pagamento
+    # no payload. Um segundo campo ``payment_status`` com o MESMO valor era
+    # duplicata e colidia semanticamente com o ``payment_status`` (enum cru) que
+    # o 409 de cancelamento devolve — o mesmo nome com dois significados. Removido.
     data["requires_payment_gate"] = requires_payment_gate
     data["payment_gate_url"] = _payment_gate_url(proj.order_ref) if requires_payment_gate else None
     data["fulfillments"] = [
@@ -355,7 +358,7 @@ class OrderConfirmReceiptView(APIView):
         tags=["tracking"],
         summary="Rate completed order by ref",
         responses={
-            200: OpenApiResponse(description="Rating registered."),
+            200: OrderTrackingSerializer,
             400: DetailSerializer,
             404: DetailSerializer,
             409: OpenApiResponse(description="Order cannot be rated."),
@@ -427,7 +430,10 @@ class OrderRateView(APIView):
             }
             order.data = data
             order.save(update_fields=["data"])
-            return _tracking_payload(order), status.HTTP_200_OK
+            # Mesmo contrato de resposta das demais mutações (cancel/confirm):
+            # o payload volta pelo serializer canônico, não como dict cru.
+            serializer = OrderTrackingSerializer(_tracking_payload(order))
+            return dict(serializer.data), status.HTTP_200_OK
 
         try:
             result = remote_mutations.run_idempotent_mutation(
