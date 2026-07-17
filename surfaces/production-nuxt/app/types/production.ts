@@ -7,11 +7,14 @@
 
 import type {
   ForecastRowProjection as ForecastRowContract,
+  ProductionBlindMapProjection,
   ProductionBoardProjection,
+  ProductionDashboardProjection,
   ProductionForecastProjection as ProductionForecastContract,
   ProductionKDSCardProjection as ProductionKDSCardContract,
   ProductionKDSProjection as ProductionKDSContract,
   ProductionMiseEnPlaceProjection,
+  ProductionReportsProjection,
   ProductionWeighingIngredientProjection,
   ProductionWeighingProjection,
   ProductionWeighingTicketProjection,
@@ -22,19 +25,27 @@ export type {
   BaseRecipeUsageProjection,
   MiseEnPlaceBreakdownProjection,
   MiseEnPlaceLineProjection,
+  OperatorProductivityRow,
   OrderCommitmentProjection,
   PositionOptionProjection,
+  ProductionBlindMapProjection,
+  ProductionBlindMapRowProjection,
   ProductionBoardProjection,
   ProductionCountsProjection,
+  ProductionDashboardProjection,
+  ProductionLateWorkOrderProjection,
   ProductionMatrixGroupProjection,
   ProductionMatrixGroupRowProjection,
   ProductionMatrixRowProjection,
   ProductionMiseEnPlaceProjection,
+  ProductionReportsProjection,
   ProductionSuggestionProjection,
   ProductionSurfaceAccess,
   ProductionWeighingProjection,
   RecipeOptionProjection,
+  RecipeWasteRow,
   WorkOrderCardProjection,
+  WorkOrderReportRow,
 } from "~/generated/productionContract";
 
 export type ProductionTimerClass = "timer-ok" | "timer-warning" | "timer-late";
@@ -134,4 +145,18 @@ export type WeighingTicketProjection = ProductionWeighingTicketProjection;
 
 export interface WeighingResponse {
   weighing: ProductionWeighingProjection;
+}
+
+// ── Relatórios e gestão (persona GESTOR — página /reports) ──────────────────
+
+export interface ProductionReportsResponse {
+  reports: ProductionReportsProjection;
+}
+
+export interface ProductionManagementResponse {
+  management: ProductionDashboardProjection;
+}
+
+export interface ProductionBlindMapResponse {
+  blind_map: ProductionBlindMapProjection;
 }
