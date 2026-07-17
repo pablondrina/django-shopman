@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from django import forms
+from django.conf import settings
 from django.contrib import admin, messages
 from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden, HttpResponseRedirect
@@ -82,6 +83,7 @@ class DayClosingConsoleView(UnfoldModelAdminViewMixin, TemplateView):
             "day_closing_reconciliation_table": _reconciliation_table(closing),
             "day_closing_upcoming_preorders_table": _upcoming_preorders_table(closing),
             "day_closing_reports_url": _reports_url(closing),
+            "day_closing_production_floor_url": _production_floor_url(),
         })
         return context
 
@@ -167,7 +169,14 @@ def _upcoming_preorders_table(closing) -> dict:
 
 
 def _reports_url(closing) -> str:
+    # CSV headless (WP-ADM-7d): o console Admin de relatórios saiu; o download
+    # vem direto da API que alimenta o /reports do Fournil.
     return (
-        f"{reverse('admin_console_production_reports')}"
+        f"{reverse('api-backstage-production-reports')}"
         f"?date_from={closing.today}&date_to={closing.today}&report_kind=history&format=csv"
     )
+
+
+def _production_floor_url() -> str:
+    """URL do Fournil ("" = app não conectado; link some)."""
+    return (getattr(settings, "SHOPMAN_PRODUCTION_BASE_URL", "") or "").rstrip("/")

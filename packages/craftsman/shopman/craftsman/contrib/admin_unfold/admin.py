@@ -519,8 +519,10 @@ class WorkOrderAdmin(BaseModelAdmin):
     autocomplete_fields = ["recipe"]
 
     inlines = [WorkOrderItemInline, WorkOrderEventInline]
-    actions_row = ["production_board_row", "commitments_row", "close_wo_row", "void_wo_row"]
-    actions_detail = ["production_board_row", "commitments_row", "close_wo_row", "void_wo_row"]
+    # A visão de compromissos por OP saiu com o console Admin de produção
+    # (WP-ADM-7d): os pedidos vinculados aparecem no board do Fournil.
+    actions_row = ["production_board_row", "close_wo_row", "void_wo_row"]
+    actions_detail = ["production_board_row", "close_wo_row", "void_wo_row"]
     actions = ["finish_selected_work_orders", "void_selected_work_orders"]
     list_sections = [WorkOrderEventSection]
 
@@ -703,27 +705,22 @@ class WorkOrderAdmin(BaseModelAdmin):
 
     @action(description=_("Produção"), url_path="production-map", icon="manufacturing")
     def production_board_row(self, request, object_id):
+        """Abre a produção ao vivo no Fournil (WP-ADM-7d): o console Admin de
+        produção saiu; sem base URL configurada, volta ao changelist do dia."""
+        from django.conf import settings
+
         wo = self.get_object(request, object_id)
         if wo is None:
             messages.error(request, _("Ordem não encontrada."))
             return HttpResponseRedirect(reverse("admin:craftsman_workorder_changelist"))
 
+        base = (getattr(settings, "SHOPMAN_PRODUCTION_BASE_URL", "") or "").rstrip("/")
+        if not base:
+            messages.warning(request, _("Produção ao vivo não configurada neste ambiente."))
+            return HttpResponseRedirect(reverse("admin:craftsman_workorder_changelist"))
         if wo.target_date:
-            return HttpResponseRedirect(
-                f'{reverse("admin_console_production")}?date={wo.target_date.isoformat()}'
-            )
-        return HttpResponseRedirect(reverse("admin_console_production"))
-
-    @action(description=_("Pedidos"), url_path="commitments", icon="receipt_long")
-    def commitments_row(self, request, object_id):
-        wo = self.get_object(request, object_id)
-        if wo is None:
-            messages.error(request, _("Ordem não encontrada."))
-            return HttpResponseRedirect(reverse("admin:craftsman_workorder_changelist"))
-
-        return HttpResponseRedirect(
-            reverse("admin_console_production_work_order_commitments", args=[wo.ref])
-        )
+            return HttpResponseRedirect(f"{base}/?date={wo.target_date.isoformat()}")
+        return HttpResponseRedirect(base)
 
     @action(
         description=_("Concluir"),

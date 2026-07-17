@@ -704,14 +704,13 @@ UNFOLD = {
                 {"title": "Lotes", "link": reverse_lazy("admin:stockman_batch_changelist")},
             ],
         },
+        # Operação de produção (painel/planejamento/relatórios) vive no Fournil
+        # (surfaces/production-nuxt) desde o WP-ADM-7d; o Admin mantém o CRUD.
         {
             "models": ["craftsman.recipe", "craftsman.workorder"],
             "items": [
-                {"title": "Painel", "link": reverse_lazy("admin_console_production_dashboard")},
-                {"title": "Planejamento", "link": reverse_lazy("admin_console_production_planning")},
-                {"title": "Produção", "link": reverse_lazy("admin_console_production")},
                 {"title": "Fichas técnicas", "link": reverse_lazy("admin:craftsman_recipe_changelist")},
-                {"title": "Relatórios", "link": reverse_lazy("admin_console_production_reports")},
+                {"title": "Ordens de produção", "link": reverse_lazy("admin:craftsman_workorder_changelist")},
             ],
         },
         {

@@ -64,7 +64,7 @@ If an official Unfold primitive does not exist for a needed interaction, the cha
 
 For production-grade Admin UI, `--maturity`/`--strict` is the acceptance gate. A page can pass the default blocking gate while still being unfit for maturity if it contains custom shells that should become Unfold actions/dialogs, sections, components, or explicitly authorized wrappers.
 
-For modal UX, prefer official Unfold dialog actions when the flow is a `ModelAdmin` action. If the page is a custom operational surface and dialog actions cannot be attached cleanly, use only the approved wrapper at `shopman/backstage/templates/admin_console/unfold/modal.html`. That wrapper mirrors the installed Unfold command/dialog shell tokens and composes canonical Unfold `card`, `button`, `separator`, and form-field helpers. Do not create another overlay.
+For modal UX, use official Unfold dialog actions (`BaseDialogForm`). The previously approved custom modal wrapper was removed together with the Admin production console (WP-ADM-7d) once its only consumers left; a new custom overlay requires an explicit gate waiver with user authorization. Do not create another overlay.
 
 ## Custom Exceptions
 
@@ -102,7 +102,7 @@ That single command runs the strict canonical gate and the Admin/Unfold integrat
 During local iteration, the same command can be scoped to a registered relative Admin URL:
 
 ```bash
-make admin url=/admin/operacao/producao/
+make admin url=/admin/configuracao/copy/
 ```
 
 Scoped mode checks the installed Unfold package and only the surface registered for that URL. It is not the final PR gate; run `make admin` without `url` before review.
@@ -123,4 +123,4 @@ A canonical Admin custom page must consume a registered `shopman.backstage.proje
 
 Canonical custom Admin pages must follow the official custom page shape: `UnfoldModelAdminViewMixin`, `TemplateView`, `title`, `permission_required`, and `.as_view(model_admin=...)`. Their entry template must extend `admin/base.html`, matching the current official demo.
 
-For projection-backed operational consoles, the surface registry can also declare required Unfold primitives and controller features. The Production console currently requires the official message helper, tab list, form-field helper, container, card, button, link, separator, table, text, title, tracker, Unfold widgets, and the registered production projection callback. Removing any of these is treated as a capability regression.
+For projection-backed operational consoles, the surface registry can also declare required Unfold primitives and controller features (see the Day Closing console entry). Removing a declared primitive is treated as a capability regression. The Production console was removed in WP-ADM-7d: production management lives in the Fournil (`surfaces/production-nuxt`) over `api/v1/backstage/production/*`.

@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.conf import settings
@@ -13,7 +12,7 @@ from django.contrib import admin
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.test import RequestFactory, TestCase
-from django.urls import NoReverseMatch, reverse
+from django.urls import reverse
 from django.utils import timezone
 from shopman.craftsman import craft
 from shopman.craftsman.contrib.admin_unfold import admin as craftsman_admin
@@ -27,7 +26,6 @@ from shopman.orderman.admin import OrderAdmin
 from shopman.orderman.models import Order, OrderItem
 
 from shopman.backstage.admin import navigation
-from shopman.backstage.admin_console import production as admin_production
 from shopman.backstage.projections.dashboard import build_dashboard
 from shopman.shop.models import Shop
 
@@ -39,8 +37,14 @@ class AdminNavigationTests(TestCase):
         request = RequestFactory().get("/admin/")
         request.user = User.objects.create_superuser("admin", "admin@example.com", "pw")
 
-        # Pedidos é app Nuxt headless (env-gated); configurado, lidera a operação ao vivo.
-        with override_settings(SHOPMAN_ORDERS_BASE_URL="https://gestor.example.com"):
+        # Pedidos e Produção são apps Nuxt headless (env-gated); configurados,
+        # lideram a operação ao vivo. O console Admin de produção saiu
+        # (WP-ADM-7d): "Produção ao vivo" (Fournil) é o único item de produção,
+        # e carrega o badge de OPs iniciadas.
+        with override_settings(
+            SHOPMAN_ORDERS_BASE_URL="https://gestor.example.com",
+            SHOPMAN_PRODUCTION_BASE_URL="https://fournil.example.com",
+        ):
             groups = admin.site.get_sidebar_list(request)
         titles = [group["title"] for group in groups]
 
@@ -50,8 +54,20 @@ class AdminNavigationTests(TestCase):
         self.assertIn("Auditoria e acesso", titles)
         self.assertNotIn("Regras", titles)
 
-        live_items = [item["title"] for item in groups[0]["items"] if item["has_permission"]]
-        self.assertEqual(live_items[:3], ["Pedidos", "Produção", "Fechamento"])
+        live = {item["title"]: item for item in groups[0]["items"] if item["has_permission"]}
+        live_items = list(live)
+        self.assertEqual(live_items[:2], ["Pedidos", "Fechamento"])
+        self.assertNotIn("Produção", live_items)
+        self.assertIn("Produção ao vivo", live_items)
+        self.assertEqual(live["Produção ao vivo"]["link"], "https://fournil.example.com")
+
+        with override_settings(SHOPMAN_PRODUCTION_BASE_URL="https://fournil.example.com"):
+            raw_live = navigation.get_sidebar_navigation(request)[0]["items"]
+        raw_fournil = next(item for item in raw_live if item["title"] == "Produção ao vivo")
+        self.assertEqual(
+            raw_fournil["badge"],
+            "shopman.backstage.admin.navigation.badge_started_work_orders",
+        )
 
     def test_pos_nav_item_hidden_without_url_shown_when_configured(self) -> None:
         """POS é Nuxt headless: sem SHOPMAN_POS_BASE_URL o item some (sem link morto);
@@ -66,22 +82,40 @@ class AdminNavigationTests(TestCase):
             live = {item["title"]: item for item in groups[0]["items"]}
             self.assertNotIn("POS", live)
 
-        with override_settings(SHOPMAN_POS_BASE_URL="https://pos.example.com"):
+        with override_settings(
+            SHOPMAN_POS_BASE_URL="https://pos.example.com",
+            SHOPMAN_PRODUCTION_BASE_URL="",
+        ):
             groups = admin.site.get_sidebar_list(request)
             live = {item["title"]: item for item in groups[0]["items"]}
             self.assertIn("POS", live)
             self.assertEqual(live["POS"]["link"], "https://pos.example.com")
 
+        # WP-ADM-7d: sem base URL do Fournil o grupo Produção fica só com o CRUD
+        # de fichas; "Relatórios" (superfície Nuxt) é env-gated e some.
         production_group = next(group for group in groups if group["title"] == "Produção")
         production_items = [item["title"] for item in production_group["items"] if item["has_permission"]]
-        self.assertEqual(
-            production_items,
-            ["Painel", "Planejamento", "Produção", "Fichas técnicas", "Relatórios"],
-        )
+        self.assertEqual(production_items, ["Fichas técnicas"])
 
         audit_group = next(group for group in groups if group["title"] == "Auditoria e acesso")
         audit_items = [item["title"] for item in audit_group["items"] if item["has_permission"]]
         self.assertIn("Pagamentos", audit_items)
+
+    def test_production_reports_nav_item_is_env_gated_to_fournil(self) -> None:
+        """WP-ADM-7d: "Relatórios" do grupo Produção aponta p/ o Fournil
+        (/reports) e some sem SHOPMAN_PRODUCTION_BASE_URL (sem link morto)."""
+        from django.test import override_settings
+
+        request = RequestFactory().get("/admin/")
+        request.user = User.objects.create_superuser("prodnav", "prodnav@example.com", "pw")
+
+        with override_settings(SHOPMAN_PRODUCTION_BASE_URL="https://fournil.example.com"):
+            groups = admin.site.get_sidebar_list(request)
+        production_group = next(group for group in groups if group["title"] == "Produção")
+        items = {item["title"]: item for item in production_group["items"] if item["has_permission"]}
+
+        self.assertEqual(list(items), ["Fichas técnicas", "Relatórios"])
+        self.assertEqual(items["Relatórios"]["link"], "https://fournil.example.com/reports")
 
     def test_orders_and_kds_nav_items_are_env_gated(self) -> None:
         """Pedidos e KDS são apps Nuxt headless: sem base URL somem (sem link morto);
@@ -151,14 +185,16 @@ class AdminNavigationTests(TestCase):
 
         self.assertEqual(navigation.badge_new_orders(request), "1")
 
-    def test_production_tabs_prioritize_work_orders(self) -> None:
+    def test_production_tabs_keep_crud_only_after_console_removal(self) -> None:
+        """WP-ADM-7d: as tabs do craftsman só linkam CRUD (fichas + ordens);
+        painel/planejamento/relatórios vivem no Fournil."""
         production_tabs = next(
             tab for tab in settings.UNFOLD["TABS"] if "craftsman.workorder" in tab["models"]
         )
 
         self.assertEqual(
             [item["title"] for item in production_tabs["items"]],
-            ["Painel", "Planejamento", "Produção", "Fichas técnicas", "Relatórios"],
+            ["Fichas técnicas", "Ordens de produção"],
         )
         self.assertEqual(str(WorkOrder._meta.verbose_name_plural), "Produção")
 
@@ -189,301 +225,11 @@ class AdminDashboardSemanticsTests(TestCase):
         self.assertIn(planned.ref, [row.ref for row in production.wos])
 
 
-class AdminProductionConsoleTests(TestCase):
-    def setUp(self) -> None:
-        self.user = User.objects.create_superuser("operator", "operator@example.com", "pw")
-        Shop.objects.create(name="Loja Operacional")
-        self.client.defaults["HTTP_HOST"] = "localhost"
-        self.client.force_login(self.user)
-        self.recipe = Recipe.objects.create(
-            ref="console-ciabatta",
-            name="Ciabatta",
-            output_sku="CIABATTA",
-            batch_size=10,
-        )
-
-    def test_admin_production_console_renders_operational_surface(self) -> None:
-        response = self.client.get(reverse("admin_console_production"))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Produção")
-        self.assertContains(response, "Produção do dia")
-        self.assertNotContains(response, "Piloto")
-        self.assertNotContains(response, "Mapa de produção")
-        self.assertNotContains(response, "Em produção")
-        self.assertNotContains(response, "Perda")
-        self.assertContains(response, reverse("admin_console_production_planning"))
-        self.assertContains(response, reverse("admin_console_production_dashboard"))
-        self.assertContains(response, reverse("admin_console_production_reports"))
-        self.assertContains(response, reverse("admin:craftsman_recipe_changelist"))
-
-    def test_operator_production_legacy_routes_do_not_exist(self) -> None:
-        for route_name in (
-            "backstage:production",
-            "backstage:production_dashboard",
-            "backstage:production_reports",
-            "backstage:production_action",
-            "backstage:production_void",
-            "backstage:bulk_create_work_orders",
-            "backstage:production_work_order_commitments",
-        ):
-            with self.assertRaises(NoReverseMatch, msg=route_name):
-                reverse(route_name)
-
-    def test_admin_production_console_links_to_work_order_range_filter(self) -> None:
-        response = self.client.get(reverse("admin_console_production"))
-
-        self.assertEqual(response.status_code, 200)
-        today = timezone.localdate().isoformat()
-        work_order_url = response.context["production_work_orders_today_url"]
-        self.assertIn(f"{WORK_ORDER_DATE_FROM_PARAM}={today}", work_order_url)
-        self.assertIn(f"{WORK_ORDER_DATE_TO_PARAM}={today}", work_order_url)
-        self.assertNotIn("target_date__year", work_order_url)
-
-    def test_admin_production_console_uses_unfold_expandable_table_data(self) -> None:
-        craft.plan(self.recipe, 13, date=date.today())
-
-        response = self.client.get(reverse("admin_console_production"))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'x-data="{ rowOpen: false }"')
-        self.assertContains(response, "expand_more")
-
-        table = response.context["production_matrix_table"]
-        self.assertTrue(table["collapsible"])
-        self.assertEqual(table["headers"], ["", "SKU", "Planejado", "Produzido"])
-        self.assertIn("Planejado", table["headers"])
-        self.assertIn("Produzido", table["headers"])
-        self.assertNotIn("Em produção", table["headers"])
-        self.assertNotIn("Perda", table["headers"])
-        self.assertEqual(table["rows"][0]["table"]["collapsible"], True)
-        self.assertEqual(table["headers"][0], "")
-        self.assertIn("CIABATTA", str(table["rows"][0]["cols"][1]))
-        produced_cell = str(table["rows"][0]["cols"][3])
-        self.assertIn("13 un.", produced_cell)
-        self.assertNotIn("task_alt", produced_cell)
-
-    def test_admin_production_planning_renders_controlled_planning_page(self) -> None:
-        craft.plan(self.recipe, 13, date=date.today())
-
-        response = self.client.get(reverse("admin_console_production_planning"))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Planejamento")
-        self.assertContains(response, "Leitura da matriz do dia")
-        self.assertContains(response, reverse("admin_console_production_weighing"))
-        self.assertContains(response, "Recomendado")
-        self.assertContains(response, "Compromisso")
-        self.assertContains(response, "Planejado")
-        # Split canônico (WP-PE4): leitura — sem modais de planejar/ajustar.
-        self.assertNotContains(response, "Ajustar planejado")
-        self.assertNotContains(response, "Salvar planejado")
-        self.assertContains(response, "CIABATTA")
-        self.assertEqual(
-            response.context["production_planning_sections"][0]["table"]["headers"],
-            ["", "SKU", "Recomendado", "Compromisso", "Planejado"],
-        )
-
-    def test_admin_planning_keeps_recommendation_and_commitment_independent_of_produced(self) -> None:
-        finished_without_commitment = SimpleNamespace(
-            committed_qty="12",
-            order_commitments=(),
-        )
-        row = SimpleNamespace(
-            recipe_pk=1,
-            output_sku="CIABATTA",
-            suggestion=SimpleNamespace(quantity="6", committed="6"),
-            planned_orders=(),
-            started_orders=(),
-            finished_orders=(finished_without_commitment,),
-            planned_qty="",
-        )
-
-        self.assertEqual(admin_production._row_suggested_qty(row), "6")
-        self.assertEqual(admin_production._row_committed_qty(row), "6")
-        self.assertEqual(admin_production._row_recommended_qty(row), "6")
-
-    def test_admin_planning_uses_committed_units_as_recommended_floor(self) -> None:
-        linked_order = SimpleNamespace(
-            committed_qty="8",
-            order_commitments=(SimpleNamespace(ref="O-1"),),
-        )
-        row = SimpleNamespace(
-            recipe_pk=1,
-            output_sku="CIABATTA",
-            suggestion=SimpleNamespace(quantity="4", committed="6"),
-            planned_orders=(linked_order,),
-            started_orders=(),
-            finished_orders=(),
-            planned_qty="",
-        )
-
-        self.assertEqual(admin_production._row_suggested_qty(row), "4")
-        self.assertEqual(admin_production._row_committed_qty(row), "8")
-        self.assertEqual(admin_production._row_recommended_qty(row), "8")
-
-    def test_admin_production_weighing_renders_thermal_tickets_from_saved_plan(self) -> None:
-        base_recipe = Recipe.objects.create(
-            ref="massa-ciabatta",
-            name="Massa Ciabatta",
-            output_sku="MASSA-CIABATTA",
-            batch_size=10,
-        )
-        RecipeItem.objects.create(
-            recipe=base_recipe,
-            input_sku="FARINHA",
-            quantity=Decimal("6"),
-            unit="kg",
-        )
-        RecipeItem.objects.create(
-            recipe=self.recipe,
-            input_sku="MASSA-CIABATTA",
-            quantity=Decimal("5"),
-            unit="kg",
-        )
-        craft.plan(self.recipe, Decimal("20"), date=date.today())
-
-        response = self.client.get(reverse("admin_console_production_weighing"))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Filipetas de pesagem")
-        self.assertContains(response, "Derivadas do planejado salvo")
-        self.assertContains(response, "Massa Ciabatta")
-        self.assertContains(response, "10 kg")
-        self.assertContains(response, "FARINHA")
-        self.assertContains(response, "6 kg")
-        # Copy de objetivo: quantidade primeiro ("20 un. CIABATTA").
-        self.assertContains(response, "Objetivo:")
-        self.assertContains(response, "20 un. CIABATTA")
-        self.assertNotContains(response, "planejado aprovado")
-        self.assertEqual(len(response.context["production_weighing"].tickets), 1)
-
-    def test_admin_production_does_not_split_operator_focus_by_status_tabs(self) -> None:
-        craft.plan(self.recipe, 13, date=date.today())
-
-        response = self.client.get(reverse("admin_console_production"))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertNotIn("production_tabs", response.context)
-        self.assertNotContains(response, "Planejadas")
-
-    def test_admin_production_rejects_execution_writes_after_canonical_split(self) -> None:
-        """WP-PE4: execução (planejar, iniciar, concluir, entrada direta) é do
-        Fournil; as páginas de produção do Admin só leem."""
-        wo = craft.plan(self.recipe, 13, date=date.today())
-
-        response = self.client.post(
-            reverse("admin_console_production"),
-            {
-                "action": "start",
-                "wo_id": str(wo.pk),
-                "quantity": "13",
-            },
-        )
-
-        self.assertEqual(response.status_code, 405)
-        wo.refresh_from_db()
-        self.assertEqual(wo.status, WorkOrder.Status.PLANNED)
-
-        planning_response = self.client.post(reverse("admin_console_production_planning"), {})
-        self.assertEqual(planning_response.status_code, 405)
-
-    def test_admin_production_produced_cell_is_read_only_state(self) -> None:
-        """WP-PE4: o cell "Produzido" apresenta o estado das OPs abertas;
-        concluir/forçar vive no Fournil."""
-        craft.plan(self.recipe, 13, date=date.today())
-
-        response = self.client.get(reverse("admin_console_production"))
-
-        self.assertEqual(response.status_code, 200)
-        produced_cell = str(response.context["production_matrix_table"]["rows"][0]["cols"][3])
-        self.assertIn("Planejado", produced_cell)
-        self.assertIn("13 un.", produced_cell)
-        self.assertNotIn("task_alt", produced_cell)
-        self.assertNotContains(response, "Produzir CIABATTA")
-        self.assertNotContains(response, "Salvar produzido")
-        self.assertNotContains(response, "Entrada direta")
-
-    def test_admin_production_produced_action_blocks_ambiguous_multiple_open_orders(self) -> None:
-        first = craft.plan(self.recipe, 20, date=date.today())
-        second = craft.plan(self.recipe, 12, date=date.today())
-
-        response = self.client.get(reverse("admin_console_production"))
-
-        self.assertEqual(response.status_code, 200)
-        produced_cell = str(response.context["production_matrix_table"]["rows"][0]["cols"][3])
-        self.assertIn("2 OPs abertas", produced_cell)
-        self.assertIn("Resolver", produced_cell)
-        self.assertIn(first.ref, produced_cell)
-        self.assertIn(second.ref, produced_cell)
-        self.assertNotIn("20 un.", produced_cell)
-        self.assertNotIn("12 un.", produced_cell)
-        self.assertNotIn("task_alt", produced_cell)
-
-    def test_admin_production_dashboard_renders_unfold_projection_page(self) -> None:
-        craft.plan(self.recipe, 13, date=date.today())
-
-        response = self.client.get(reverse("admin_console_production_dashboard"))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Painel de produção")
-        self.assertContains(response, "Data agendada")
-        self.assertContains(response, "Planejado")
-        self.assertContains(response, "Rendimento médio")
-        self.assertContains(response, "Tempo (min)")
-        self.assertContains(response, "13 un.")
-        self.assertContains(response, "1 OP")
-        self.assertEqual(response.context["production_dashboard"].planned_qty, "13")
-        self.assertIn("headers", response.context["production_dashboard_late_table"])
-
-    def test_admin_production_reports_render_unfold_projection_page(self) -> None:
-        work_order = craft.plan(self.recipe, 13, date=date.today())
-        craft.finish(work_order, finished=12, actor="test")
-
-        response = self.client.get(
-            reverse("admin_console_production_reports"),
-            {
-                "report_kind": "history",
-                "date_from": date.today().isoformat(),
-                "date_to": date.today().isoformat(),
-            },
-        )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Relatórios de produção")
-        self.assertContains(response, "Histórico de ordens")
-        self.assertContains(response, "Produtividade")
-        self.assertContains(response, "Desperdício")
-        self.assertContains(response, "Filtros do relatório")
-        self.assertContains(response, 'role="dialog"')
-        self.assertContains(response, "Data agendada")
-        self.assertContains(response, "Concluído")
-        self.assertContains(response, "Rendimento")
-        self.assertContains(response, "Tempo (min)")
-        self.assertContains(response, "CIABATTA")
-        self.assertContains(response, "13 un.")
-        self.assertContains(response, "12 un.")
-        self.assertEqual(response.context["production_reports"].history_rows[0].ref, work_order.ref)
-        self.assertEqual(
-            [tab["title"] for tab in response.context["production_reports_tabs"]],
-            ["Histórico de ordens", "Produtividade", "Desperdício"],
-        )
-
-    def test_admin_production_reports_export_csv(self) -> None:
-        craft.plan(self.recipe, 13, date=date.today())
-
-        response = self.client.get(
-            reverse("admin_console_production_reports"),
-            {
-                "date_from": date.today().isoformat(),
-                "date_to": date.today().isoformat(),
-                "format": "csv",
-            },
-        )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
-        self.assertIn("attachment;", response["Content-Disposition"])
+# O console Admin/Unfold de produção (matriz, planejamento, painel, pesagem,
+# compromissos e relatórios) foi removido no WP-ADM-7d: a superfície canônica
+# é o Fournil (surfaces/production-nuxt) via api/v1/backstage/production/*
+# (paridade fechada no WP-ADM-7b). A cobertura vive em
+# test_api_production_reports.py e nos testes da API de produção.
 
 
 class OrderAdminSemanticsTests(TestCase):
@@ -557,7 +303,9 @@ class WorkOrderAdminSemanticsTests(TestCase):
 
         self.assertNotIn("operation_link_display", model_admin.list_display)
         self.assertIn("production_board_row", model_admin.actions_row)
-        self.assertIn("commitments_row", model_admin.actions_row)
+        # WP-ADM-7d: a visão de compromissos saiu com o console de produção;
+        # os pedidos vinculados aparecem no board do Fournil.
+        self.assertNotIn("commitments_row", model_admin.actions_row)
         self.assertIn("close_wo_row", model_admin.actions_row)
         self.assertIn("void_wo_row", model_admin.actions_row)
 

@@ -1,8 +1,9 @@
 """ProductionBoardProjection — read models for the production board (Fase 4).
 
 Translates Craftsman work orders, queue items, and summary into immutable
-projections for the operator production page. Replaces the inline context
-building from ``shopman.backstage.views.production``.
+projections consumed by the headless production API
+(``api/v1/backstage/production/*``) that feeds the Fournil
+(``surfaces/production-nuxt``).
 
 Never imports from ``shopman.backstage.views.*``.
 """

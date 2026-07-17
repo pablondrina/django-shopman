@@ -144,10 +144,8 @@ def test_core_models_use_unfold_admin(model):
 @pytest.mark.parametrize(
     "url_name",
     [
-        "admin_console_production",
-        "admin_console_production_planning",
-        "admin_console_production_dashboard",
-        "admin_console_production_reports",
+        # O console de produção saiu (WP-ADM-7d): a superfície é o Fournil
+        # (surfaces/production-nuxt) via api/v1/backstage/production/*.
         "admin_console_day_closing",
     ],
 )

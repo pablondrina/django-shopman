@@ -65,16 +65,6 @@ def get_sidebar_navigation(request):
         )
     live_items.append(
         _item(
-            "Produção",
-            "manufacturing",
-            _url("admin_console_production"),
-            permission=_can_access_production,
-            badge="shopman.backstage.admin.navigation.badge_started_work_orders",
-            badge_variant="info",
-        )
-    )
-    live_items.append(
-        _item(
             "Fechamento",
             "fact_check",
             _url("admin_console_day_closing"),
@@ -95,6 +85,8 @@ def get_sidebar_navigation(request):
                 "factory",
                 production_url,
                 permission=_can_operate_production,
+                badge="shopman.backstage.admin.navigation.badge_started_work_orders",
+                badge_variant="info",
             )
         )
     live_items.append(
@@ -115,12 +107,22 @@ def get_sidebar_navigation(request):
             _item("Sessões abertas", "shopping_bag", _url("admin:orderman_session_changelist") + "?state__exact=open", permission=_can_manage_orders),
             _item("Diretivas pendentes", "playlist_add_check", _url("admin:orderman_directive_changelist") + "?status__exact=queued", permission=_can_manage_orders),
         ]),
+        # Painel/Planejamento/Produção migraram p/ o Fournil (WP-ADM-7d);
+        # aqui fica o CRUD (fichas) e o atalho p/ relatórios na superfície Nuxt.
         _group("Produção", "factory", [
-            _item("Painel", "monitoring", _url("admin_console_production_dashboard"), permission=_can_access_production),
-            _item("Planejamento", "edit_calendar", _url("admin_console_production_planning"), permission=_can_access_production),
-            _item("Produção", "manufacturing", _url("admin_console_production"), permission=_can_access_production),
             _item("Fichas técnicas", "menu_book", _url("admin:craftsman_recipe_changelist"), permission=_can_access_production),
-            _item("Relatórios", "table_chart", _url("admin_console_production_reports"), permission=_can_view_production_reports),
+            *(
+                [
+                    _item(
+                        "Relatórios",
+                        "table_chart",
+                        f"{production_url}/reports",
+                        permission=_can_view_production_reports,
+                    )
+                ]
+                if production_url
+                else []
+            ),
         ]),
         _group("Estoque", "inventory_2", [
             _item("Saldos", "point_scan", _url("admin:stockman_quant_changelist"), permission=_is_staff),

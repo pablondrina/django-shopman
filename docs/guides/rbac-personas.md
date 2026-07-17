@@ -21,12 +21,12 @@ evidência e auditoria, sem confirmar pedido automaticamente.
 | `shop.manage_orders` | `Shop` | Confirmar, rejeitar, avançar, cancelar pedidos; adicionar notas internas | Admin `/admin/operacao/pedidos/*` |
 | `backstage.operate_kds` | `KDSTicket` | Check item, marcar ticket done, ações de expedição | Admin `/admin/operacao/kds/*` |
 | `backstage.operate_pos` | `CashRegisterSession` | Abrir/fechar caixa, sangria, lookup de cliente, fechar venda | `/gestor/pos/*` |
-| `shop.manage_production` | `Shop` | Criar WorkOrders, planejar e avançar produção | Admin `/admin/operacao/producao/*` + KDS `/gestor/producao/kds/*` |
+| `shop.manage_production` | `Shop` | Criar WorkOrders, planejar e avançar produção | Fournil (`surfaces/production-nuxt`) via `api/v1/backstage/production/*` |
 | `backstage.perform_closing` | `DayClosing` | Executar fechamento do dia, registrar perdas, mover D-1 | Admin `/admin/operacao/fechamento/` |
 | `shop.manage_catalog` | `Shop` | Criar/editar Product, Listing, Collection | Admin |
 | `shop.manage_customers` | `Shop` | Criar/editar Customer, grupos, loyalty | Admin |
 | `shop.manage_rules` | `RuleConfig` | Criar/editar regras de pricing e validação | Admin |
-| `backstage.view_production_reports` | `DayClosing` | Relatórios de produção | Admin `/admin/operacao/producao/relatorios/` |
+| `backstage.view_production_reports` | `DayClosing` | Relatórios de produção | Fournil `/reports` via `api/v1/backstage/production/reports|management|weighing/blind-map/` |
 
 ---
 

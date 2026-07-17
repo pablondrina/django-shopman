@@ -215,8 +215,10 @@ class TestWeighingAPI:
         assert client.get("/api/v1/backstage/production/weighing/").status_code == 403
 
 
-class TestAdminBlindMap:
-    def test_gestor_sees_blind_map_on_weighing_page(self, client):
+class TestManagerBlindMap:
+    def test_gestor_correlates_blind_codes_via_api(self, client):
+        """A visão de gestor (mapa código-cego ↔ preparo) saiu do Admin
+        (WP-ADM-7d) e vive no /reports do Fournil sobre a API headless."""
         from django.contrib.auth import get_user_model
 
         from shopman.shop.models import Shop
@@ -235,11 +237,11 @@ class TestAdminBlindMap:
         gestor = get_user_model().objects.create_superuser("gestor-map", "g@x.com", "x")
         client.force_login(gestor)
 
-        resp = client.get("/admin/operacao/producao/pesagem/")
+        resp = client.get("/api/v1/backstage/production/weighing/blind-map/")
         assert resp.status_code == 200
-        content = resp.content.decode()
-        assert "Mapa de codigos cegos" in content
-        assert blind_prep_code("massa-map", date.today()) in content
+        rows = resp.json()["blind_map"]["rows"]
+        row = next(item for item in rows if item["name"] == "Massa Map")
+        assert row["code"] == blind_prep_code("massa-map", date.today())
 
 
 class TestWeighingTicketConventions:

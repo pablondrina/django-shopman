@@ -49,10 +49,12 @@
           Ordens ainda abertas neste fechamento. Conclua ou estorne antes de encerrar o dia. O registro fica no snapshot.
         {% endcomponent %}
         {% component "unfold/components/table.html" with table=day_closing_pending_production_table striped=1 %}{% endcomponent %}
-        {% url 'admin_console_production' as production_console_url %}
-        {% component "unfold/components/link.html" with href=production_console_url %}
-          Resolver na producao
-        {% endcomponent %}
+        {# Resolver e do Fournil (WP-ADM-7d); sem base URL configurada o link some. #}
+        {% if day_closing_production_floor_url %}
+          {% component "unfold/components/link.html" with href=day_closing_production_floor_url %}
+            Resolver na producao
+          {% endcomponent %}
+        {% endif %}
       </div>
     {% endif %}
 

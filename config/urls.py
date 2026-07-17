@@ -9,14 +9,6 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from shopman.backstage.admin_console.closing import day_closing_console_view
-from shopman.backstage.admin_console.production import (
-    production_commitments_view,
-    production_console_view,
-    production_dashboard_view,
-    production_planning_view,
-    production_reports_view,
-    production_weighing_view,
-)
 from shopman.backstage.views.two_factor import admin_2fa_verify
 from shopman.shop.views.health import HealthCheckView, ReadyCheckView
 
@@ -43,37 +35,9 @@ urlpatterns = [
     path("ready/", ReadyCheckView.as_view(), name="ready"),
     # Pedidos migraram p/ o app Nuxt dedicado (Gestor — surfaces/orders-nuxt)
     # via api/v1/backstage/orders/*; o console Admin de pedidos foi removido
-    # (OPERATOR-APPS-PLAN Fase 2).
-    path(
-        "admin/operacao/producao/",
-        admin.site.admin_view(production_console_view),
-        name="admin_console_production",
-    ),
-    path(
-        "admin/operacao/producao/planejamento/",
-        admin.site.admin_view(production_planning_view),
-        name="admin_console_production_planning",
-    ),
-    path(
-        "admin/operacao/producao/painel/",
-        admin.site.admin_view(production_dashboard_view),
-        name="admin_console_production_dashboard",
-    ),
-    path(
-        "admin/operacao/producao/relatorios/",
-        admin.site.admin_view(production_reports_view),
-        name="admin_console_production_reports",
-    ),
-    path(
-        "admin/operacao/producao/pesagem/",
-        admin.site.admin_view(production_weighing_view),
-        name="admin_console_production_weighing",
-    ),
-    path(
-        "admin/operacao/producao/<slug:wo_ref>/compromissos/",
-        admin.site.admin_view(production_commitments_view),
-        name="admin_console_production_work_order_commitments",
-    ),
+    # (OPERATOR-APPS-PLAN Fase 2). O console Admin de produção saiu no
+    # WP-ADM-7d: a superfície canônica é o Fournil (surfaces/production-nuxt)
+    # via api/v1/backstage/production/* (paridade fechada no WP-ADM-7b).
     path(
         "admin/operacao/fechamento/",
         admin.site.admin_view(day_closing_console_view),
