@@ -973,7 +973,7 @@ describe('surface UX guardrails', () => {
     const checkout = read('app/pages/finalizar.vue')
     const checkoutFlow = read('app/utils/checkoutFlow.ts')
 
-    expect(tracking).toContain('<UiTimeline :model-value="progressTimelineStep"')
+    expect(tracking).toContain('<UiTimeline v-if="tracking.progress_steps.length" :model-value="progressTimelineStep"')
     expect(tracking).toContain(':step="index + 1"')
     expect(tracking).toContain('group-data-[orientation=vertical]/timeline:ms-10')
     expect(tracking).toContain('group-data-[orientation=vertical]/timeline:-left-7 group-data-[orientation=vertical]/timeline:h-[calc(100%-1.5rem-0.25rem)] group-data-[orientation=vertical]/timeline:translate-y-6.5')
@@ -994,7 +994,9 @@ describe('surface UX guardrails', () => {
 
     expect(tracking).toContain('const orderRef = computed')
     expect(tracking).not.toContain('const ref = computed')
-    expect(tracking).toContain('const rating = ref(5)')
+    // Avaliação começa sem seleção (0) — exige um toque antes de enviar, sem
+    // enviesar a nota em 5★ por padrão.
+    expect(tracking).toContain('const rating = ref(0)')
   })
 
   it('prevents dead add-to-cart taps before client hydration', () => {

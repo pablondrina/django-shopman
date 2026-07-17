@@ -18,11 +18,9 @@ from shopman.backstage.models import OperatorAlert
 class OperatorAlertAdmin(ModelAdmin):
     list_display = (
         "type",
-        "severity",
         "severity_badge",
         "short_message",
         "order_ref",
-        "acknowledged",
         "acknowledged_badge",
         "created_at",
     )

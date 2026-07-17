@@ -45,7 +45,7 @@ class MergeAdminMixin:
             f"{url}?source={ids[0]}&target={ids[1]}"
         )
 
-    merge_customers_action.short_description = "Merge: primeiro → segundo (ordem de seleção)"
+    merge_customers_action.short_description = "Unificar clientes (o 1º selecionado é absorvido pelo 2º)"
 
     def merge_view(self, request: HttpRequest):
         """Confirmation page + execute merge."""
@@ -163,7 +163,7 @@ def register_merge_action(admin_class=None):
                     messages.ERROR,
                 )
 
-        merge_action.short_description = "Merge: primeiro → segundo (por PK)"
+        merge_action.short_description = "Unificar clientes (o 1º selecionado é absorvido pelo 2º)"
 
         # Add to actions
         existing_actions = list(getattr(admin_class, "actions", []) or [])

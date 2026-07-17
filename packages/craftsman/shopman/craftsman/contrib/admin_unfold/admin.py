@@ -208,7 +208,7 @@ class RecipeAdminForm(forms.ModelForm):
         lifecycle_choices = _production_lifecycle_choices()
         if lifecycle_choices:
             self.fields["production_lifecycle"] = forms.ChoiceField(
-                label=_("Lifecycle de produção"),
+                label=_("Ciclo de produção"),
                 required=False,
                 choices=lifecycle_choices,
                 initial=meta.get("production_lifecycle") or lifecycle_choices[0][0],
@@ -769,7 +769,7 @@ class WorkOrderAdmin(BaseModelAdmin):
             return HttpResponseRedirect(reverse("admin:craftsman_workorder_changelist"))
 
         if wo.status not in (WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED):
-            messages.warning(request, _("Apenas ordens planned/started podem ser anuladas."))
+            messages.warning(request, _("Apenas ordens planejadas/iniciadas podem ser canceladas."))
             return HttpResponseRedirect(reverse("admin:craftsman_workorder_changelist"))
 
         actor = getattr(request.user, "username", None) or "admin"
