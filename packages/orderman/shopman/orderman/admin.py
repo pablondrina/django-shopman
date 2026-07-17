@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal
-from importlib import import_module
 
 from django import forms
 from django.contrib import admin, messages
 from django.db import models
-from django.http import HttpRequest, HttpResponseRedirect
-from django.urls import path, reverse
+from django.http import HttpResponseRedirect
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
@@ -89,8 +88,6 @@ except ImportError:
         return admin.display(**django_kwargs)
 
 from shopman.orderman import registry
-from shopman.orderman.exceptions import CommitError, IssueResolveError, SessionError
-from shopman.orderman.ids import generate_idempotency_key
 from shopman.orderman.models import (
     Directive,
     Fulfillment,
@@ -102,7 +99,6 @@ from shopman.orderman.models import (
     Session,
     SessionEvent,
 )
-from shopman.orderman.services import CommitService, ResolveService
 from shopman.utils.monetary import format_money
 
 logger = logging.getLogger(__name__)
@@ -125,10 +121,6 @@ def history_action(modeladmin, request, object_id):
 def _format_admin_qty(value: Decimal) -> str:
     quantized = Decimal(value).quantize(Decimal("0.001")).normalize()
     return format(quantized, "f")
-
-
-def _operator_order_service():
-    return import_module("shopman.shop.services.operator_orders")
 
 
 class SalesChannelFilter(admin.SimpleListFilter):
@@ -172,8 +164,8 @@ class SessionAdmin(ModelAdmin):
     compressed_fields = True
     warn_unsaved_form = True
 
-    # Todos os campos são readonly - Sessões são imutáveis após criação
-    # Apenas ações podem modificar o estado (ex: commit)
+    # Todos os campos são readonly - Sessões são imutáveis após criação.
+    # A operação (finalizar, resolver problemas) vive no POS e no Gestor.
     readonly_fields = (
         "channel_ref",
         "session_key",
@@ -282,155 +274,10 @@ class SessionAdmin(ModelAdmin):
         return ", ".join(f"{key}={value}" for key, value in list(payload.items())[:3])
 
     actions_detail = ["history_detail_action"]
-    actions_submit_line = ["action_commit"]
 
     @action(description=_("Histórico"), url_path="history-action", icon="history")
     def history_detail_action(self, request, object_id):
         return history_action(self, request, object_id)
-
-    @action(description=_("Finalizar sessão"), url_path="commit-action", icon="check_circle")
-    def action_commit(self, request: HttpRequest, obj: Session):
-        """Finaliza a sessão, criando o pedido."""
-        if obj.state != "open":
-            messages.error(request, _("Esta sessão não está aberta."))
-            return HttpResponseRedirect(reverse("admin:orderman_session_change", args=[obj.pk]))
-
-        if not obj.items:
-            messages.error(request, _("Adicione itens antes de finalizar."))
-            return HttpResponseRedirect(reverse("admin:orderman_session_change", args=[obj.pk]))
-
-        idempotency_key = generate_idempotency_key()
-        actor = getattr(request.user, "username", None) or "admin"
-
-        try:
-            result = CommitService.commit(
-                session_key=obj.session_key,
-                channel_ref=obj.channel_ref,
-                idempotency_key=idempotency_key,
-                ctx={"actor": actor},
-            )
-            order_ref = result.order_ref
-
-            # Executa diretivas pós-commit automaticamente (ergonomia no admin)
-            # Em produção, workers fazem isso; no admin, executamos inline para melhor UX
-            # IMPORTANT: Use select_for_update to prevent race conditions with workers
-            from django.db import transaction
-
-            executed_count = 0
-            failed_count = 0
-
-            # Process directives one at a time with proper locking
-            while True:
-                with transaction.atomic():
-                    # Get ONE directive with lock (skip locked = workers processing it)
-                    directive = (
-                        Directive.objects
-                        .select_for_update(skip_locked=True)
-                        .filter(
-                            payload__order_ref=order_ref,
-                            status="queued",
-                        )
-                        .first()
-                    )
-
-                    if not directive:
-                        break  # No more queued directives
-
-                    handler = registry.get_directive_handler(directive.topic)
-                    if handler:
-                        # Update status to "running" before executing
-                        directive.status = "running"
-                        directive.attempts += 1
-                        directive.started_at = timezone.now()
-                        directive.save(update_fields=["status", "attempts", "started_at", "updated_at"])
-
-                        try:
-                            handler.handle(
-                                message=directive,
-                                ctx={"actor": actor},
-                            )
-                            # Handler updates status to "done" automatically
-                            executed_count += 1
-                        except Exception as exc:
-                            logger.exception("Erro ao executar diretiva %s #%s", directive.topic, directive.pk)
-                            directive.status = "failed"
-                            directive.last_error = str(exc)
-                            directive.save(update_fields=["status", "last_error", "updated_at"])
-                            failed_count += 1
-                    else:
-                        # No handler, mark as failed
-                        directive.status = "failed"
-                        directive.last_error = _("Nenhum handler registrado para este tópico.")
-                        directive.save(update_fields=["status", "last_error", "updated_at"])
-                        failed_count += 1
-
-            # Fetch order PK for admin URL (Django admin requires PK, not ref)
-            try:
-                order_pk = Order.objects.get(ref=order_ref).pk
-            except Order.DoesNotExist:
-                order_pk = None
-
-            # Mensagem de sucesso com informação sobre diretivas
-            if executed_count > 0:
-                messages.success(
-                    request,
-                    format_html(
-                        _('Pedido <strong>{}</strong> criado! {} diretiva(s) executada(s). <a href="{}">Ver pedido</a>'),
-                        order_ref,
-                        executed_count,
-                        reverse("admin:orderman_order_change", args=[order_pk]) if order_pk else "#",
-                    ),
-                )
-            else:
-                messages.success(
-                    request,
-                    format_html(
-                        _('Pedido <strong>{}</strong> criado! <a href="{}">Ver pedido</a>'),
-                        order_ref,
-                        reverse("admin:orderman_order_change", args=[order_pk]) if order_pk else "#",
-                    ),
-                )
-
-            if failed_count > 0:
-                messages.warning(
-                    request,
-                    _("{} diretiva(s) falharam. Verifique em Diretivas.").format(failed_count),
-                )
-
-            # Redireciona para o pedido criado, garantindo que apareça na listagem
-            if order_pk:
-                return HttpResponseRedirect(reverse("admin:orderman_order_change", args=[order_pk]))
-            else:
-                # Fallback: redireciona para changelist com filtros
-                return HttpResponseRedirect(
-                    reverse("admin:orderman_order_changelist") + f"?status__exact=new&ref={order_ref}"
-                )
-        except CommitError as exc:
-            # Se hold expirado ou check desatualizado, refaz verificação automaticamente
-            if exc.code in ("hold_expired", "stale_check"):
-                recheck_result = self._auto_recheck(request, obj, actor)
-                if recheck_result == "committed":
-                    # Re-check passou e commit funcionou - redireciona sem mensagem adicional
-                    return HttpResponseRedirect(reverse("admin:orderman_session_change", args=[obj.pk]))
-                elif recheck_result == "has_issues":
-                    # Re-check feito, mas há issues - banner já mostrado
-                    messages.warning(
-                        request,
-                        _("Verificação atualizada. Resolva os problemas abaixo antes de finalizar."),
-                    )
-                else:
-                    # Re-check falhou por outro motivo
-                    messages.error(request, exc.message)
-            else:
-                messages.error(request, exc.message)
-        except SessionError as exc:
-            messages.error(request, exc.message)
-        except Exception:
-            logger.exception("Erro ao finalizar sessão %s", obj.session_key)
-            messages.error(request, _("Erro ao finalizar sessão."))
-
-        # Sempre redireciona após erro para evitar mensagem de sucesso padrão do Django
-        return HttpResponseRedirect(reverse("admin:orderman_session_change", args=[obj.pk]))
 
     def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
         """Remove botões extras de submit."""
@@ -468,193 +315,13 @@ class SessionAdmin(ModelAdmin):
     def state_badge(self, obj: Session) -> str:
         return obj.get_state_display()
 
-    def get_urls(self):
-        urls = super().get_urls()
-        custom = [
-            path(
-                "<path:object_id>/resolve-issue/<str:issue_id>/<str:action_id>/",
-                self.admin_site.admin_view(self.resolve_issue_view),
-                name="orderman_session_resolve_issue",
-            ),
-            path(
-                "<path:object_id>/run-check/<str:topic>/",
-                self.admin_site.admin_view(self.run_check_view),
-                name="orderman_session_run_check",
-            ),
-        ]
-        return custom + urls
-
-    def resolve_issue_view(self, request, object_id, issue_id, action_id):
-        session = self.get_object(request, object_id)
-        if session is None:
-            self.message_user(request, _("Sessão não encontrada."), level="error")
-            return HttpResponseRedirect(reverse("admin:orderman_session_changelist"))
-        try:
-            ResolveService.resolve(
-                session_key=session.session_key,
-                channel_ref=session.channel_ref,
-                issue_id=issue_id,
-                action_id=action_id,
-                ctx={"actor": getattr(getattr(request, "user", None), "username", None) or "admin"},
-            )
-            self.message_user(request, _("Action aplicada com sucesso."))
-        except IssueResolveError as exc:
-            self.message_user(request, f"{exc.message}", level="error")
-        except Exception:  # pragma: no cover - logging side-effect
-            logger.exception(
-                "Falha inesperada ao resolver issue %s/%s para sessão %s",
-                issue_id,
-                action_id,
-                getattr(session, "session_key", object_id),
-            )
-            self.message_user(
-                request,
-                _("Falha inesperada ao aplicar action. Verifique os logs."),
-                level="error",
-            )
-        return HttpResponseRedirect(
-            reverse("admin:orderman_session_change", args=[object_id])
-        )
-
-    def run_check_view(self, request, object_id, topic):
-        session = self.get_object(request, object_id)
-        if session is None:
-            self.message_user(request, _("Sessão não encontrada."), level="error")
-            return HttpResponseRedirect(reverse("admin:orderman_session_changelist"))
-
-        handler = registry.get_directive_handler(topic)
-        if handler is None:
-            self.message_user(request, _("Nenhum handler registrado para o tópico informado."), level="error")
-            return HttpResponseRedirect(reverse("admin:orderman_session_change", args=[object_id]))
-
-        directive = Directive.objects.create(
-            topic=topic,
-            status="running",
-            started_at=timezone.now(),
-            attempts=1,
-            payload={
-                "session_key": session.session_key,
-                "channel_ref": session.channel_ref,
-                "rev": session.rev,
-                "items": session.items,
-            },
-        )
-
-        try:
-            handler.handle(message=directive, ctx={"actor": getattr(getattr(request, "user", None), "username", None) or "admin"})
-            self.message_user(request, _("Check executado com sucesso."))
-        except Exception as exc:  # pragma: no cover - handler errors logged?
-            logger.exception("Falha ao processar %s para sessão %s", topic, session.session_key)
-            directive.status = "failed"
-            directive.last_error = str(exc)
-            directive.save(update_fields=["status", "last_error", "updated_at"])
-            self.message_user(request, f"Erro ao executar check: {exc}", level="error")
-
-        return HttpResponseRedirect(reverse("admin:orderman_session_change", args=[object_id]))
-
-    def _auto_recheck(self, request, session, actor: str) -> str:
-        """
-        Refaz verificações e tenta commit novamente se possível.
-
-        Chamado automaticamente quando um commit falha por hold expirado
-        ou check desatualizado.
-
-        Returns:
-            "committed": Commit realizado com sucesso após re-check
-            "has_issues": Re-check feito mas há issues bloqueantes
-            "failed": Re-check ou commit falhou por outro motivo
-        """
-        # O kernel não acessa ChannelConfig do framework.
-        # Checks específicos por canal são responsabilidade do admin do framework.
-        required_checks: list = []
-        checks_config: dict = {}
-
-        # Executa todos os checks requeridos
-        for check_code in required_checks:
-            check_opts = checks_config.get(check_code, {})
-            topic = check_opts.get("directive_topic") or f"{check_code}.hold"
-
-            handler = registry.get_directive_handler(topic)
-            if handler is None:
-                continue
-
-            # Cria e executa diretiva inline
-            directive = Directive.objects.create(
-                topic=topic,
-                status="running",
-                started_at=timezone.now(),
-                attempts=1,
-                payload={
-                    "session_key": session.session_key,
-                    "channel_ref": session.channel_ref,
-                    "rev": session.rev,
-                    "items": session.items,
-                },
-            )
-
-            try:
-                handler.handle(message=directive, ctx={"actor": actor})
-            except Exception as exc:
-                logger.exception("auto_recheck: Falha ao executar %s para sessão %s", topic, session.session_key)
-                directive.status = "failed"
-                directive.last_error = str(exc)
-                directive.save(update_fields=["status", "last_error", "updated_at"])
-                return "failed"
-
-        # Recarrega sessão para ver resultado dos checks
-        session.refresh_from_db()
-
-        # Verifica se há issues bloqueantes
-        issues = session.data.get("issues", [])
-        blocking = [i for i in issues if i.get("blocking")]
-        if blocking:
-            return "has_issues"
-
-        # Tenta commit novamente com nova chave de idempotência
-        new_idempotency_key = generate_idempotency_key()
-        try:
-            result = CommitService.commit(
-                session_key=session.session_key,
-                channel_ref=session.channel_ref,
-                idempotency_key=new_idempotency_key,
-                ctx={"actor": actor},
-            )
-            self.message_user(
-                request,
-                _("Verificação atualizada. Sessão commitada com sucesso. Ordem %(ref)s criada.") % {"ref": result.order_ref},
-            )
-            return "committed"
-        except CommitError as exc:
-            logger.warning("auto_recheck: Commit falhou após re-check para sessão %s: %s", session.session_key, exc.message)
-            self.message_user(request, f"{exc.message}", level="error")
-            return "failed"
-        except Exception:
-            logger.exception("auto_recheck: Falha inesperada ao commit após re-check para sessão %s", session.session_key)
-            return "failed"
     def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
         extra_context = extra_context or {}
         if object_id:
             obj = self.get_object(request, object_id)
             if obj:
                 extra_context["issue_actions"] = obj.data.get("issues", [])
-                manual_checks: list[dict] = []
-                # O kernel não acessa ChannelConfig do framework.
-                required_checks: list = []
-                checks_config: dict = {}
-                for code in required_checks:
-                    check_opts = checks_config.get(code, {})
-                    topic = check_opts.get("directive_topic") or f"{code}.hold"
-                    manual_checks.append(
-                        {
-                            "code": code,
-                            "topic": topic,
-                            "label": check_opts.get("label") or code,
-                        }
-                    )
-                extra_context["manual_checks"] = manual_checks
         extra_context.setdefault("issue_actions", [])
-        extra_context.setdefault("manual_checks", [])
-        extra_context.setdefault("can_commit_session", False)
         return super().changeform_view(request, object_id, form_url, extra_context)
 
     def changelist_view(self, request, extra_context=None):
@@ -861,75 +528,11 @@ class OrderAdmin(ModelAdmin):
     inlines = [OrderItemInline, OrderEventInline, FulfillmentOrderInline]
 
     actions_detail = ["history_detail_action"]
-    actions_row = ["advance_status_row", "cancel_order_row"]
     list_sections = [OrderItemSection] if UNFOLD_AVAILABLE else []
 
     @action(description=_("Histórico"), url_path="history-action", icon="history")
     def history_detail_action(self, request, object_id):
         return history_action(self, request, object_id)
-
-    @action(
-        description=_("Avançar ▸"),
-        url_path="advance-status",
-        icon="arrow_forward",
-        variant=ActionVariant.SUCCESS,
-    )
-    def advance_status_row(self, request, object_id):
-        order = self.get_object(request, object_id)
-        if order is None:
-            messages.error(request, _("Pedido não encontrado."))
-            return HttpResponseRedirect(reverse("admin:orderman_order_changelist"))
-
-        actor = getattr(request.user, "username", None) or "admin"
-        try:
-            if order.status == Order.Status.NEW:
-                _operator_order_service().confirm_order(order, actor=actor)
-            else:
-                _operator_order_service().advance_order(order, actor=actor)
-            order.refresh_from_db()
-            messages.success(
-                request,
-                _("Pedido %(ref)s avançado para %(status)s.") % {
-                    "ref": order.ref,
-                    "status": order.get_status_display(),
-                },
-            )
-        except Exception as exc:
-            messages.error(request, str(exc))
-
-        return HttpResponseRedirect(reverse("admin:orderman_order_changelist"))
-
-    @action(
-        description=_("Cancelar ✕"),
-        url_path="cancel-order",
-        icon="cancel",
-        variant=ActionVariant.DANGER,
-    )
-    def cancel_order_row(self, request, object_id):
-        order = self.get_object(request, object_id)
-        if order is None:
-            messages.error(request, _("Pedido não encontrado."))
-            return HttpResponseRedirect(reverse("admin:orderman_order_changelist"))
-
-        if not order.can_transition_to(Order.Status.CANCELLED):
-            messages.warning(request, _("Este pedido não pode ser cancelado."))
-            return HttpResponseRedirect(reverse("admin:orderman_order_changelist"))
-
-        actor = getattr(request.user, "username", None) or "admin"
-        try:
-            _operator_order_service().cancel_order(
-                order,
-                reason="Cancelado via Admin",
-                actor=actor,
-            )
-            messages.success(
-                request,
-                _("Pedido %(ref)s cancelado.") % {"ref": order.ref},
-            )
-        except Exception as exc:
-            messages.error(request, str(exc))
-
-        return HttpResponseRedirect(reverse("admin:orderman_order_changelist"))
 
     fieldsets = (
         (
@@ -948,8 +551,8 @@ class OrderAdmin(ModelAdmin):
         (_("Snapshot"), {"fields": ("snapshot",), "classes": ("tab",)}),
         (_("Auditoria"), {"fields": ("created_at", "updated_at"), "classes": ("tab",)}),
     )
-    # Todos os campos são readonly - Pedidos são imutáveis após criação
-    # Apenas ações podem modificar o estado (ex: avançar status)
+    # Todos os campos são readonly - Pedidos são imutáveis após criação.
+    # A operação (avançar, cancelar) vive no Gestor de pedidos.
     readonly_fields = (
         "ref",
         "channel_ref",
@@ -1045,73 +648,6 @@ class OrderAdmin(ModelAdmin):
             '<a class="font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400" href="{}">Fila</a>',
             url,
         )
-
-    actions = ["advance_selected_status", "cancel_selected"]
-
-    @admin.action(description=_("Avançar status (selecionados)"))
-    def advance_selected_status(self, request, queryset):
-        """Advance all selected orders to their next status.
-
-        Errors if orders have divergent allowed transitions.
-        """
-        advanced = 0
-        errors = 0
-        actor = getattr(request.user, "username", None) or "admin"
-        for order in queryset:
-            allowed = order.get_allowed_transitions()
-            if not allowed:
-                errors += 1
-                continue
-            try:
-                if order.status == Order.Status.NEW:
-                    _operator_order_service().confirm_order(order, actor=actor)
-                else:
-                    _operator_order_service().advance_order(order, actor=actor)
-                advanced += 1
-            except Exception:
-                errors += 1
-
-        if advanced:
-            messages.success(
-                request,
-                _("%(count)d pedido(s) avançado(s).") % {"count": advanced},
-            )
-        if errors:
-            messages.warning(
-                request,
-                _("%(count)d pedido(s) não puderam ser avançados.") % {"count": errors},
-            )
-
-    @admin.action(description=_("Cancelar selecionados"))
-    def cancel_selected(self, request, queryset):
-        """Cancel all selected orders (if transition is allowed)."""
-        cancelled = 0
-        skipped = 0
-        actor = getattr(request.user, "username", None) or "admin"
-        for order in queryset:
-            if not order.can_transition_to(Order.Status.CANCELLED):
-                skipped += 1
-                continue
-            try:
-                _operator_order_service().cancel_order(
-                    order,
-                    reason="Cancelado via Admin",
-                    actor=actor,
-                )
-                cancelled += 1
-            except Exception:
-                skipped += 1
-
-        if cancelled:
-            messages.success(
-                request,
-                _("%(count)d pedido(s) cancelado(s).") % {"count": cancelled},
-            )
-        if skipped:
-            messages.warning(
-                request,
-                _("%(count)d pedido(s) não puderam ser cancelados.") % {"count": skipped},
-            )
 
     def changelist_view(self, request, extra_context=None):
         # UX: tab padrão = "Novos" quando não há nenhum filtro explícito.

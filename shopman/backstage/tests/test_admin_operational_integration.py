@@ -558,8 +558,10 @@ class WorkOrderAdminSemanticsTests(TestCase):
         self.assertNotIn("operation_link_display", model_admin.list_display)
         self.assertIn("production_board_row", model_admin.actions_row)
         self.assertIn("commitments_row", model_admin.actions_row)
-        self.assertIn("close_wo_row", model_admin.actions_row)
-        self.assertIn("void_wo_row", model_admin.actions_row)
+        # Execução (concluir/anular) saiu do Admin: vive no Fournil (WP-ADM-5).
+        self.assertNotIn("close_wo_row", model_admin.actions_row)
+        self.assertNotIn("void_wo_row", model_admin.actions_row)
+        self.assertFalse(model_admin.actions)
 
     def test_work_order_admin_expandable_row_shows_event_history(self) -> None:
         model_admin = admin.site._registry[WorkOrder]
