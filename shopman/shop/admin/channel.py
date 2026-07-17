@@ -11,6 +11,7 @@ from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 from django.utils.html import format_html
 from unfold.admin import ModelAdmin
+from unfold.decorators import display
 from unfold.widgets import UnfoldAdminTextareaWidget
 
 from shopman.shop.config import ChannelConfig, deep_merge
@@ -143,11 +144,15 @@ class ChannelAdmin(ModelAdmin):
     # Ordem de exibição dos canais = lista arrastável (Unfold).
     ordering_field = "display_order"
     hide_ordering_field = True
-    list_display = ("ref", "name", "is_active")
+    list_display = ("ref", "name", "status_badge")
     list_filter = ("is_active",)
     search_fields = ("ref", "name")
     ordering = ("display_order", "ref")
     actions = ("inject_simulated_ifood_order",)
+
+    @display(description="situação", label={"Ativo": "success", "Inativo": "warning"})
+    def status_badge(self, obj):
+        return "Ativo" if obj.is_active else "Inativo"
 
     @admin.action(description="Injetar pedido iFood simulado (DEV)")
     def inject_simulated_ifood_order(self, request, queryset):
