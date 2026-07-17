@@ -774,10 +774,11 @@ class TestOperatorAlertAdmin:
         assert "severity" in alert_admin.list_display
         assert "acknowledged" in alert_admin.list_display
 
-    def test_mark_acknowledged_action(self, db):
+    def test_no_acknowledge_actions(self, db):
+        # Ack operacional vive no Gestor (AlertsBell); o Admin é trilha readonly.
         alert_admin = admin.site._registry[OperatorAlert]
-        action_names = [a.__name__ if callable(a) else a for a in alert_admin.actions]
-        assert "mark_acknowledged" in action_names
+        assert not (alert_admin.actions or [])
+        assert not (alert_admin.actions_row or [])
 
 
 # ── Order admin extensions ──────────────────────────────────────────

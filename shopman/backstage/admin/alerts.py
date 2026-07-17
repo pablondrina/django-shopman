@@ -1,14 +1,15 @@
-"""OperatorAlert admin — readonly alerts with acknowledge action."""
+"""OperatorAlert admin — trilha readonly de alertas.
+
+O reconhecimento operacional vive no Gestor (AlertsBell →
+POST /api/v1/backstage/alerts/<pk>/ack/); o Admin só consulta a trilha.
+"""
 
 from __future__ import annotations
 
-from django.contrib import admin, messages
-from django.http import HttpResponseRedirect
-from django.urls import reverse
+from django.contrib import admin
 from shopman.utils import unfold_badge
 from unfold.admin import ModelAdmin
-from unfold.decorators import action, display
-from unfold.enums import ActionVariant
+from unfold.decorators import display
 
 from shopman.backstage.models import OperatorAlert
 
@@ -30,8 +31,6 @@ class OperatorAlertAdmin(ModelAdmin):
     readonly_fields = ("type", "severity", "message", "order_ref", "created_at")
     list_per_page = 50
     ordering = ("-created_at",)
-    actions = ["mark_acknowledged"]
-    actions_row = ["acknowledge_row"]
     list_fullwidth = True
     compressed_fields = True
 
@@ -48,27 +47,4 @@ class OperatorAlertAdmin(ModelAdmin):
 
     @display(description="mensagem")
     def short_message(self, obj):
-        return obj.message[:80] + "\u2026" if len(obj.message) > 80 else obj.message
-
-    @admin.action(description="Marcar como reconhecido")
-    def mark_acknowledged(self, request, queryset):
-        updated = queryset.filter(acknowledged=False).update(acknowledged=True)
-        self.message_user(request, f"{updated} alerta(s) reconhecido(s).")
-
-    @action(
-        description="Reconhecer",
-        url_path="ack-alert",
-        icon="done",
-        variant=ActionVariant.SUCCESS,
-    )
-    def acknowledge_row(self, request, object_id):
-        alert = self.get_object(request, object_id)
-        if alert is None:
-            messages.error(request, "Alerta não encontrado.")
-        elif alert.acknowledged:
-            messages.info(request, "Alerta já estava reconhecido.")
-        else:
-            alert.acknowledged = True
-            alert.save(update_fields=["acknowledged"])
-            messages.success(request, "Alerta reconhecido.")
-        return HttpResponseRedirect(reverse("admin:backstage_operatoralert_changelist"))
+        return obj.message[:80] + "…" if len(obj.message) > 80 else obj.message

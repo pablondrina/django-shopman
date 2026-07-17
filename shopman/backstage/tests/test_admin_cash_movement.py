@@ -1,13 +1,14 @@
-"""WP-D4 — audited cash movement add form (Reais → centavos, created_by stamp)."""
+"""WP-ADM-6 — CashMovement no Admin é trilha readonly (movimentos nascem no PDV)."""
 
 from __future__ import annotations
 
 import pytest
+from django.contrib import admin
 from django.contrib.auth.models import User
+from django.test import RequestFactory
 from django.urls import reverse
 from django.utils import timezone
 
-from shopman.backstage.admin.cash_register import CashMovementForm
 from shopman.backstage.models import CashMovement, CashShift, POSTerminal
 
 
@@ -28,22 +29,15 @@ def shift(db):
 
 
 @pytest.mark.django_db
-def test_form_converts_reais_to_centavos(shift):
-    form = CashMovementForm(
-        data={
-            "shift": shift.pk,
-            "movement_type": CashMovement.MovementType.SANGRIA,
-            "amount_reais": "25.50",
-            "reason": "Sangria pós-fechamento",
-        }
-    )
-    assert form.is_valid(), form.errors
-    movement = form.save()
-    assert movement.amount_q == 2550
+def test_admin_is_readonly_trail():
+    registered = admin.site._registry[CashMovement]
+    assert registered.has_add_permission(_req()) is False
+    assert registered.has_change_permission(_req()) is False
+    assert registered.has_delete_permission(_req()) is False
 
 
 @pytest.mark.django_db
-def test_add_via_admin_stamps_created_by(client, shift):
+def test_add_via_admin_is_forbidden(client, shift):
     admin_user = User.objects.create_superuser("cash-admin", "c@test.com", "pw")
     client.force_login(admin_user)
     resp = client.post(
@@ -51,30 +45,31 @@ def test_add_via_admin_stamps_created_by(client, shift):
         {
             "shift": shift.pk,
             "movement_type": CashMovement.MovementType.SUPRIMENTO,
-            "amount_reais": "10.00",
+            "amount_q": 1000,
             "reason": "Troco",
         },
     )
-    assert resp.status_code in (200, 302)
-    movement = CashMovement.objects.get(shift=shift)
-    assert movement.amount_q == 1000
-    assert movement.created_by == "cash-admin"
+    assert resp.status_code == 403
+    assert not CashMovement.objects.filter(shift=shift).exists()
 
 
 @pytest.mark.django_db
-def test_existing_movements_are_immutable(shift):
-    from django.contrib import admin
-
-    from shopman.backstage.models import CashMovement as CM
-
-    registered = admin.site._registry[CM]
-    assert registered.has_change_permission(_req()) is False
-    assert registered.has_delete_permission(_req()) is False
+def test_changelist_remains_visible(client, shift):
+    CashMovement.objects.create(
+        shift=shift,
+        movement_type=CashMovement.MovementType.AJUSTE,
+        amount_q=-250,
+        reason="Falta na conferência",
+        created_by="op-user",
+    )
+    admin_user = User.objects.create_superuser("cash-admin", "c@test.com", "pw")
+    client.force_login(admin_user)
+    resp = client.get(reverse("admin:backstage_cashmovement_changelist"))
+    assert resp.status_code == 200
+    assert "Falta na conferência" in resp.content.decode()
 
 
 def _req():
-    from django.test import RequestFactory
-
     request = RequestFactory().get("/")
     request.user = User(is_superuser=True, is_staff=True)
     return request
