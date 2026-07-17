@@ -293,55 +293,6 @@ def export_reports_csv(report_kind: str, filters: dict | None = None) -> bytes:
     return ("\ufeff" + output.getvalue()).encode("utf-8")
 
 
-@dataclass(frozen=True)
-class OrderCommitmentDetail:
-    ref: str
-    status: str
-    qty_required: str
-
-
-def order_commitments_for_work_order(wo_ref: str):
-    """Return a work order and item quantities committed by linked orders."""
-    from shopman.craftsman.models import WorkOrder
-    from shopman.orderman.models import Order
-
-    from shopman.shop.handlers.production_order_sync import linked_order_refs
-
-    work_order = WorkOrder.objects.select_related("recipe").get(ref=wo_ref)
-    refs = linked_order_refs(work_order)
-    orders = tuple(
-        Order.objects.filter(ref__in=refs)
-        .prefetch_related("items")
-        .order_by("created_at")
-    )
-    by_ref = {order.ref: order for order in orders}
-    rows: list[OrderCommitmentDetail] = []
-    total = Decimal("0")
-    for ref in refs:
-        order = by_ref.get(ref)
-        if not order:
-            continue
-        qty_required = _qty_required_for_order(order, work_order.output_sku)
-        total += qty_required
-        rows.append(
-            OrderCommitmentDetail(
-                ref=order.ref,
-                status=order.status,
-                qty_required=_qty(qty_required),
-            )
-        )
-    commitments = tuple(rows)
-    return work_order, refs, commitments, _qty(total)
-
-
-def _qty_required_for_order(order, sku: str) -> Decimal:
-    total = Decimal("0")
-    for item in order.items.all():
-        if item.sku == sku:
-            total += item.qty
-    return total
-
-
 def _check_linked_order_coverage(
     *,
     recipe_id,

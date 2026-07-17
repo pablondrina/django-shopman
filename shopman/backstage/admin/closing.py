@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from django.conf import settings
 from django.contrib import admin
-from django.urls import reverse
 from django.utils.html import format_html
 from shopman.utils import unfold_badge_numeric
 from unfold.admin import ModelAdmin
@@ -35,7 +35,12 @@ class DayClosingAdmin(ModelAdmin):
 
     @display(description="operação")
     def operation_link_display(self, obj):
-        url = f'{reverse("admin_console_production_reports")}?date_from={obj.date.isoformat()}&date_to={obj.date.isoformat()}'
+        # Relatórios vivem no /reports do Fournil (WP-ADM-7d); sem base URL
+        # configurada não há link morto.
+        base = (getattr(settings, "SHOPMAN_PRODUCTION_BASE_URL", "") or "").rstrip("/")
+        if not base:
+            return "-"
+        url = f"{base}/reports?date_from={obj.date.isoformat()}&date_to={obj.date.isoformat()}"
         return format_html(
             '<a class="font-medium text-link" href="{}">Relatório</a>',
             url,

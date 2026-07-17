@@ -912,11 +912,22 @@ class TestProductionBackstageRoutes:
             with pytest.raises(NoReverseMatch):
                 reverse(route_name)
 
-    def test_canonical_production_routes_are_admin_unfold(self, db):
-        assert reverse("admin_console_production") == "/admin/operacao/producao/"
-        assert reverse("admin_console_production_dashboard") == "/admin/operacao/producao/painel/"
-        assert reverse("admin_console_production_reports") == "/admin/operacao/producao/relatorios/"
-        # Criação em lote saiu do Admin junto com a execução (split canônico
-        # WP-PE4): planejar é do Fournil via api/v1/backstage/production/plan/.
-        with pytest.raises(NoReverseMatch):
-            reverse("admin_console_production_bulk_create")
+    def test_admin_console_production_routes_removed(self, db):
+        # WP-ADM-7d: o console Admin de produção saiu; a superfície canônica é
+        # o Fournil (surfaces/production-nuxt) sobre api/v1/backstage/production/*.
+        for route_name in (
+            "admin_console_production",
+            "admin_console_production_planning",
+            "admin_console_production_dashboard",
+            "admin_console_production_reports",
+            "admin_console_production_weighing",
+            "admin_console_production_work_order_commitments",
+            "admin_console_production_bulk_create",
+        ):
+            with pytest.raises(NoReverseMatch):
+                reverse(route_name)
+
+    def test_canonical_production_routes_are_headless_api(self, db):
+        assert reverse("api-backstage-production-reports") == "/api/v1/backstage/production/reports/"
+        assert reverse("api-backstage-production-management") == "/api/v1/backstage/production/management/"
+        assert reverse("api-backstage-production-blind-map") == "/api/v1/backstage/production/weighing/blind-map/"

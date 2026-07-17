@@ -46,10 +46,9 @@ def _no_positive_tabindex(html: str, surface: str) -> None:
 
 @pytest.mark.django_db
 def test_no_positive_tabindex_anywhere(client, superuser):
+    # As telas de produção são do Fournil (surfaces/production-nuxt) desde o
+    # WP-ADM-7d; o tab order delas é testado na suite do app Nuxt.
     surfaces = [
-        ("admin_console_production", []),
-        ("admin_console_production_dashboard", []),
-        ("admin_console_production_reports", []),
         ("admin_console_day_closing", []),
     ]
     client.force_login(superuser)
@@ -83,7 +82,7 @@ def test_dialogs_in_templates_contain_focusable_elements():
 def test_modals_use_aria_modal_when_role_dialog(client, superuser):
     """Whenever role=dialog is rendered server-side, aria-modal must be set."""
     client.force_login(superuser)
-    response = client.get(reverse("admin_console_production"))
+    response = client.get(reverse("admin_console_day_closing"))
     html = response.content.decode("utf-8")
     for match in re.finditer(r"<[^>]+role=\"dialog\"[^>]*>", html):
         assert 'aria-modal="true"' in match.group(0), f"dialog without aria-modal: {match.group(0)[:120]}"

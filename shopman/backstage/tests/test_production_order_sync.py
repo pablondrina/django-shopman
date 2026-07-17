@@ -13,7 +13,6 @@ from shopman.backstage.projections.production import build_work_order_card
 from shopman.backstage.services.production import (
     ProductionOrderShortError,
     apply_planned,
-    order_commitments_for_work_order,
 )
 from shopman.shop.handlers.production_order_sync import (
     WORK_ORDER_COMMITTED_ORDER_REFS_KEY,
@@ -117,13 +116,10 @@ def test_work_order_card_projects_committed_item_quantity(recipe):
     wo.save(update_fields=["meta", "updated_at"])
 
     card = build_work_order_card(wo.ref)
-    _, _, commitments, committed_qty = order_commitments_for_work_order(wo.ref)
 
     assert card.committed_qty == "13"
     assert [item.ref for item in card.order_commitments] == [first.ref, second.ref]
     assert [item.qty_required for item in card.order_commitments] == ["3", "10"]
-    assert committed_qty == "13"
-    assert [item.qty_required for item in commitments] == ["3", "10"]
 
 
 @pytest.mark.django_db

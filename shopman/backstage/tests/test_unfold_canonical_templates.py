@@ -28,7 +28,7 @@ def test_unfold_gate_default_scope_covers_admin_package_surfaces() -> None:
         for path in check_unfold_canonical.iter_templates(check_unfold_canonical.DEFAULT_TARGETS)
     }
 
-    assert "shopman/backstage/templates/admin_console/production/index.html" in files
+    assert "shopman/backstage/templates/admin_console/closing/index.html" in files
     assert "shopman/shop/templates/admin/index.html" in files
     assert "packages/refs/shopman/refs/templates/admin/refs/rename_confirm.html" in files
     assert "packages/orderman/shopman/orderman/templates/orderman/admin/session_change_form.html" in files
@@ -56,17 +56,22 @@ def test_unfold_surface_contract_requires_pos_runtime_templates_to_be_registered
 
 
 def test_unfold_gate_can_scope_registered_admin_url_to_surface() -> None:
-    surfaces = check_unfold_canonical.surfaces_for_url("/admin/operacao/producao/")
+    surfaces = check_unfold_canonical.surfaces_for_url("/admin/operacao/fechamento/")
 
-    assert [surface.id for surface in surfaces] == ["admin-console-production"]
+    assert [surface.id for surface in surfaces] == ["admin-console-day-closing"]
 
 
 def test_unfold_gate_rejects_unknown_admin_url_scope() -> None:
     assert check_unfold_canonical.surfaces_for_url("/admin/unknown/surface/") == ()
 
 
+def test_unfold_gate_removed_production_console_url_scope_is_unknown() -> None:
+    # WP-ADM-7d: o console Admin de produção saiu; a superfície é o Fournil.
+    assert check_unfold_canonical.surfaces_for_url("/admin/operacao/producao/") == ()
+
+
 def test_unfold_gate_scoped_targets_are_limited_to_registered_surface() -> None:
-    surfaces = check_unfold_canonical.surfaces_for_url("/admin/operacao/producao/criar/")
+    surfaces = check_unfold_canonical.surfaces_for_url("/admin/operacao/fechamento/")
     files = {
         path.relative_to(check_unfold_canonical.ROOT).as_posix()
         for path in check_unfold_canonical.iter_templates(
@@ -74,7 +79,7 @@ def test_unfold_gate_scoped_targets_are_limited_to_registered_surface() -> None:
         )
     }
 
-    assert "shopman/backstage/templates/admin_console/production/index.html" in files
+    assert "shopman/backstage/templates/admin_console/closing/index.html" in files
     assert "shopman/shop/templates/admin/index.html" not in files
 
 
@@ -84,7 +89,7 @@ def test_unfold_installation_is_pinned_to_generated_official_inventory() -> None
     assert violations == []
 
 
-def test_production_admin_surface_uses_official_custom_page_contract() -> None:
+def test_admin_surfaces_use_official_custom_page_contract() -> None:
     violations = check_unfold_canonical.scan_surface_registry()
     rules = {violation.rule for violation in violations}
 
@@ -136,7 +141,7 @@ def test_unfold_gate_rejects_noncanonical_patterns(tmp_path: Path, content: str,
 @pytest.mark.parametrize(
     ("content", "rule"),
     [
-        ('<div class="fixed inset-0 z-[1000]"></div>', "raw-modal-overlay-location"),
+        ('<div class="fixed inset-0 z-[1000]"></div>', "raw-modal-overlay"),
         ('<details><summary>Historico</summary></details>', "raw-collapsible"),
         ('<div class="border border-base-200 rounded-default"></div>', "raw-visual-shell"),
     ],
@@ -148,19 +153,3 @@ def test_unfold_maturity_gate_rejects_hand_built_shells(tmp_path: Path, content:
     violations = check_unfold_canonical.scan_file(template, strict=True)
 
     assert rule in {violation.rule for violation in violations}
-
-
-def test_unfold_maturity_gate_accepts_authorized_modal_wrapper() -> None:
-    modal = Path("shopman/backstage/templates/admin_console/unfold/modal.html")
-
-    violations = check_unfold_canonical.scan_file(modal, strict=True)
-
-    assert violations == []
-
-
-def test_unfold_gate_accepts_authorized_compact_row_action_wrapper() -> None:
-    row_action = Path("shopman/backstage/templates/admin_console/unfold/row_action_icon.html")
-
-    violations = check_unfold_canonical.scan_file(row_action, strict=True)
-
-    assert violations == []

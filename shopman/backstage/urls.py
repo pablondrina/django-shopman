@@ -23,7 +23,6 @@ urlpatterns = [
     ),
     # POS/KDS/Pedidos/alertas/Produção migraram para apps Nuxt dedicados
     # (surfaces/*-nuxt) via api/v1/backstage/*; as camadas de view HTMX
-    # foram removidas (SURFACE-CONVERGENCE-PLAN WP1 + OPERATOR-APPS-PLAN Fases 2 e 4).
-    # O console Admin/Unfold de produção (admin_console/production.py) segue —
-    # consome os helpers compartilhados de views/production.py.
+    # foram removidas (SURFACE-CONVERGENCE-PLAN WP1 + OPERATOR-APPS-PLAN Fases 2 e 4),
+    # e o console Admin/Unfold de produção saiu no WP-ADM-7d (paridade no Fournil).
 ]

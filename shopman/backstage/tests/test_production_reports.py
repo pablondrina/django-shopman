@@ -172,45 +172,10 @@ def test_csv_export_recipe_waste_header(report_data):
     assert "Perda" in first_line or "Loss" in first_line.lower()
 
 
-@pytest.mark.django_db
-def test_reports_view_permission_and_csv_download(client, report_data):
-    Shop.objects.create(name="Loja")
-    staff = User.objects.create_user("staff", password="pw", is_staff=True)
-    client.force_login(staff)
-
-    response = client.get(reverse("admin_console_production_reports"))
-    assert response.status_code == 302
-    assert response["Location"] == reverse("admin:index")
-
-    admin = User.objects.create_superuser("admin", "a@test.com", "pw")
-    client.force_login(admin)
-    response = client.get(reverse("admin_console_production_reports"), {
-        "date_from": report_data["today"].isoformat(),
-        "date_to": report_data["today"].isoformat(),
-        "format": "csv",
-    })
-    assert response.status_code == 200
-    assert response["Content-Disposition"].startswith('attachment; filename="producao_history_')
-
-
-@pytest.mark.django_db
-def test_csv_response_has_utf8_content_type_and_bom(client, report_data):
-    Shop.objects.create(name="Loja")
-    admin = User.objects.create_superuser("admin", "a@test.com", "pw")
-    client.force_login(admin)
-
-    response = client.get(reverse("admin_console_production_reports"), {
-        "date_from": report_data["today"].isoformat(),
-        "date_to": report_data["today"].isoformat(),
-        "format": "csv",
-        "report_kind": "operator_productivity",
-    })
-    assert response.status_code == 200
-    assert "text/csv" in response["Content-Type"]
-    assert "charset=utf-8" in response["Content-Type"]
-    body = b"".join(response.streaming_content)
-    assert body.startswith(b"\xef\xbb\xbf")
-    assert "Operador" in body.decode("utf-8-sig")
+# O console Admin de relatórios saiu (WP-ADM-7d): a superfície é o /reports do
+# Fournil sobre api/v1/backstage/production/reports/ (permission gate e CSV
+# cobertos em test_api_production_reports.py). Ficam aqui os fallbacks de
+# parsing de filtro, agora exercidos pela API headless.
 
 
 @pytest.mark.django_db
@@ -219,14 +184,14 @@ def test_invalid_report_kind_falls_back_to_history(client, report_data):
     admin = User.objects.create_superuser("admin", "a@test.com", "pw")
     client.force_login(admin)
 
-    response = client.get(reverse("admin_console_production_reports"), {
+    response = client.get(reverse("api-backstage-production-reports"), {
         "date_from": report_data["today"].isoformat(),
         "date_to": report_data["today"].isoformat(),
         "report_kind": "; DROP TABLE",
     })
     assert response.status_code == 200
     # invalid kind silently coerced to history
-    assert response.context["production_reports"].filters.report_kind == "history"
+    assert response.json()["reports"]["filters"]["report_kind"] == "history"
 
 
 @pytest.mark.django_db
@@ -235,12 +200,12 @@ def test_invalid_dates_fall_back_to_default_window(client, report_data):
     admin = User.objects.create_superuser("admin", "a@test.com", "pw")
     client.force_login(admin)
 
-    response = client.get(reverse("admin_console_production_reports"), {
+    response = client.get(reverse("api-backstage-production-reports"), {
         "date_from": "not-a-date",
         "date_to": "also-not-a-date",
     })
     assert response.status_code == 200
-    filters = response.context["production_reports"].filters
+    filters = response.json()["reports"]["filters"]
     today = date.today()
-    assert filters.date_to == today
-    assert filters.date_from == today - timedelta(days=6)
+    assert filters["date_to"] == today.isoformat()
+    assert filters["date_from"] == (today - timedelta(days=6)).isoformat()

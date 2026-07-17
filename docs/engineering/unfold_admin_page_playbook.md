@@ -24,14 +24,14 @@ Ele tem estas partes:
 5. Para qualquer campo visual, crie um `forms.Form`/`ModelForm` com `UnfoldAdmin*Widget` e renderize via `unfold/helpers/field.html`.
 6. Para blocos visuais, consulte o inventario local e use componentes/helpers Unfold. Nao limite a lista mental a `card/table/button`; o pacote instalado expõe muitos helpers.
 7. Use componentes via `{% component "unfold/components/..." %}`. Nao inclua componentes com `{% include %}`.
-8. Para modal, use `actions/dialog` + `BaseDialogForm` quando o fluxo couber em `ModelAdmin`. Em pagina operacional custom, use somente `admin_console/unfold/modal.html`, que espelha os tokens do shell modal/command do Unfold instalado.
+8. Para modal, use `actions/dialog` + `BaseDialogForm`. O wrapper aprovado de modal custom saiu com o console de producao (WP-ADM-7d); overlay novo exige waiver autorizado no gate.
 9. So depois disso considere HTML custom. Custom exige autorizacao explicita e continua obrigado a usar tokens/classes existentes no CSS compilado do Unfold.
 
 ## Contrato De Superficies
 
 O gate conhece as superficies operacionais atuais:
 
-- Canonicas: Admin console de pedidos, KDS, producao, dashboard Admin, `shopman/backstage/admin/`, `contrib/admin_unfold` dos pacotes e templates Admin de pacotes.
+- Canonicas: Admin console de fechamento, dashboard Admin, `shopman/backstage/admin/`, `contrib/admin_unfold` dos pacotes e templates Admin de pacotes. (Pedidos, KDS e producao viraram apps Nuxt headless; o console de producao saiu no WP-ADM-7d.)
 - Runtime registrado: POS e KDS de producao. Essas superficies existem por razao operacional explicita e nao podem crescer silenciosamente.
 - Excecao explicita fora do Admin: Storefront.
 
@@ -49,7 +49,7 @@ Ao criar uma nova projection backstage, registre a superficie correspondente ou 
 - Criar `<label>` cru para campo visual; use `unfold/helpers/field.html`.
 - Usar shells legados do Django Admin como `module`, ou classes `btn`/`button`.
 - Criar modal overlay proprio quando `actions/dialog` + `BaseDialogForm` resolve o fluxo.
-- Criar modal overlay fora de `admin_console/unfold/modal.html`.
+- Criar modal overlay custom (o gate bloqueia; `actions/dialog` + `BaseDialogForm` e o caminho).
 - Criar collapsible proprio quando `list_sections`/sections ou tabela colapsavel Unfold resolve o fluxo.
 - Alterar tamanho/padding de `unfold/components/button.html` com classes manuais.
 - Usar classe Tailwind que nao existe no CSS compilado do Unfold.
@@ -82,7 +82,7 @@ make admin
 Durante a iteracao local em uma tela registrada, o mesmo comando aceita escopo por URL relativa:
 
 ```bash
-make admin url=/admin/operacao/producao/
+make admin url=/admin/configuracao/copy/
 ```
 
 Escopo por URL serve para evitar bloqueio por divida nao relacionada durante o desenvolvimento. O

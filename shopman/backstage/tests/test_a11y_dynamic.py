@@ -15,7 +15,6 @@ from django.urls import reverse
 
 from shopman.shop.models import Shop
 
-HEADING_RE = re.compile(r"<h([1-6])\b[^>]*>", re.IGNORECASE)
 INPUT_RE = re.compile(r"<input\b[^>]*>", re.IGNORECASE)
 BUTTON_RE = re.compile(r"<button\b[^>]*>(.*?)</button>", re.IGNORECASE | re.DOTALL)
 ARIA_LABEL_RE = re.compile(r'aria-label\s*=\s*"[^"]+"')
@@ -23,30 +22,10 @@ TYPE_RE = re.compile(r'type\s*=\s*"([^"]+)"', re.IGNORECASE)
 ID_RE = re.compile(r'\bid\s*=\s*"([^"]+)"', re.IGNORECASE)
 NAME_RE = re.compile(r'\bname\s*=\s*"([^"]+)"', re.IGNORECASE)
 LABEL_FOR_RE = re.compile(r'<label[^>]*\bfor\s*=\s*"([^"]+)"', re.IGNORECASE)
-ROLE_DIALOG_RE = re.compile(r'<[^>]+role\s*=\s*"dialog"[^>]*>', re.IGNORECASE)
-
-
 @pytest.fixture
 def superuser(db):
     Shop.objects.create(name="Loja")
     return User.objects.create_superuser("a11y-admin", "a11y@test.com", "pw")
-
-
-def _heading_levels(html: str) -> list[int]:
-    return [int(m.group(1)) for m in HEADING_RE.finditer(html)]
-
-
-def _assert_no_heading_level_jump(html: str, surface: str) -> None:
-    levels = _heading_levels(html)
-    if not levels:
-        return
-    seen = {levels[0]}
-    for prev, curr in zip(levels, levels[1:], strict=False):
-        seen.add(curr)
-        if curr > prev + 1:
-            raise AssertionError(
-                f"{surface}: heading hierarchy jump from h{prev} to h{curr} (levels seen: {sorted(seen)})"
-            )
 
 
 def _buttons_have_accessible_name(html: str, surface: str) -> None:
@@ -96,18 +75,6 @@ def _inputs_have_label(html: str, surface: str) -> None:
     assert not unlabeled, f"{surface}: inputs without label/aria-label:\n  " + "\n  ".join(unlabeled[:5])
 
 
-def _dialogs_are_well_formed(html: str, surface: str) -> None:
-    """role=dialog requires aria-modal and a labelling reference."""
-    issues: list[str] = []
-    for match in ROLE_DIALOG_RE.finditer(html):
-        tag = match.group(0)
-        if 'aria-modal="true"' not in tag:
-            issues.append(f"missing aria-modal: {tag[:120]}")
-        if "aria-labelledby" not in tag and "aria-label" not in tag:
-            issues.append(f"missing aria-labelledby/aria-label: {tag[:120]}")
-    assert not issues, f"{surface}: dialog landmarks malformed:\n  " + "\n  ".join(issues)
-
-
 def _has_main_landmark(html: str, surface: str) -> None:
     assert "<main" in html or 'role="main"' in html, f"{surface}: missing <main> landmark"
 
@@ -115,47 +82,9 @@ def _has_main_landmark(html: str, surface: str) -> None:
 # ── Surfaces ───────────────────────────────────────────────────────────
 
 
-@pytest.mark.django_db
-def test_a11y_producao_matriz(client, superuser):
-    client.force_login(superuser)
-    response = client.get(reverse("admin_console_production"))
-    assert response.status_code == 200
-    html = response.content.decode("utf-8")
-
-    _has_main_landmark(html, "Produção")
-    _assert_no_heading_level_jump(html, "Produção")
-    _buttons_have_accessible_name(html, "Produção")
-    _dialogs_are_well_formed(html, "Produção")
-
-
-@pytest.mark.django_db
-def test_a11y_producao_dashboard(client, superuser):
-    client.force_login(superuser)
-    response = client.get(reverse("admin_console_production_dashboard"))
-    assert response.status_code == 200
-    html = response.content.decode("utf-8")
-
-    _has_main_landmark(html, "Dashboard produção")
-    _assert_no_heading_level_jump(html, "Dashboard produção")
-    _buttons_have_accessible_name(html, "Dashboard produção")
-
-
-@pytest.mark.django_db
-# The production KDS (live floor) a11y is now owned by the fournil. Nuxt app and
-# tested in its suite — the Django HTMX screen was retired in Fase 4. The Admin
-# console production surfaces (matriz/dashboard/relatórios) remain covered above.
-
-
-@pytest.mark.django_db
-def test_a11y_producao_relatorios(client, superuser):
-    client.force_login(superuser)
-    response = client.get(reverse("admin_console_production_reports"))
-    assert response.status_code == 200
-    html = response.content.decode("utf-8")
-
-    _has_main_landmark(html, "Relatórios")
-    _assert_no_heading_level_jump(html, "Relatórios")
-    _buttons_have_accessible_name(html, "Relatórios")
+# A produção inteira (chão, matriz, dashboard e relatórios) é do Fournil
+# (surfaces/production-nuxt): a11y testada na suite do app Nuxt. As telas
+# Django (HTMX na Fase 4, console Admin/Unfold no WP-ADM-7d) foram removidas.
 
 
 @pytest.mark.django_db

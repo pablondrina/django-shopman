@@ -51,44 +51,6 @@ def test_backstage_empty_states_and_icons_use_canonical_scale():
 
 # A fila de pedidos virou app Nuxt dedicado (Gestor); deixou de ser superfície
 # Admin/Unfold, então o guardrail Unfold do console de pedidos foi removido (Fase 2).
-
-
-def test_backstage_production_uses_high_volume_matrix_surface():
-    production = (TEMPLATES / "admin_console" / "production" / "index.html").read_text(encoding="utf-8")
-    admin_console = Path("shopman/backstage/admin_console/production.py").read_text(encoding="utf-8")
-    cells = "\n".join(
-        path.read_text(encoding="utf-8")
-        for path in (TEMPLATES / "admin_console" / "production" / "cells").glob("*.html")
-    )
-
-    assert "Produção do dia" in production
-    assert "Mapa de produção" not in production
-    assert "Matriz de produção" not in production
-    assert "filtersOpen" in production
-    assert "production_filter_summary" in production
-    assert "production_order_sections" in production
-    assert "production_matrix_table" in production
-    assert "matrix_groups" in admin_console
-    assert "Ficha-base" in admin_console
-    assert "base_recipe" in admin_console
-    assert "production_order_sections" in admin_console
-    assert "_details_table" in admin_console
-    assert ">Sugerido<" not in production
-    assert "quantity_display" in admin_console
-    assert "per_unit_display" in admin_console
-    # Split canônico (WP-PE4): a matriz do Admin é LEITURA — planejar/ajustar/
-    # iniciar/concluir vive no Fournil. Nenhuma escrita de produção no Admin:
-    # os cells apresentam estado, sem modais de ação.
-    assert "admin_console/unfold/modal.html" not in cells
-    planning = (TEMPLATES / "admin_console" / "production" / "planning.html").read_text(encoding="utf-8")
-    planning_cell = (
-        TEMPLATES / "admin_console" / "production" / "cells" / "planning_planned.html"
-    ).read_text(encoding="utf-8")
-    assert "set_planned" not in admin_console
-    assert "Salvar planejado" not in admin_console
-    assert "adjustOpen" not in planning_cell
-    assert "modal" not in planning_cell
-    assert "production_fournil_planning_url" in planning
-    assert "surface-modal max-w-sm" not in production
-    assert "Planejar manualmente" not in production
-    assert "Planejar sugerido" not in production
+# O console de produção seguiu o mesmo caminho no WP-ADM-7d: matriz, planejamento,
+# painel, pesagem e relatórios vivem no Fournil (surfaces/production-nuxt), então
+# o guardrail da matriz Admin foi removido junto com os templates.

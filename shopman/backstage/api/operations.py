@@ -47,6 +47,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from shopman.utils.monetary import format_money
 
+from shopman.backstage.api._production_filters import report_filters
 from shopman.backstage.constants import POS_CHANNEL_REF
 from shopman.backstage.projections.closing import build_day_closing
 from shopman.backstage.projections.order_queue import build_operator_order, build_two_zone_queue
@@ -709,9 +710,7 @@ class ProductionReportsView(APIView):
     renderer_classes = [JSONRenderer, ProductionReportsCSVRenderer]
 
     def get(self, request):
-        from shopman.backstage.views.production import _report_filters
-
-        filters = _report_filters(request)
+        filters = report_filters(request)
         if request.accepted_renderer.format == "csv":
             csv_bytes = production_service.export_reports_csv(filters["report_kind"], filters)
             filename = f"producao_{filters['report_kind']}_{filters['date_from']}_{filters['date_to']}.csv"

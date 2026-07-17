@@ -91,7 +91,7 @@ Os builders ficam no mesmo módulo. Views chamam o builder, passam o resultado a
 | Seletor de Estações KDS | `/operacao/kds/` | `runtime/kds_station/picker.html` | `KDSInstanceSummaryProjection` |
 | Estação KDS (preparo/separação/expedição) | `/operacao/kds/estacao/<ref>/` | `runtime/kds_station/index.html` | `KDSBoardProjection` |
 | POS | `/gestor/pos/` | `pos/index.html` | `POSProjection` |
-| Produção | `/admin/operacao/producao/` | `admin_console/production/index.html` | `ProductionBoardProjection` |
+| Produção | Fournil (`surfaces/production-nuxt`) via `api/v1/backstage/production/*` | app Nuxt (console Admin removido no WP-ADM-7d) | `ProductionBoardProjection` |
 | Fechamento | `/admin/operacao/fechamento/` | `admin_console/closing/index.html` | `DayClosingProjection` |
 
 ### 3.3. Admin / Dashboard

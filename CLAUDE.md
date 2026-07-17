@@ -162,8 +162,9 @@ Componentes Unfold devem ser chamados com `{% component "unfold/components/..." 
 `unfold/components/...` diretamente e bypass. Links/paragrafos visuais em templates Admin usam
 `unfold/components/link.html` e `unfold/components/text.html`.
 
-Modal em pagina custom so pode usar o wrapper aprovado `admin_console/unfold/modal.html`, que espelha
-os tokens do shell modal/command do Unfold instalado. Nao crie overlay novo.
+Modal em pagina custom: use as dialog actions oficiais do Unfold (`BaseDialogForm`). O wrapper
+aprovado de modal saiu com o console de producao (WP-ADM-7d); overlay novo exige autorizacao
+explicita via waiver do gate. Nao crie overlay novo.
 
 Pagina Admin custom deve seguir o contrato oficial do Unfold (`UnfoldModelAdminViewMixin`,
 `TemplateView`, `title`, `permission_required`, `.as_view(model_admin=...)`), estender
@@ -184,7 +185,7 @@ Para iterar em uma tela especifica sem bloquear por divida nao relacionada, use 
 URL relativa:
 
 ```bash
-make admin url=/admin/operacao/producao/
+make admin url=/admin/configuracao/copy/
 ```
 
 Esse escopo e para desenvolvimento local. Antes de PR, rode `make admin` sem `url`.
@@ -197,7 +198,7 @@ make test-offerman     # Apenas offerman
 make test-stockman     # Apenas stockman
 make test-framework    # Orquestrador + integration + e2e
 make admin             # Tudo de Admin/Unfold
-make admin url=/admin/operacao/producao/  # Escopo local por URL Admin
+make admin url=/admin/configuracao/copy/  # Escopo local por URL Admin
 make lint              # Ruff + Admin/Unfold
 make run               # Dev server (localhost:8000)
 make seed              # Popular banco com dados Nelson Boulangerie
