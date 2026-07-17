@@ -270,6 +270,20 @@ async function confirmCloseBlocking() {
             </section>
           </template>
 
+          <!-- Relatório de caixa: leituras X/Z e histórico de turnos do dia. -->
+          <section class="grid gap-2 rounded-lg border bg-card p-4">
+            <div class="flex items-center gap-2">
+              <Icon name="lucide:receipt-text" class="size-4 text-muted-foreground" />
+              <h2 class="text-base font-semibold">Relatório de caixa</h2>
+            </div>
+            <p class="text-sm text-muted-foreground">
+              Leitura X do turno aberto, leituras Z dos turnos fechados e o histórico do dia.
+            </p>
+            <UiButton variant="outline" @click="navigateTo('/session/report')">
+              Ver relatório
+            </UiButton>
+          </section>
+
           <!-- Fechamento do DIA (gerente): contagem cega de sobras/perdas. -->
           <section v-if="dayClosing" class="grid gap-2 rounded-lg border bg-card p-4">
             <div class="flex items-center gap-2">
