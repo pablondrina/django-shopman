@@ -58,6 +58,7 @@ class ShowcaseAdmin(ModelAdmin):
     list_display = ("ref", "name", "kind_badge", "collections_count", "is_active")
     list_filter = ("kind", "is_active")
     search_fields = ("ref", "name")
+    ordering = ("name",)
     prepopulated_fields = {"ref": ("name",)}
     fieldsets = (
         (None, {

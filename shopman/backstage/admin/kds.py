@@ -17,6 +17,7 @@ class KDSInstanceAdmin(ModelAdmin):
     list_display = ["name", "ref", "type_badge", "target_time_minutes", "sound_enabled", "is_active_badge", "open_display"]
     list_filter = ["type", "is_active"]
     search_fields = ["name", "ref"]
+    ordering = ["name"]
     prepopulated_fields = {"ref": ("name",)}
     filter_horizontal = ["collections"]
     compressed_fields = True

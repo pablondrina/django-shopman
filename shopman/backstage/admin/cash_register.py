@@ -157,6 +157,7 @@ class POSTerminalAdmin(ModelAdmin):
     list_display = ("ref", "label", "channel_ref", "health_display", "is_active")
     list_filter = ("is_active", "channel_ref")
     search_fields = ("ref", "label", "channel_ref")
+    ordering = ("ref",)
     readonly_fields = ("health_display",)
     fields = ("ref", "label", "channel_ref", "location_ref", "is_active", "metadata", "health_display")
     compressed_fields = True
