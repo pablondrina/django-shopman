@@ -75,6 +75,20 @@ export function lineHoldState (line: HoldFields): CartLineHold | null {
   return null
 }
 
+/** Notice da fornada prevista na REVISÃO do pedido: só quando a data escolhida
+ *  no checkout bate com a fornada que o hold da sacola espera. Encomenda para
+ *  outra data re-ancora a reserva no commit (WP-C) — mostrar "Previsto para
+ *  hoje" num pedido para amanhã contradiria o combinado, que o resumo do
+ *  "quando" já conta. */
+export function reviewPlannedNotice (
+  line: Pick<CartItemProjection, 'is_awaiting_confirmation' | 'planned_for_date' | 'planned_for_notice'>,
+  deliveryDate: string
+): string | null {
+  if (!line.is_awaiting_confirmation || !line.planned_for_notice) return null
+  if (deliveryDate && line.planned_for_date && deliveryDate !== line.planned_for_date) return null
+  return line.planned_for_notice
+}
+
 export function holdCountdown (deadlineIso: string | null | undefined, nowMs: number): { totalSeconds: number, display: string } | null {
   if (!deadlineIso) return null
   const deadline = Date.parse(deadlineIso)

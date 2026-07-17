@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applySkuQty, cartHoldBanner, cartItemsCount, formatCentavos, holdBannerVariant, holdCountdown, isOptimisticLine, lineHoldState, substituteSwapPlan } from '~/presentation/cart'
+import { applySkuQty, cartHoldBanner, cartItemsCount, formatCentavos, holdBannerVariant, holdCountdown, isOptimisticLine, lineHoldState, reviewPlannedNotice, substituteSwapPlan } from '~/presentation/cart'
 import type { CartItemProjection, CartProjection, ProductMutationMeta, SubstituteProjection } from '~/types/shopman'
 
 function line (overrides: Partial<CartItemProjection> = {}): CartItemProjection {
@@ -187,6 +187,20 @@ describe('cart presentation — planned hold', () => {
       .toEqual({ kind: 'awaiting', deadlineIso: null, deadlineDisplay: null, plannedForNotice: null })
     expect(lineHoldState(line({ is_ready_for_confirmation: true, confirmation_deadline_iso: deadline, confirmation_deadline_display: '12:30' })))
       .toEqual({ kind: 'ready', deadlineIso: deadline, deadlineDisplay: '12:30', plannedForNotice: null })
+  })
+
+  it('review suppresses the batch notice when the chosen date is another day', () => {
+    const today = '2026-07-17'
+    const tomorrow = '2026-07-18'
+    const awaiting = line({ is_awaiting_confirmation: true, planned_for_date: today, planned_for_notice: 'Previsto para hoje' })
+
+    // Sem data escolhida (sacola) e com a data batendo → mostra.
+    expect(reviewPlannedNotice(awaiting, '')).toBe('Previsto para hoje')
+    expect(reviewPlannedNotice(awaiting, today)).toBe('Previsto para hoje')
+    // Encomenda para amanhã: a reserva re-ancora no commit; "Previsto para
+    // hoje" contradiria o combinado → some.
+    expect(reviewPlannedNotice(awaiting, tomorrow)).toBeNull()
+    expect(reviewPlannedNotice(line(), today)).toBeNull()
   })
 
   it('carries the expected-batch notice on awaiting lines only', () => {

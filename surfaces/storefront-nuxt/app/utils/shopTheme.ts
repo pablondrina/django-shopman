@@ -204,7 +204,15 @@ export function shopThemeCss (
     blocks.push(
       `.shop-action-inverted.shop-action-inverted { background-color: var(--shop-bottomnav); color: color-mix(in srgb, var(--shop-cta), #000 40%); border-color: transparent; }`,
       `.shop-action-inverted.shop-action-inverted:hover { background-color: color-mix(in srgb, var(--shop-bottomnav) 90%, #000); color: color-mix(in srgb, var(--shop-cta), #000 40%); }`,
-      `.shop-qty-inverted.shop-qty-inverted { background-color: var(--shop-bottomnav); color: color-mix(in srgb, var(--shop-cta), #000 40%); border-color: color-mix(in srgb, var(--shop-cta) 30%, transparent); --foreground: color-mix(in srgb, var(--shop-cta), #000 40%); --accent: color-mix(in srgb, var(--shop-bottomnav) 84%, #000); --accent-foreground: color-mix(in srgb, var(--shop-cta), #000 40%); }`
+      `.shop-qty-inverted.shop-qty-inverted { background-color: var(--shop-bottomnav); color: color-mix(in srgb, var(--shop-cta), #000 40%); border-color: color-mix(in srgb, var(--shop-cta) 30%, transparent); --foreground: color-mix(in srgb, var(--shop-cta), #000 40%); --accent: color-mix(in srgb, var(--shop-bottomnav) 84%, #000); --accent-foreground: color-mix(in srgb, var(--shop-cta), #000 40%); }`,
+      // Dark: --shop-bottomnav vira superfície ESCURA e o chip "invertido"
+      // desapareceria sobre o card ink. A intenção do tratamento é ação CLARA
+      // sobre o vinho — no escuro o chip usa o creme. ``--card-foreground``
+      // (e não ``--foreground``) porque a regra base do qty-inverted remapeia
+      // ``--foreground`` para o texto bronze do próprio chip.
+      `.dark .shop-action-inverted.shop-action-inverted { background-color: var(--card-foreground); }`,
+      `.dark .shop-action-inverted.shop-action-inverted:hover { background-color: color-mix(in srgb, var(--card-foreground) 92%, #000); }`,
+      `.dark .shop-qty-inverted.shop-qty-inverted { background-color: var(--card-foreground); --accent: color-mix(in srgb, var(--card-foreground) 84%, #000); }`
     )
 
     // Seção da busca/reordenar: wash dourado (tint) — não sólido, p/ não engolir o

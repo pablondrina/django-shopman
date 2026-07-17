@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { CheckoutMutationResponse, CheckoutResponse } from '~/types/shopman'
 import { labelPatchPayload, type AddressSelection, type AddressLabelKey } from '~/presentation/address'
+import { reviewPlannedNotice } from '~/presentation/cart'
 import { displayBrazilianPhone, normalizeAuthPhone } from '~/utils/authPhone'
 import { buildCheckoutPayload, createCheckoutAttemptKey, type CheckoutFormState } from '~/utils/checkoutPayload'
 import {
@@ -1439,7 +1440,7 @@ useSeoMeta({
                   <UiBadge v-if="line.is_awaiting_confirmation" variant="outline" class="ml-1 align-middle">
                     Lista de espera
                   </UiBadge>
-                  <span v-if="line.is_awaiting_confirmation && line.planned_for_notice" class="ml-1 shop-meta">{{ line.planned_for_notice }}</span>
+                  <span v-if="reviewPlannedNotice(line, state.delivery_date)" class="ml-1 shop-meta">{{ reviewPlannedNotice(line, state.delivery_date) }}</span>
                 </li>
               </ul>
 
