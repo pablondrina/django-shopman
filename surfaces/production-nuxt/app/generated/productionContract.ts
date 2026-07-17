@@ -282,3 +282,103 @@ export interface ProductionWeighingProjection {
   selected_base_recipe: string;
   tickets: ProductionWeighingTicketProjection[];
 }
+
+/** One blind code ↔ prep row of the manager's correlation map. */
+export interface ProductionBlindMapRowProjection {
+  code: string;
+  name: string;
+  output_quantity_display: string;
+}
+
+/** Manager-only map of the day's blind codes to their preps. */
+export interface ProductionBlindMapProjection {
+  selected_date: string;
+  selected_date_display: string;
+  rows: ProductionBlindMapRowProjection[];
+}
+
+/** A started work order that exceeded its configured target window. */
+export interface ProductionLateWorkOrderProjection {
+  pk: number;
+  ref: string;
+  output_sku: string;
+  operator_ref: string;
+  elapsed_minutes: number;
+  target_minutes: number;
+}
+
+/** Top-level read model for the production dashboard. */
+export interface ProductionDashboardProjection {
+  selected_date: string;
+  selected_date_display: string;
+  planned_orders: number;
+  started_orders: number;
+  finished_orders: number;
+  void_orders: number;
+  planned_qty: string;
+  started_qty: string;
+  finished_qty: string;
+  loss_qty: string;
+  average_yield_rate: string;
+  capacity_percent: number | null;
+  late_orders: ProductionLateWorkOrderProjection[];
+}
+
+/** Normalized filters for production reports. */
+export interface ProductionReportFilters {
+  date_from: string;
+  date_to: string;
+  report_kind: string;
+  recipe_ref: string;
+  position_ref: string;
+  operator_ref: string;
+  status: string;
+}
+
+/** A work order history row for production audit reports. */
+export interface WorkOrderReportRow {
+  ref: string;
+  date: string;
+  recipe_ref: string;
+  recipe_name: string;
+  position_ref: string;
+  qty_planned: string;
+  qty_started: string;
+  qty_finished: string;
+  qty_loss: string;
+  yield_rate: string;
+  operator_ref: string;
+  started_at: string;
+  finished_at: string;
+  duration_minutes: string;
+}
+
+/** Aggregated productivity by production operator. */
+export interface OperatorProductivityRow {
+  operator_ref: string;
+  operator_name: string;
+  wo_count: number;
+  qty_total: string;
+  yield_avg: string;
+  duration_avg_minutes: string;
+}
+
+/** Aggregated waste by recipe. */
+export interface RecipeWasteRow {
+  recipe_ref: string;
+  recipe_name: string;
+  wo_count: number;
+  loss_total: string;
+  yield_avg: string;
+  capacity_utilization: string;
+}
+
+/** Top-level read model for production reports. */
+export interface ProductionReportsProjection {
+  filters: ProductionReportFilters;
+  history_rows: WorkOrderReportRow[];
+  operator_rows: OperatorProductivityRow[];
+  waste_rows: RecipeWasteRow[];
+  available_recipes: RecipeOptionProjection[];
+  available_positions: PositionOptionProjection[];
+}
