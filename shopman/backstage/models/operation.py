@@ -67,8 +67,8 @@ class OperationTaskTemplate(models.Model):
     updated_at = models.DateTimeField("atualizada em", auto_now=True)
 
     class Meta:
-        verbose_name = "template de tarefa operacional"
-        verbose_name_plural = "templates de tarefas operacionais"
+        verbose_name = "modelo de tarefa"
+        verbose_name_plural = "modelos de tarefa"
         ordering = ["moment", "sort_order", "title"]
         permissions = [
             ("manage_operation_checklists", "Pode configurar checklists operacionais"),
@@ -100,8 +100,8 @@ class OperationChecklistTemplate(models.Model):
     updated_at = models.DateTimeField("atualizado em", auto_now=True)
 
     class Meta:
-        verbose_name = "template de checklist operacional"
-        verbose_name_plural = "templates de checklists operacionais"
+        verbose_name = "modelo de checklist"
+        verbose_name_plural = "modelos de checklist"
         ordering = ["moment", "sort_order", "title"]
 
     def __str__(self) -> str:
@@ -127,8 +127,8 @@ class OperationChecklistTemplateTask(models.Model):
     is_required_override = models.BooleanField("obrigatória neste checklist", null=True, blank=True)
 
     class Meta:
-        verbose_name = "tarefa do template de checklist"
-        verbose_name_plural = "tarefas do template de checklist"
+        verbose_name = "tarefa do modelo de checklist"
+        verbose_name_plural = "tarefas do modelo de checklist"
         ordering = ["sort_order", "task_template__title"]
         constraints = [
             models.UniqueConstraint(
