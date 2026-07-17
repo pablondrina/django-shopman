@@ -236,15 +236,6 @@ describe("usePosSale — comandos de sessão (path + body + flags)", () => {
     h.handles.dispose();
   });
 
-  it("registerCashMovement envia kind/amount/reason", async () => {
-    const h = openTabSale();
-    await h.sale.registerCashMovement({ kind: "sangria", amount: "50", reason: "troco" });
-    const call = actionCall.mock.calls.find((c) => String(c[0]).includes("/cash/movement/"))!;
-    expect(call[1]!.body).toEqual({ kind: "sangria", amount: "50", reason: "troco" });
-    expect(h.sale.busy.value).toBe(false);
-    h.handles.dispose();
-  });
-
   it("cancelRecentSale só age quando há resultado e envia order_ref + reason + manager_approval", async () => {
     const h = openTabSale();
     // sem result → no-op

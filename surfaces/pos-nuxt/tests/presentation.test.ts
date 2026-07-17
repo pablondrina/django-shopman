@@ -38,7 +38,7 @@ import {
   tenderLineView,
   tenderSumQ,
 } from "../app/presentation/payment";
-import { formatOpenedAt, isTerminalOccupied, movementLabel } from "../app/presentation/cash";
+import { formatOpenedAt, isTerminalOccupied, movementLabel, requiresOpenShiftForSale, sessionScreenState } from "../app/presentation/cash";
 import {
   availableMoveModes,
   buildMovePayload,
@@ -417,6 +417,22 @@ describe("presentation/cash — blind drawer shaping", () => {
     expect(isTerminalOccupied({ ...base, blocking_operator_username: "ana" }, false)).toBe(true);
     expect(isTerminalOccupied({ ...base, blocking_operator_username: "ana" }, true)).toBe(false);
     expect(isTerminalOccupied(base, false)).toBe(false);
+  });
+
+  it("requires an open shift for sale unless the contract opts out", () => {
+    // Ausência da capability (ou da flag) = exigido — o default seguro.
+    expect(requiresOpenShiftForSale(null)).toBe(true);
+    expect(requiresOpenShiftForSale(undefined)).toBe(true);
+    expect(requiresOpenShiftForSale({})).toBe(true);
+    expect(requiresOpenShiftForSale({ requires_open_shift_for_sale: true })).toBe(true);
+    expect(requiresOpenShiftForSale({ requires_open_shift_for_sale: false })).toBe(false);
+  });
+
+  it("derives the session lobby screen state from the runtime", () => {
+    const base = { has_open_shift: false, shift_id: null, terminal_ref: "t1", terminal_label: "T1", operator_username: "", opened_at: "" } as POSCashRuntimeProjection;
+    expect(sessionScreenState({ ...base, status: "terminal_occupied" }, false)).toBe("occupied");
+    expect(sessionScreenState(base, true)).toBe("open");
+    expect(sessionScreenState(base, false)).toBe("closed");
   });
 });
 

@@ -146,7 +146,6 @@ export function usePosSale(deps: PosSaleDeps) {
   // Odoo-style: the Tabs screen is the first screen; opening a tab moves to the
   // sale workspace. "Comandas" returns to the Tabs screen with the tab still open.
   const showTabs = ref(true);
-  const cashDialogOpen = ref(false);
   const moveDialogOpen = ref(false);
   const review = ref<POSSaleReviewProjection | null>(null);
   const customerLookup = ref<POSCustomerLookupProjection | null>(null);
@@ -194,14 +193,12 @@ export function usePosSale(deps: PosSaleDeps) {
   const checkoutCapabilities = computed<POSCheckoutCapabilities>(
     () => (checkoutContract.value?.capabilities ?? {}) as POSCheckoutCapabilities,
   );
-  const cashManagement = computed(() => checkoutCapabilities.value.cash_management ?? null);
   const kitchenHandoff = computed(() => checkoutCapabilities.value.kitchen_handoff ?? null);
   const canFireTab = computed(() => Boolean(kitchenHandoff.value?.fire_action_ref));
   const tabManipulation = computed(() => checkoutCapabilities.value.tab_manipulation ?? null);
   const canRenameTab = computed(() => Boolean(tabManipulation.value?.rename_action_ref));
   const saleCorrection = computed(() => checkoutCapabilities.value.sale_correction ?? null);
   const canCancelRecentSale = computed(() => Boolean(saleCorrection.value?.cancel_recent_action_ref));
-  const movementKinds = computed<string[]>(() => cashManagement.value?.movement_kinds || ["sangria", "suprimento", "ajuste"]);
   const tabMaxLength = computed(() => tabRefMaxLength(checkoutCapabilities.value));
   const tabPlaceholder = computed(() => tabRefPlaceholder(checkoutCapabilities.value));
   const tabDisallowedChars = computed(() => tabRefDisallowedChars(checkoutCapabilities.value));
@@ -1332,71 +1329,6 @@ export function usePosSale(deps: PosSaleDeps) {
     }
   }
 
-  async function openCashShift(amount: string) {
-    serverError.value = "";
-    busy.value = true;
-    try {
-      await action.call(actionHref(actions.value, "open_cash_shift", "/api/v1/backstage/pos/cash/open/"), {
-        body: { opening_amount: amount || "0", terminal_ref: pos.value?.terminal_ref || "" },
-      });
-      cashDialogOpen.value = false;
-      await refresh();
-    } catch (error) {
-      serverError.value = httpErrorMessage(error, "Falha ao abrir caixa.");
-    } finally {
-      busy.value = false;
-    }
-  }
-
-  async function closeCashShift(payload: { amount: string; notes: string }) {
-    serverError.value = "";
-    busy.value = true;
-    try {
-      await action.call(actionHref(actions.value, "close_cash_shift", "/api/v1/backstage/pos/cash/close/"), {
-        body: { closing_amount: payload.amount || "0", notes: payload.notes },
-      });
-      cashDialogOpen.value = false;
-      await refresh();
-    } catch (error) {
-      serverError.value = httpErrorMessage(error, "Falha ao fechar caixa.");
-    } finally {
-      busy.value = false;
-    }
-  }
-
-  // Fecha (contagem cega) o turno que bloqueia o terminal — gerente ou dono.
-  // Destrava o terminal para o operador atual abrir o seu.
-  async function closeBlockingShift(payload: { shift_id: number; amount: string; notes: string }) {
-    serverError.value = "";
-    busy.value = true;
-    try {
-      await action.call("/api/v1/backstage/pos/cash/close-blocking/", {
-        body: { shift_id: payload.shift_id, closing_amount: payload.amount || "0", notes: payload.notes },
-      });
-      cashDialogOpen.value = false;
-      await refresh();
-    } catch (error) {
-      serverError.value = httpErrorMessage(error, "Falha ao fechar o turno.");
-    } finally {
-      busy.value = false;
-    }
-  }
-
-  async function registerCashMovement(payload: { kind: string; amount: string; reason: string }) {
-    serverError.value = "";
-    busy.value = true;
-    try {
-      await action.call(actionHref(actions.value, "cash_movement", "/api/v1/backstage/pos/cash/movement/"), {
-        body: { kind: payload.kind, amount: payload.amount || "0", reason: payload.reason },
-      });
-      await refresh();
-    } catch (error) {
-      serverError.value = httpErrorMessage(error, "Falha ao registrar movimento.");
-    } finally {
-      busy.value = false;
-    }
-  }
-
   onScopeDispose(() => stopPixPolling());
 
   return {
@@ -1420,7 +1352,6 @@ export function usePosSale(deps: PosSaleDeps) {
     result,
     checkoutMode,
     showTabs,
-    cashDialogOpen,
     moveDialogOpen,
     review,
     customerLookup,
@@ -1434,7 +1365,6 @@ export function usePosSale(deps: PosSaleDeps) {
     tabManipulation,
     canCancelRecentSale,
     saleCorrection,
-    movementKinds,
     tabMaxLength,
     tabPlaceholder,
     tabDisallowedChars,
@@ -1501,9 +1431,5 @@ export function usePosSale(deps: PosSaleDeps) {
     renameTab,
     openCancelSaleDialog,
     cancelRecentSale,
-    openCashShift,
-    closeCashShift,
-    closeBlockingShift,
-    registerCashMovement,
   };
 }

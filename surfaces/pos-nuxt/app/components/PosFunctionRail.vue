@@ -11,8 +11,8 @@ defineProps<{
   hasOpenCashSession: boolean;
   operatorName: string;
   pending: boolean;
-  /** qual tela de trabalho está ativa, para acender o item de Comandas. */
-  view: "board" | "sale" | "checkout";
+  /** qual tela de trabalho está ativa, para acender o item correspondente. */
+  view: "board" | "sale" | "checkout" | "session";
 }>();
 
 const emit = defineEmits<{
@@ -42,8 +42,9 @@ const hubUrl = useRuntimeConfig().public.operatorHubUrl as string;
       />
       <RailItem
         icon="wallet"
-        :label="hasOpenCashSession ? 'Caixa aberto' : 'Abrir caixa'"
-        :aria-label="hasOpenCashSession ? 'Caixa aberto' : 'Abrir caixa'"
+        :label="hasOpenCashSession ? 'Sessão de caixa' : 'Abrir caixa'"
+        :aria-label="hasOpenCashSession ? 'Sessão de caixa' : 'Abrir caixa'"
+        :active="view === 'session'"
         :attention="!hasOpenCashSession"
         @activate="emit('cash')"
       />

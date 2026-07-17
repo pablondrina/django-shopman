@@ -87,6 +87,7 @@ export interface POSCheckoutSectionProjection {
 // pode carregar mais) e mantém cada capability atribuível a `Record<string, unknown>`.
 export interface POSCashManagementCapability {
   movement_kinds?: string[];
+  requires_open_shift_for_sale?: boolean;
   [key: string]: unknown;
 }
 export interface POSKitchenHandoffCapability {
