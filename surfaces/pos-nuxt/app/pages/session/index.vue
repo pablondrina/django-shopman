@@ -7,6 +7,7 @@
 // mostra o valor esperado da gaveta — a conferência (esperado vs contado) fica
 // no retaguarda. O fechamento do DIA (sobras/perdas) entra em `/session/closing`.
 import { formatOpenedAt, movementLabel, sessionScreenState } from "~/presentation/cash";
+import type { DayClosingResponse } from "~/types/closing";
 
 useHead({ title: "Sessão de caixa · Shopman POS" });
 
@@ -24,6 +25,14 @@ const {
   closeBlockingShift,
   registerCashMovement,
 } = usePosCashSession({ pos, actions, refresh, action });
+
+// Entrada do FECHAMENTO DO DIA (contagem cega de sobras): o gate é da API
+// (`backstage.perform_closing`) — sondagem leve; 401/403 = card não aparece.
+const { data: dayClosingData } = useFetch<DayClosingResponse>(
+  "/api/v1/backstage/closing/",
+  { key: "day-closing-entry", credentials: "include", lazy: true, server: false },
+);
+const dayClosing = computed(() => dayClosingData.value?.closing ?? null);
 
 const screen = computed(() => {
   if (!pos.value) return "closed";
@@ -260,6 +269,21 @@ async function confirmCloseBlocking() {
               </div>
             </section>
           </template>
+
+          <!-- Fechamento do DIA (gerente): contagem cega de sobras/perdas. -->
+          <section v-if="dayClosing" class="grid gap-2 rounded-lg border bg-card p-4">
+            <div class="flex items-center gap-2">
+              <Icon name="lucide:clipboard-check" class="size-4 text-muted-foreground" />
+              <h2 class="text-base font-semibold">Fechamento do dia</h2>
+            </div>
+            <p class="text-sm text-muted-foreground">
+              <template v-if="dayClosing.already_closed">{{ dayClosing.existing_closing_display }}</template>
+              <template v-else>{{ dayClosing.today_display }} · contagem cega de sobras e perdas.</template>
+            </p>
+            <UiButton variant="outline" @click="navigateTo('/session/closing')">
+              {{ dayClosing.already_closed ? "Ver fechamento" : "Fazer o fechamento" }}
+            </UiButton>
+          </section>
         </div>
       </div>
     </div>

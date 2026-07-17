@@ -30,6 +30,9 @@ export default defineNuxtConfig({
       // URL do Gestor de Pedidos (orders-nuxt) — links cross-app "abrir no gestor"
       // apontam pra cá. Dev: orders-nuxt em :3004; prod: gestor.<zona> via env.
       ordersUrl: process.env.NUXT_PUBLIC_ORDERS_URL || "http://127.0.0.1:3004/",
+      // URL do Fournil (production-nuxt) — links cross-app "resolver na produção"
+      // (ex.: fechamento do dia com ordens abertas). Dev: :3005; prod: fournil.<zona>.
+      productionUrl: process.env.NUXT_PUBLIC_PRODUCTION_URL || "http://127.0.0.1:3005/",
     },
   },
 });
