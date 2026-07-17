@@ -17,17 +17,10 @@ INVENTORY = ROOT / "docs/reference/unfold_canonical_inventory.md"
 BACKSTAGE_TEMPLATES = ROOT / "shopman/backstage/templates"
 BACKSTAGE_PROJECTIONS = ROOT / "shopman/backstage/projections"
 APPROVED_MODAL_TEMPLATE = ROOT / "shopman/backstage/templates/admin_console/unfold/modal.html"
-APPROVED_ROW_ACTION_TEMPLATE = ROOT / "shopman/backstage/templates/admin_console/unfold/row_action_icon.html"
 APPROVED_MODAL_OVERLAY_CLASS = "backdrop-blur-xs bg-base-900/80 flex flex-col fixed inset-0 p-4 lg:p-32 z-[1000]"
 APPROVED_MODAL_PANEL_CLASS = (
     "bg-white flex flex-col max-w-sm min-h-0 mx-auto overflow-hidden rounded-default shadow-lg "
     "w-full dark:bg-base-800"
-)
-APPROVED_ROW_ACTION_CLASS = (
-    "bg-white border border-base-200 cursor-pointer flex items-center h-[38px] justify-center ml-2 "
-    "rounded-default shadow-xs shrink-0 text-base-400 text-sm w-[38px] hover:text-base-700 "
-    "dark:bg-base-900 dark:border-base-700 dark:text-base-500 dark:hover:text-base-200 "
-    "focus:outline-2 focus:-outline-offset-2 focus:outline-primary-600"
 )
 CLASS_ATTR_RE = re.compile(
     r"\bclass=(?P<quote>[\"'])(?P<classes>.*?)(?P=quote)",
@@ -495,9 +488,6 @@ def scan_file(path: Path, *, strict: bool) -> list[Violation]:
                 if _is_approved_modal_shell(path, line, rule):
                     line_rules.add(rule)
                     continue
-                if _is_approved_row_action_shell(path, line, rule):
-                    line_rules.add(rule)
-                    continue
                 if rule == "raw-modal-overlay" and path.resolve() != APPROVED_MODAL_TEMPLATE:
                     violations.append(
                         Violation(
@@ -573,14 +563,6 @@ def _is_approved_modal_shell(path: Path, line: str, rule: str) -> bool:
     return False
 
 
-def _is_approved_row_action_shell(path: Path, line: str, rule: str) -> bool:
-    if path.resolve() != APPROVED_ROW_ACTION_TEMPLATE:
-        return False
-    if rule in {"raw-button", "raw-visual-shell"}:
-        return APPROVED_ROW_ACTION_CLASS in line
-    return False
-
-
 def scan_approved_custom_partials() -> list[Violation]:
     violations: list[Violation] = []
     modal = APPROVED_MODAL_TEMPLATE
@@ -604,27 +586,6 @@ def scan_approved_custom_partials() -> list[Violation]:
                         1,
                         "invalid-approved-modal",
                         f"Approved custom modal wrapper is missing `{marker}`.",
-                        "",
-                    )
-                )
-    row_action = APPROVED_ROW_ACTION_TEMPLATE
-    if row_action.exists():
-        text = row_action.read_text(encoding="utf-8")
-        required = [
-            "unfold-canonical: allow raw-button",
-            APPROVED_ROW_ACTION_CLASS,
-            "type=\"{% if submit %}submit{% else %}button{% endif %}\"",
-            "aria-label",
-            'component "unfold/components/icon.html"',
-        ]
-        for marker in required:
-            if marker not in text:
-                violations.append(
-                    Violation(
-                        row_action,
-                        1,
-                        "invalid-approved-row-action",
-                        f"Approved row action wrapper is missing `{marker}`.",
                         "",
                     )
                 )
@@ -700,8 +661,6 @@ def _is_approved_custom_shell_line(path: Path, line: str) -> bool:
     resolved = path.resolve()
     if resolved == APPROVED_MODAL_TEMPLATE:
         return APPROVED_MODAL_OVERLAY_CLASS in line or APPROVED_MODAL_PANEL_CLASS in line
-    if resolved == APPROVED_ROW_ACTION_TEMPLATE:
-        return APPROVED_ROW_ACTION_CLASS in line
     return False
 
 

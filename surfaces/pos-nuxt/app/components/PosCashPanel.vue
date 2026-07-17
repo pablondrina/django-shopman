@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Cash drawer (spec §2.6, blind count). Open / close / sangria / suprimento.
+// Cash drawer (spec §2.6, blind count). Open / close / sangria / suprimento / ajuste.
 // BLIND: the panel never shows the expected drawer (cash/digital totals) — the
 // operator counts without a target, so a skim can't be matched to expectation.
 // The reconciliation report (expected vs counted, variance) lives in the

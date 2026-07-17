@@ -401,6 +401,7 @@ describe("presentation/cash — blind drawer shaping", () => {
   it("labels movement kinds with a fallback", () => {
     expect(movementLabel("sangria")).toBe("Sangria");
     expect(movementLabel("suprimento")).toBe("Suprimento");
+    expect(movementLabel("ajuste")).toBe("Ajuste");
     expect(movementLabel("custom")).toBe("custom");
   });
 
