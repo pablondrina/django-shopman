@@ -125,30 +125,10 @@ def _glob(pattern: str) -> tuple[Path, ...]:
 # NOTA: a superfície `admin-console-orders` foi removida — a fila de pedidos virou
 # app Nuxt dedicado (Gestor, surfaces/orders-nuxt) via api/v1/backstage/orders/*
 # (OPERATOR-APPS-PLAN Fase 2). Deixou de ser superfície Admin/Unfold.
+# A superfície admin-console-day-closing foi removida — o fechamento do DIA
+# virou tela da antesala do PDV (pos-nuxt /session/closing, ADMIN-ROLE-PLAN
+# WP-ADM-3); a projection de closing alimenta a API headless (exceção abaixo).
 CANONICAL_ADMIN_SURFACES: tuple[Surface, ...] = (
-    Surface(
-        id="admin-console-day-closing",
-        kind="canonical-admin-unfold-page",
-        templates=(ROOT / "shopman/backstage/templates/admin_console/closing",),
-        controllers=(ROOT / "shopman/backstage/admin_console/closing.py",),
-        projections=(ROOT / "shopman/backstage/projections/closing.py",),
-        url_prefixes=("/admin/operacao/fechamento/",),
-        requires_model_admin_view_mixin=True,
-        required_extends="admin/base.html",
-        required_template_markers=(
-            'include "unfold/helpers/messages.html"',
-            'component "unfold/components/button.html"',
-            'component "unfold/components/container.html"',
-            'component "unfold/components/table.html"',
-            'component "unfold/components/text.html"',
-            'component "unfold/components/title.html"',
-        ),
-        required_controller_markers=(
-            "UnfoldAdminIntegerFieldWidget",
-            "build_day_closing",
-            "perform_day_closing",
-        ),
-    ),
     Surface(
         id="admin-console-production",
         kind="canonical-admin-unfold-page",
@@ -272,12 +252,14 @@ EXCEPTION_SURFACES: tuple[Surface, ...] = (
             ROOT / "shopman/backstage/projections/kds.py",
             ROOT / "shopman/backstage/projections/catalog.py",
             ROOT / "shopman/backstage/projections/showcase.py",
+            ROOT / "shopman/backstage/projections/closing.py",
         ),
         exception_reason=(
-            "Order queue + KDS + catalog-matrix + expositores projections feed dedicated "
-            "headless Nuxt operator apps (gestor./kds. via api/v1/backstage/*), not Admin/"
-            "Unfold pages (OPERATOR-APPS-PLAN Fase 2; CROSS-CHANNEL-CATALOG-HUB-PLAN Frente 3 — "
-            "config de rule/capability fica no Admin/Unfold, a matriz operacional no Gestor)."
+            "Order queue + KDS + catalog-matrix + expositores + day-closing projections feed "
+            "dedicated headless Nuxt operator apps (gestor./kds./pos. via api/v1/backstage/*), "
+            "not Admin/Unfold pages (OPERATOR-APPS-PLAN Fase 2; CROSS-CHANNEL-CATALOG-HUB-PLAN "
+            "Frente 3; ADMIN-ROLE-PLAN WP-ADM-3 — config de rule/capability fica no Admin/"
+            "Unfold, a matriz operacional no Gestor, o fechamento do dia na antesala do PDV)."
         ),
     ),
 )

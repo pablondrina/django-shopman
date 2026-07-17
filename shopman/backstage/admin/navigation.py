@@ -14,6 +14,7 @@ from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
 from shopman.backstage import permissions
+from shopman.shop.services import pos_links
 
 logger = logging.getLogger(__name__)
 
@@ -73,16 +74,19 @@ def get_sidebar_navigation(request):
             badge_variant="info",
         )
     )
-    live_items.append(
-        _item(
-            "Fechamento",
-            "fact_check",
-            _url("admin_console_day_closing"),
-            permission=_can_close_day,
-        )
-    )
     pos_url = _pos_base_url()
     if pos_url:
+        # O fechamento do DIA migrou para a antesala do PDV (pos-nuxt
+        # /session/closing, ADMIN-ROLE-PLAN WP-ADM-3). Sem URL configurada o
+        # item some (sem link morto), como POS/KDS.
+        live_items.append(
+            _item(
+                "Fechamento",
+                "fact_check",
+                pos_links.pos_url(pos_links.path_day_closing()),
+                permission=_can_close_day,
+            )
+        )
         live_items.append(_item("POS", "point_of_sale", pos_url, permission=_can_operate_pos))
     kds_url = _kds_base_url()
     if kds_url:

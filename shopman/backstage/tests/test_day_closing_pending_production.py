@@ -89,13 +89,14 @@ class TestPendingProductionPage:
         client.force_login(user)
 
         wo = craft.plan(recipe, 10, date=date.today() - timedelta(days=1))
-        resp = client.get("/admin/operacao/fechamento/")
+        resp = client.get("/api/v1/backstage/closing/")
 
         assert resp.status_code == 200
-        content = resp.content.decode()
-        assert "Producao pendente" in content
-        assert wo.ref in content
-        assert "(atrasada)" in content
+        closing = resp.json()["closing"]
+        assert closing["has_pending_production"] is True
+        rows = closing["pending_production"]
+        assert wo.ref in [row["ref"] for row in rows]
+        assert any(row["is_overdue"] for row in rows)
 
     def test_closing_page_hides_block_without_pending(self, client):
         from django.contrib.auth.models import Permission
@@ -113,9 +114,11 @@ class TestPendingProductionPage:
         )
         client.force_login(user)
 
-        resp = client.get("/admin/operacao/fechamento/")
+        resp = client.get("/api/v1/backstage/closing/")
         assert resp.status_code == 200
-        assert "Producao pendente" not in resp.content.decode()
+        closing = resp.json()["closing"]
+        assert closing["has_pending_production"] is False
+        assert closing["pending_production"] == []
 
 
 class TestPendingProductionSnapshot:

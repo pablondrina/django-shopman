@@ -24,8 +24,18 @@ def pos_base_url() -> str:
 
 
 def path_counter() -> str:
-    """Tela principal do PDV (o app POS é single-page)."""
+    """Tela de venda do PDV (rota raiz)."""
     return "/"
+
+
+def path_session() -> str:
+    """Antesala de sessão de caixa (abrir/fechar turno, movimentos)."""
+    return "/session"
+
+
+def path_day_closing() -> str:
+    """Fechamento do DIA (contagem cega de sobras/perdas) na antesala."""
+    return "/session/closing"
 
 
 def pos_url(path: str) -> str:

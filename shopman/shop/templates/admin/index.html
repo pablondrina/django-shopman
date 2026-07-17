@@ -174,12 +174,13 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8">
         {% component "unfold/components/card.html" with title="Estoque D-1" icon="schedule" %}
             {% component "unfold/components/table.html" with table=table_d1 card_included=1 striped=1 height=220 %}{% endcomponent %}
+            {% if day_closing_url %}
             <div class="px-4 pb-3">
-                {% url 'admin_console_day_closing' as day_closing_url %}
                 {% component "unfold/components/link.html" with href=day_closing_url icon="arrow_forward" %}
                     Ir para Fechamento
                 {% endcomponent %}
             </div>
+            {% endif %}
         {% endcomponent %}
     </div>
     {% endif %}

@@ -39,8 +39,12 @@ class AdminNavigationTests(TestCase):
         request = RequestFactory().get("/admin/")
         request.user = User.objects.create_superuser("admin", "admin@example.com", "pw")
 
-        # Pedidos é app Nuxt headless (env-gated); configurado, lidera a operação ao vivo.
-        with override_settings(SHOPMAN_ORDERS_BASE_URL="https://gestor.example.com"):
+        # Pedidos e PDV são apps Nuxt headless (env-gated); configurados, o
+        # Fechamento (antesala do PDV) entra na operação ao vivo com deep-link.
+        with override_settings(
+            SHOPMAN_ORDERS_BASE_URL="https://gestor.example.com",
+            SHOPMAN_POS_BASE_URL="https://pos.example.com",
+        ):
             groups = admin.site.get_sidebar_list(request)
         titles = [group["title"] for group in groups]
 
@@ -50,8 +54,11 @@ class AdminNavigationTests(TestCase):
         self.assertIn("Auditoria e acesso", titles)
         self.assertNotIn("Regras", titles)
 
-        live_items = [item["title"] for item in groups[0]["items"] if item["has_permission"]]
-        self.assertEqual(live_items[:3], ["Pedidos", "Produção", "Fechamento"])
+        live = [item for item in groups[0]["items"] if item["has_permission"]]
+        live_items = [item["title"] for item in live]
+        self.assertEqual(live_items[:4], ["Pedidos", "Produção", "Fechamento", "POS"])
+        closing_item = next(item for item in live if item["title"] == "Fechamento")
+        self.assertEqual(closing_item["link"], "https://pos.example.com/session/closing")
 
     def test_pos_nav_item_hidden_without_url_shown_when_configured(self) -> None:
         """POS é Nuxt headless: sem SHOPMAN_POS_BASE_URL o item some (sem link morto);
