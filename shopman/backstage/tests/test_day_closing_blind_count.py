@@ -25,6 +25,15 @@ def _grant_closing_perm(user):
 
 
 class DayClosingBlindCountTests(TestCase):
+    """Contagem cega via a API headless do fechamento (antesala do PDV).
+
+    A tela Admin/Unfold foi removida (ADMIN-ROLE-PLAN WP-ADM-3); a superfície é
+    `pos-nuxt /session/closing` sobre `GET/POST /api/v1/backstage/closing/`. A
+    cegueira visual (não exibir o disponível ao operador) é contrato da PÁGINA
+    (vitest do pos-nuxt); aqui garantimos a semântica do registro: reported vs
+    applied sem clamp silencioso, destino "Ontem" e o gate por permissão.
+    """
+
     def setUp(self) -> None:
         _make_shop()
         User = get_user_model()
@@ -46,26 +55,33 @@ class DayClosingBlindCountTests(TestCase):
             reason="seed test",
         )
 
-    def test_closing_form_is_blind_count_for_operator(self) -> None:
-        resp = self.client.get("/admin/operacao/fechamento/")
+    def test_closing_projection_lists_items_with_classification(self) -> None:
+        resp = self.client.get("/api/v1/backstage/closing/")
 
         self.assertEqual(resp.status_code, 200)
-        content = resp.content.decode()
-        self.assertIn(
-            "Informe apenas o que sobrou fisicamente. "
-            "O sistema trata destino e perdas automaticamente.",
-            content,
-        )
-        self.assertIn("Sobraram", content)
-        self.assertNotIn("Disponível", content)
-        self.assertNotIn("Tipo", content)
-        self.assertNotIn("D-1", content)
-        self.assertNotIn('max="2"', content)
+        closing = resp.json()["closing"]
+        self.assertFalse(closing["already_closed"])
+        item = next(it for it in closing["items"] if it["sku"] == self.product.sku)
+        self.assertEqual(item["classification"], "d1")
+
+    def test_closing_api_requires_perform_closing_permission(self) -> None:
+        User = get_user_model()
+        other = User.objects.create_user(username="no-perm", password="x", is_staff=True)
+        self.client.force_login(other)
+
+        resp = self.client.get("/api/v1/backstage/closing/")
+
+        self.assertEqual(resp.status_code, 403)
 
     def test_closing_records_reported_and_applied_quantities_without_silent_clamp(self) -> None:
-        resp = self.client.post("/admin/operacao/fechamento/", {f"qty_{self.product.sku}": "5"})
+        resp = self.client.post(
+            "/api/v1/backstage/closing/",
+            {"quantities": {self.product.sku: "5"}},
+            content_type="application/json",
+        )
 
-        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()["ok"])
         closing = DayClosing.objects.get()
         row = closing.data["items"][0]
         self.assertEqual(row["sku"], self.product.sku)
@@ -79,6 +95,23 @@ class DayClosingBlindCountTests(TestCase):
         self.assertEqual(saleable.quantity, 0)
         self.assertEqual(d1.quantity, 2)
 
-    def test_old_day_closing_route_name_is_not_registered(self) -> None:
+    def test_closing_twice_returns_conflict(self) -> None:
+        first = self.client.post(
+            "/api/v1/backstage/closing/",
+            {"quantities": {self.product.sku: "0"}},
+            content_type="application/json",
+        )
+        self.assertEqual(first.status_code, 200)
+
+        second = self.client.post(
+            "/api/v1/backstage/closing/",
+            {"quantities": {self.product.sku: "0"}},
+            content_type="application/json",
+        )
+
+        self.assertEqual(second.status_code, 409)
+        self.assertEqual(DayClosing.objects.count(), 1)
+
+    def test_admin_day_closing_route_is_gone(self) -> None:
         with self.assertRaises(NoReverseMatch):
-            reverse("backstage:day_closing")
+            reverse("admin_console_day_closing")

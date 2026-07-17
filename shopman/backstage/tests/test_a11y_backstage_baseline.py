@@ -19,14 +19,6 @@ def test_admin_modal_wrapper_is_accessible():
     assert 'aria-modal="true"' in wrapper
 
 
-def test_closing_reconciliation_has_textual_discrepancy_state():
-    html = _read("shopman/backstage/templates/admin_console/closing/index.html")
-
-    assert "Discrepancias detectadas" in html
-    assert "Producao do dia" in html
-    assert "day_closing_reconciliation_table" in html
-
-
 def test_accessibility_guide_documents_manual_audit():
     doc = _read("docs/guides/backstage-accessibility.md")
 

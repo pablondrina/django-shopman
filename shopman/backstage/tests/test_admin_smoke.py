@@ -148,7 +148,6 @@ def test_core_models_use_unfold_admin(model):
         "admin_console_production_planning",
         "admin_console_production_dashboard",
         "admin_console_production_reports",
-        "admin_console_day_closing",
     ],
 )
 def test_admin_console_pages_render(admin_client, url_name):

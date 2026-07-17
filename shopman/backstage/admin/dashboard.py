@@ -16,6 +16,7 @@ from django.utils.html import format_html
 from shopman.utils import table_badge
 
 from shopman.backstage.projections.dashboard import build_dashboard
+from shopman.shop.services import pos_links
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,11 @@ def _omotenashi_health() -> dict:
     }
 
 
+def _day_closing_url() -> str:
+    """Deep-link do fechamento do dia na antesala do PDV; vazio ⇒ link oculto."""
+    return pos_links.pos_url(pos_links.path_day_closing())
+
+
 # ── Main callback ────────────────────────────────────────────────────
 
 
@@ -70,6 +76,8 @@ def dashboard_callback(request, context):
         "kpi_operator_alerts": proj.kpi_operator_alerts,
         # Quick-link URLs
         "orders_url": reverse("admin:orderman_order_changelist"),
+        # Fechamento do DIA vive na antesala do PDV (env-gated como o item da sidebar).
+        "day_closing_url": _day_closing_url(),
         # Charts (JSON for Chart.js)
         "chart_pedidos_status": proj.chart_pedidos_status,
         "chart_pedidos_status_options": json.dumps({"indexAxis": "y"}),

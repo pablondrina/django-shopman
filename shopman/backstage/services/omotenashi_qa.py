@@ -313,12 +313,12 @@ def _day_closing_check() -> OmotenashiQACheck:
     evidence = f"closing={closing.date.isoformat()} id={closing.pk}" if closing else ""
     return _check(
         id="desktop.closing.day",
-        surface="backstage",
+        surface="pos",
         viewport="desktop 1440x900",
         persona="gerente fechando o dia",
         title="Fechamento do dia com sobras e reconciliacao",
-        url=_url("admin_console_day_closing"),
-        expectation="Gerente deve conferir sobras, D-1, caixa e divergencias sem planilha paralela.",
+        url=pos_links.pos_url(pos_links.path_day_closing()),
+        expectation="Gerente deve conferir sobras, itens de ontem, caixa e divergencias sem planilha paralela.",
         evidence=evidence,
         blocker="Rode make seed; nenhum DayClosing foi encontrado.",
     )

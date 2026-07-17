@@ -158,14 +158,5 @@ def test_a11y_producao_relatorios(client, superuser):
     _buttons_have_accessible_name(html, "Relatórios")
 
 
-@pytest.mark.django_db
-def test_a11y_fechamento(client, superuser):
-    client.force_login(superuser)
-    response = client.get(reverse("admin_console_day_closing"))
-    assert response.status_code == 200
-    html = response.content.decode("utf-8")
-
-    _has_main_landmark(html, "Fechamento")
-    _buttons_have_accessible_name(html, "Fechamento")
 
 

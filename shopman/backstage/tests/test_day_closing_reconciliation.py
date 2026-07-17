@@ -69,9 +69,13 @@ def test_perform_day_closing_persists_production_summary(client, setup_stock, cl
     craft.finish(wo, finished=4, actor="test")
     client.force_login(closing_user)
 
-    response = client.post("/admin/operacao/fechamento/", {"qty_RECON-SKU": "1"})
+    response = client.post(
+        "/api/v1/backstage/closing/",
+        {"quantities": {"RECON-SKU": "1"}},
+        content_type="application/json",
+    )
 
-    assert response.status_code == 302
+    assert response.status_code == 200
     closing = DayClosing.objects.get()
     assert closing.data["production_summary"]["recon-close"]["finished"] == 4
     assert "reconciliation_errors" in closing.data
@@ -88,9 +92,13 @@ def test_perform_day_closing_persists_cash_shift_summary(client, setup_stock, cl
     shift.close(blind_closing_amount_q=1000)
     client.force_login(closing_user)
 
-    response = client.post("/admin/operacao/fechamento/", {"qty_RECON-SKU": "0"})
+    response = client.post(
+        "/api/v1/backstage/closing/",
+        {"quantities": {"RECON-SKU": "0"}},
+        content_type="application/json",
+    )
 
-    assert response.status_code == 302
+    assert response.status_code == 200
     summary = DayClosing.objects.get().data["cash_shift_summary"]
     assert summary["closed_shifts"][0]["id"] == shift.pk
     assert summary["totals"]["blind_closing_amount_q"] == 1000
@@ -128,9 +136,13 @@ def test_day_closing_summarizes_payment_methods_and_cod_pending(client, setup_st
     )
     client.force_login(closing_user)
 
-    response = client.post("/admin/operacao/fechamento/", {"qty_RECON-SKU": "0"})
+    response = client.post(
+        "/api/v1/backstage/closing/",
+        {"quantities": {"RECON-SKU": "0"}},
+        content_type="application/json",
+    )
 
-    assert response.status_code == 302
+    assert response.status_code == 200
     methods = DayClosing.objects.get().data["cash_shift_summary"]["payment_method_totals"]
     assert methods["cash"] == 500
     assert methods["pix"] == 1000
@@ -144,9 +156,13 @@ def test_reconciliation_error_when_sold_exceeds_available(client, setup_stock, c
     OrderItem.objects.create(order=order, line_id="1", sku="RECON-SKU", name="Recon", qty=5, unit_price_q=100, line_total_q=500)
     client.force_login(closing_user)
 
-    response = client.post("/admin/operacao/fechamento/", {"qty_RECON-SKU": "0"})
+    response = client.post(
+        "/api/v1/backstage/closing/",
+        {"quantities": {"RECON-SKU": "0"}},
+        content_type="application/json",
+    )
 
-    assert response.status_code == 302
+    assert response.status_code == 200
     error = DayClosing.objects.get().data["reconciliation_errors"][0]
     assert error["sku"] == "RECON-SKU"
     assert error["deficit"] == 3
@@ -186,9 +202,13 @@ def test_future_preorder_does_not_create_false_deficit(client, setup_stock, clos
     OrderItem.objects.create(order=preorder, line_id="1", sku="RECON-SKU", name="Recon", qty=5, unit_price_q=100, line_total_q=500)
     client.force_login(closing_user)
 
-    response = client.post("/admin/operacao/fechamento/", {"qty_RECON-SKU": "2"})
+    response = client.post(
+        "/api/v1/backstage/closing/",
+        {"quantities": {"RECON-SKU": "2"}},
+        content_type="application/json",
+    )
 
-    assert response.status_code == 302
+    assert response.status_code == 200
     assert DayClosing.objects.get().data["reconciliation_errors"] == []
 
 

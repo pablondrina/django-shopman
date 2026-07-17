@@ -39,7 +39,8 @@ Se no futuro o produto exigir **confirmação explícita** do tipo “revisei to
 
 | Peça | Onde |
 |------|------|
-| Tela / POST de fechamento | `shopman/backstage/admin_console/closing.py` → `day_closing_console_view` |
+| Tela de fechamento | Antesala do PDV: `surfaces/pos-nuxt/app/pages/session/closing.vue` |
+| API (GET/POST) | `shopman/backstage/api/operations.py` → `DayClosingView` (`/api/v1/backstage/closing/`) |
 | Registro auditável | `DayClosing` (`date`, `closed_by`, `data` = snapshot por SKU) |
 | Classificação por SKU | Interna: `d1` (elegível), `loss` (perecível same-day), `neutral` (restante fica onde está) |
 | Movimentação D-1 | `StockMovements.issue` nas posições vendáveis (exceto `ontem`) + `StockMovements.receive` em `ontem` com **`batch="D-1"`** |
@@ -53,7 +54,7 @@ Permissão: `shop.add_dayclosing`.
 
 - **Liquidação explícita** do que sobrou em `ontem` após o dia de venda D-1 (descarte = issue com motivo padronizado, ou tela dedicada).
 - **Relatório** produzido vs vendido vs não vendido informado vs perda — base para auditoria sem substituir o informe às cegas.
-- **Superfície operacional** `/admin/operacao/fechamento/`: formulário Admin/Unfold alinhado a `build_day_closing()` (campos `qty_{sku}`). `DayClosingAdmin` mantém auditoria e histórico.
+- **Superfície operacional**: antesala do PDV (`pos.<zona>/session/closing`), consumindo `GET/POST /api/v1/backstage/closing/` (mesma projection `build_day_closing()` e mesmo service). A tela Admin/Unfold foi removida (ADMIN-ROLE-PLAN WP-ADM-3); `DayClosingAdmin` mantém auditoria e histórico readonly.
 
 ---
 

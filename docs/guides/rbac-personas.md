@@ -18,11 +18,11 @@ evidência e auditoria, sem confirmar pedido automaticamente.
 
 | Permission | Modelo | Concede acesso a | Surface |
 |------------|--------|-----------------|---------|
-| `shop.manage_orders` | `Shop` | Confirmar, rejeitar, avançar, cancelar pedidos; adicionar notas internas | Admin `/admin/operacao/pedidos/*` |
-| `backstage.operate_kds` | `KDSTicket` | Check item, marcar ticket done, ações de expedição | Admin `/admin/operacao/kds/*` |
-| `backstage.operate_pos` | `CashRegisterSession` | Abrir/fechar caixa, sangria, lookup de cliente, fechar venda | `/gestor/pos/*` |
-| `shop.manage_production` | `Shop` | Criar WorkOrders, planejar e avançar produção | Admin `/admin/operacao/producao/*` + KDS `/gestor/producao/kds/*` |
-| `backstage.perform_closing` | `DayClosing` | Executar fechamento do dia, registrar perdas, mover D-1 | Admin `/admin/operacao/fechamento/` |
+| `shop.manage_orders` | `Shop` | Confirmar, rejeitar, avançar, cancelar pedidos; adicionar notas internas | Gestor (orders-nuxt, `gestor.`) via `api/v1/backstage/orders/*` |
+| `backstage.operate_kds` | `KDSTicket` | Check item, marcar ticket done, ações de expedição | KDS (kds-nuxt, `kds.`) via `api/v1/backstage/kds/*` |
+| `backstage.operate_pos` | `CashRegisterSession` | Abrir/fechar caixa, sangria, lookup de cliente, fechar venda | PDV (pos-nuxt, `pos.`) — antesala `/session` + venda |
+| `shop.manage_production` | `Shop` | Criar WorkOrders, planejar e avançar produção | Fournil (production-nuxt, `fournil.`) + console Admin read-only `/admin/operacao/producao/*` |
+| `backstage.perform_closing` | `DayClosing` | Executar fechamento do dia, registrar perdas, mover sobras p/ "Ontem" | PDV `/session/closing` (antesala) via `api/v1/backstage/closing/` |
 | `shop.manage_catalog` | `Shop` | Criar/editar Product, Listing, Collection | Admin |
 | `shop.manage_customers` | `Shop` | Criar/editar Customer, grupos, loyalty | Admin |
 | `shop.manage_rules` | `RuleConfig` | Criar/editar regras de pricing e validação | Admin |

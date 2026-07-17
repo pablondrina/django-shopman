@@ -43,10 +43,12 @@ def test_backstage_templates_avoid_micro_type_and_loose_dashes():
 # (surfaces/pos-nuxt), com componentes/escala próprios testados lá (vitest).
 
 
+# O fechamento do DIA migrou para a antesala do PDV (pos-nuxt /session/closing,
+# ADMIN-ROLE-PLAN WP-ADM-3); a tela Admin de fechamento saiu junto do guardrail.
 def test_backstage_empty_states_and_icons_use_canonical_scale():
     sources = _template_sources()
 
-    assert 'component "unfold/components/table.html"' in sources["admin_console/closing/index.html"]
+    assert 'component "unfold/components/table.html"' in sources["admin_console/production/index.html"]
 
 
 # A fila de pedidos virou app Nuxt dedicado (Gestor); deixou de ser superfície

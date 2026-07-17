@@ -50,7 +50,6 @@ def test_no_positive_tabindex_anywhere(client, superuser):
         ("admin_console_production", []),
         ("admin_console_production_dashboard", []),
         ("admin_console_production_reports", []),
-        ("admin_console_day_closing", []),
     ]
     client.force_login(superuser)
     for name, args in surfaces:
