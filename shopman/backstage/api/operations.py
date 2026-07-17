@@ -25,6 +25,7 @@ POST endpoints (operator actions):
   POST /api/v1/backstage/pos/cash/open/              -> open cash shift
   POST /api/v1/backstage/pos/cash/close/             -> close cash shift
   POST /api/v1/backstage/pos/cash/movement/          → register cash movement
+  GET  /api/v1/backstage/pos/cash/report/            → X/Z readings + shift history
   POST /api/v1/backstage/pos/sale/review/            → validate POS checkout without commit
   POST /api/v1/backstage/pos/sale/recent/cancel/     → cancel recent POS sale
 """
@@ -44,6 +45,7 @@ from rest_framework.views import APIView
 from shopman.utils.monetary import format_money
 
 from shopman.backstage.constants import POS_CHANNEL_REF
+from shopman.backstage.projections.cash_session import build_cash_session_report
 from shopman.backstage.projections.closing import build_day_closing
 from shopman.backstage.projections.order_queue import build_operator_order, build_two_zone_queue
 from shopman.backstage.projections.pos import (
@@ -1373,6 +1375,31 @@ class POSCashMovementView(APIView):
             logger.debug("pos_cash_movement_failed user=%s kind=%s", _actor(request), kind, exc_info=True)
             return Response({"detail": str(exc) or "Falha ao registrar movimento."}, status=400)
         return Response({"ok": True, "movement_id": getattr(mov, "pk", None)})
+
+
+@extend_schema_view(
+    get=extend_schema(
+        tags=["backstage"],
+        summary="Cash session report — X/Z readings and today's shift history",
+        responses={200: OpenApiResponse(description="Cash session report.")},
+    ),
+)
+class POSCashReportView(APIView):
+    """Leitura X (turno aberto), leituras Z (turnos fechados) e histórico do dia.
+
+    Gate único `backstage.operate_pos`: a projection nunca expõe o valor
+    ESPERADO da gaveta nem a variância (blind count) — nem no X, nem no Z —
+    então não há nada aqui que exija o gate mais forte do gerente. A
+    conferência (esperado vs contado, `perform_closing`/`audit_cashshift`)
+    permanece exclusiva da retaguarda.
+    """
+
+    permission_classes = [HasBackstagePermission]
+    required_permission = "backstage.operate_pos"
+
+    def get(self, request):
+        report = build_cash_session_report(operator=request.user)
+        return Response({"report": projection_data(report)})
 
 
 # ── POS tab (comanda) endpoints ───────────────────────────────────────

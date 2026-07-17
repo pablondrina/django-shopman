@@ -55,6 +55,7 @@ from .operations import (
     POSCashCloseView,
     POSCashMovementView,
     POSCashOpenView,
+    POSCashReportView,
     POSCloseSaleView,
     POSCustomerLookupView,
     POSCustomerResolveView,
@@ -171,6 +172,7 @@ urlpatterns = [
     path("pos/cash/close/", POSCashCloseView.as_view(), name="api-backstage-pos-cash-close"),
     path("pos/cash/close-blocking/", POSCashCloseBlockingView.as_view(), name="api-backstage-pos-cash-close-blocking"),
     path("pos/cash/movement/", POSCashMovementView.as_view(), name="api-backstage-pos-cash-movement"),
+    path("pos/cash/report/", POSCashReportView.as_view(), name="api-backstage-pos-cash-report"),
     # POS — tab (comanda) lifecycle
     path("pos/tabs/", POSTabCreateView.as_view(), name="api-backstage-pos-tab-create"),
     path("pos/tabs/<str:tab_ref>/open/", POSTabOpenView.as_view(), name="api-backstage-pos-tab-open"),

@@ -253,13 +253,15 @@ EXCEPTION_SURFACES: tuple[Surface, ...] = (
             ROOT / "shopman/backstage/projections/catalog.py",
             ROOT / "shopman/backstage/projections/showcase.py",
             ROOT / "shopman/backstage/projections/closing.py",
+            ROOT / "shopman/backstage/projections/cash_session.py",
         ),
         exception_reason=(
-            "Order queue + KDS + catalog-matrix + expositores + day-closing projections feed "
-            "dedicated headless Nuxt operator apps (gestor./kds./pos. via api/v1/backstage/*), "
-            "not Admin/Unfold pages (OPERATOR-APPS-PLAN Fase 2; CROSS-CHANNEL-CATALOG-HUB-PLAN "
-            "Frente 3; ADMIN-ROLE-PLAN WP-ADM-3 — config de rule/capability fica no Admin/"
-            "Unfold, a matriz operacional no Gestor, o fechamento do dia na antesala do PDV)."
+            "Order queue + KDS + catalog-matrix + expositores + day-closing + cash-session "
+            "projections feed dedicated headless Nuxt operator apps (gestor./kds./pos. via "
+            "api/v1/backstage/*), not Admin/Unfold pages (OPERATOR-APPS-PLAN Fase 2; "
+            "CROSS-CHANNEL-CATALOG-HUB-PLAN Frente 3; ADMIN-ROLE-PLAN WP-ADM-3/WP-ADM-4 — "
+            "config de rule/capability fica no Admin/Unfold, a matriz operacional no Gestor, "
+            "o fechamento do dia e os relatórios X/Z na antesala do PDV)."
         ),
     ),
 )
