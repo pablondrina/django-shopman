@@ -6,7 +6,7 @@
 // (Unfold), NOT here — the POS never reveals the expected drawer, so the
 // operator counts blind and the system computes the variance server-side.
 
-import type { POSCashRuntimeProjection } from "~/types/pos";
+import type { POSCashManagementCapability, POSCashRuntimeProjection } from "~/types/pos";
 
 const MOVEMENT_LABELS: Record<string, string> = {
   sangria: "Sangria",
@@ -42,4 +42,24 @@ export function isTerminalOccupied(
 ): boolean {
   return runtime.status === "terminal_occupied"
     || (!hasOpenShift && Boolean(runtime.blocking_operator_username));
+}
+
+/**
+ * Whether selling requires an open cash shift — the sale screen redirects to
+ * the session lobby (`/session`) when there is none. Contract-driven via the
+ * checkout capability (absent flag = required, the safe default).
+ */
+export function requiresOpenShiftForSale(
+  cashManagement: POSCashManagementCapability | null | undefined,
+): boolean {
+  return cashManagement?.requires_open_shift_for_sale !== false;
+}
+
+/** The lobby's single screen state — drives which card the antesala shows. */
+export function sessionScreenState(
+  runtime: POSCashRuntimeProjection,
+  hasOpenShift: boolean,
+): "occupied" | "open" | "closed" {
+  if (isTerminalOccupied(runtime, hasOpenShift)) return "occupied";
+  return hasOpenShift ? "open" : "closed";
 }
