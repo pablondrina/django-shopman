@@ -509,8 +509,8 @@ class NotificationTemplate(models.Model):
 
     class Meta:
         ordering = ["event"]
-        verbose_name = "template de notificação"
-        verbose_name_plural = "templates de notificação"
+        verbose_name = "modelo de mensagem"
+        verbose_name_plural = "modelos de mensagem"
 
     def __str__(self):
         return f"{self.event} — {self.subject}"
