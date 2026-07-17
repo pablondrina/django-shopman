@@ -30,6 +30,7 @@ from shopman.offerman.models import (
 from shopman.utils.admin.mixins import AutofillInlineMixin
 from shopman.utils.contrib.admin_unfold.badges import unfold_badge
 from shopman.utils.contrib.admin_unfold.base import BaseModelAdmin, BaseTabularInline
+from shopman.utils.monetary import format_money
 from unfold.contrib.filters.admin.numeric_filters import RangeNumericFilter
 from unfold.contrib.import_export.forms import ExportForm, ImportForm
 from unfold.decorators import display
@@ -64,7 +65,7 @@ class CollectionItemInline(BaseTabularInline):
 
 
 _RULE_HELP = (
-    "Coleção por regra (smart collection). Vazio = coleção manual (usa os itens abaixo). "
+    "Coleção automática por regra. Vazio = coleção manual (usa os itens abaixo). "
     'JSON: {"match": "all"|"any", "conditions": [{"field", "op", "value"}]}. '
     "Campos: keyword, sku, name, unit, base_price_q, is_published, is_sellable, collection. "
     "Operadores: eq, ne, lt, lte, gt, gte, in, contains."
@@ -134,12 +135,12 @@ class CollectionAdmin(BaseModelAdmin):
         ("Hierarquia", {"fields": ("parent",)}),
         ("Validade", {"fields": ("valid_from", "valid_until")}),
         ("Configurações", {"fields": ("sort_order", "is_active")}),
-        ("Regra (smart collection)", {
+        ("Regra (coleção automática)", {
             "fields": ("rule",),
             "classes": ("tab",),
             "description": (
-                "Preencha para tornar a coleção por regra (membros computados dos atributos "
-                "do produto). Vazia = coleção manual (itens explícitos)."
+                "Preencha para tornar a coleção automática por regra (membros computados dos "
+                "atributos do produto). Vazia = coleção manual (itens explícitos)."
             ),
         }),
     ]
@@ -215,13 +216,19 @@ class ListingAdmin(_ListingExportBase):
             obj.delete()
         formset.save_m2m()
 
+    def get_queryset(self, request):
+        # Conta os itens num único JOIN em vez de uma query por linha (N+1).
+        from django.db.models import Count
+
+        return super().get_queryset(request).annotate(_items_count=Count("items"))
+
     @display(description="Ativo", boolean=True)
     def is_active_badge(self, obj):
         return obj.is_active
 
-    @display(description="Itens")
+    @display(description="Itens", ordering="_items_count")
     def items_count(self, obj):
-        return obj.items.count()
+        return getattr(obj, "_items_count", obj.items.count())
 
 
 # =============================================================================
@@ -404,7 +411,7 @@ class ProductAdmin(_ProductImportExportBase):
 
     @display(description="Preço")
     def formatted_price(self, obj):
-        return f"R$ {obj.base_price_q / 100:.2f}"
+        return f"R$ {format_money(obj.base_price_q)}"
 
     @display(description="Situação")
     def visibility_status(self, obj):
@@ -439,14 +446,14 @@ class ProductAdmin(_ProductImportExportBase):
     def cost_display(self, obj):
         cost_q = obj.reference_cost_q
         if cost_q is None:
-            return "-"
-        return f"R$ {cost_q / 100:.2f}"
+            return "—"
+        return f"R$ {format_money(cost_q)}"
 
     @display(description=_("Margem"))
     def margin_display(self, obj):
         margin = obj.margin_percent
         if margin is None:
-            return "-"
+            return "—"
         from shopman.utils.contrib.admin_unfold.badges import unfold_badge as _badge
         pct = f"{margin:.1f}%"
         if margin >= 50:
@@ -469,11 +476,11 @@ class ProductAdmin(_ProductImportExportBase):
                 .aggregate(total=Sum("_quantity"))["total"]
             )
             if total is None:
-                return "-"
+                return "—"
             from shopman.utils.formatting import format_quantity
             return format_quantity(total)
         except ImportError:
-            return "-"
+            return "—"
 
     action_form = ProductActionForm
     actions = [

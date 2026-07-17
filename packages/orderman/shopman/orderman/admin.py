@@ -1003,9 +1003,14 @@ class OrderAdmin(ModelAdmin):
             return format_html('<span class="font-semibold text-amber-700 dark:text-amber-400">{}</span>', label)
         return label
 
+    def get_queryset(self, request):
+        # Prefetch das linhas: os displays de contagem/unidades leem obj.items.all()
+        # por linha; sem prefetch cada pedido do changelist dispara 2 queries (N+1).
+        return super().get_queryset(request).prefetch_related("items")
+
     @display(description=_("linhas"))
     def items_count_display(self, obj: Order) -> str:
-        count = obj.items.count()
+        count = len(obj.items.all())
         return str(count) if count else "-"
 
     @display(description=_("un."))

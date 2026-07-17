@@ -57,8 +57,8 @@ class Fulfillment(models.Model):
 
     class Meta:
         app_label = "orderman"
-        verbose_name = _("fulfillment")
-        verbose_name_plural = _("fulfillments")
+        verbose_name = _("expedição")
+        verbose_name_plural = _("expedições")
         ordering = ("-created_at",)
 
     def __init__(self, *args, **kwargs):
@@ -101,7 +101,7 @@ class FulfillmentItem(models.Model):
 
     fulfillment = models.ForeignKey(
         Fulfillment,
-        verbose_name=_("fulfillment"),
+        verbose_name=_("expedição"),
         on_delete=models.CASCADE,
         related_name="items",
     )
@@ -115,8 +115,8 @@ class FulfillmentItem(models.Model):
 
     class Meta:
         app_label = "orderman"
-        verbose_name = _("item do fulfillment")
-        verbose_name_plural = _("itens do fulfillment")
+        verbose_name = _("item da expedição")
+        verbose_name_plural = _("itens da expedição")
         constraints = [
             models.CheckConstraint(
                 condition=models.Q(qty__gt=0),

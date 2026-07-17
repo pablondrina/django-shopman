@@ -32,44 +32,52 @@ class ChannelForm(forms.ModelForm):
     """Form com campos de config por aspecto."""
 
     confirmation = forms.CharField(
+        label="Confirmação",
         widget=_aspect_widget(4),
         required=False,
         help_text=f"Como o pedido é aceito. JSON: mode (immediate/auto_confirm/auto_cancel/manual), timeout_minutes. {_INHERIT}",
     )
     payment = forms.CharField(
+        label="Pagamento",
         widget=_aspect_widget(5),
         required=False,
         help_text=f"Como e quando o cliente paga. JSON: method, timing, timeout_minutes. {_INHERIT}",
     )
     fulfillment = forms.CharField(
+        label="Preparo e entrega",
         widget=_aspect_widget(3),
         required=False,
         help_text=f"Quando preparar/despachar. JSON: timing, auto_sync. {_INHERIT}",
     )
     stock = forms.CharField(
+        label="Estoque",
         widget=_aspect_widget(4),
         required=False,
         help_text=f"Reserva de estoque. JSON: hold_ttl_minutes, safety_margin, check_on_commit, allowed_positions. {_INHERIT}",
     )
     notifications = forms.CharField(
+        label="Notificações",
         widget=_aspect_widget(3),
         required=False,
         help_text=f"Por onde avisamos o cliente. JSON: backend, fallback_chain, routing. {_INHERIT}",
     )
     pricing = forms.CharField(
+        label="Preços",
         widget=_aspect_widget(2),
         required=False,
         help_text=f'Origem do preço. JSON: policy ("internal" = backend, "external" = marketplace). {_INHERIT}',
     )
     editing = forms.CharField(
+        label="Edição de itens",
         widget=_aspect_widget(2),
         required=False,
         help_text=f'Itens podem ser editados? JSON: policy ("open" ou "locked"). {_INHERIT}',
     )
     rules = forms.CharField(
+        label="Regras",
         widget=_aspect_widget(4),
         required=False,
-        help_text=f"Quais validators/modifiers ativar. JSON: validators, modifiers, checks. {_INHERIT}",
+        help_text=f"Quais validações/modificadores de preço ativar. JSON: validators, modifiers, checks. {_INHERIT}",
     )
 
     class Meta:
