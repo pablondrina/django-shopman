@@ -26,6 +26,7 @@ MANAGE_OPERATORS = "backstage.manage_operators"
 @admin.register(PinCredential)
 class PinCredentialAdmin(ModelAdmin):
     list_display = ("operator_display", "state_display", "must_change_display", "last_verified_at", "updated_at")
+    list_filter = ("must_change",)
     search_fields = ("user__username", "user__first_name", "user__last_name")
     readonly_fields = (
         "user", "pin_hash", "badge_hash", "attempts", "max_attempts",

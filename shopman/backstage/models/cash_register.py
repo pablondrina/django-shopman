@@ -23,8 +23,8 @@ class POSTerminal(models.Model):
 
     class Meta:
         ordering = ["ref"]
-        verbose_name = "terminal POS"
-        verbose_name_plural = "terminais POS"
+        verbose_name = "terminal do PDV"
+        verbose_name_plural = "terminais do PDV"
 
     def __str__(self) -> str:
         return self.label or self.ref
@@ -89,8 +89,8 @@ class CashShift(models.Model):
 
     class Meta:
         ordering = ["-opened_at"]
-        verbose_name = "Turno de Caixa"
-        verbose_name_plural = "Turnos de Caixa"
+        verbose_name = "turno de caixa"
+        verbose_name_plural = "turnos de caixa"
         permissions = [
             ("operate_pos", "Pode operar o PDV (abrir/fechar caixa, sangria, balcão)"),
             ("audit_cashshift", "Pode auditar turnos de caixa"),
@@ -287,8 +287,8 @@ class CashMovement(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
-        verbose_name = "Movimentação de Caixa"
-        verbose_name_plural = "Movimentações de Caixa"
+        verbose_name = "movimentação de caixa"
+        verbose_name_plural = "movimentações de caixa"
         constraints = [
             # Ajuste registra sobra (+) ou falta (−) da conferência; sangria e
             # suprimento são estritamente positivos.

@@ -29,9 +29,18 @@ _TONE_CLASSES: dict[Tone, str] = {
 DEFAULT_STATUS_COLOR = "bg-surface-alt text-on-surface/60 border border-outline"
 
 
-def status_color(status: str) -> str:
-    """Map an order status to its storefront colour-token classes."""
+def status_color(status: str, fallback_status: str | None = None) -> str:
+    """Map an order status to its storefront colour-token classes.
+
+    ``status`` may be the semantic ``display_status_key`` (e.g. ``ready_pickup``,
+    ``payment_expired``); when it has no tone of its own, ``fallback_status`` (the
+    raw ``order.status``) resolves the accent. This keeps the panel colour
+    consistent with the label, which is also resolved from the display key first
+    and the raw status second.
+    """
     tone = ORDER_STATUS_TONES.get(status)
+    if tone is None and fallback_status:
+        tone = ORDER_STATUS_TONES.get(fallback_status)
     return _TONE_CLASSES[tone] if tone else DEFAULT_STATUS_COLOR
 
 

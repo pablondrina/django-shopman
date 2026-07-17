@@ -115,7 +115,8 @@ ORDER_BADGE_TYPE = {
 }
 WO_BADGE_TYPE = {"open": "orange", "done": "green", "void": "red"}
 WO_LABEL = {"open": "Aberta", "done": "Conclu\u00edda", "void": "Cancelada"}
-SEVERITY_ICONS = {"warning": "\u26a0\ufe0f", "error": "\u274c", "critical": "\U0001f534"}
+SEVERITY_LABEL = {"warning": "Aten\u00e7\u00e3o", "error": "Erro", "critical": "Cr\u00edtico"}
+SEVERITY_BADGE_TYPE = {"warning": "orange", "error": "red", "critical": "red"}
 
 
 def _build_pending_orders_table(pending_orders):
@@ -176,9 +177,9 @@ def _build_alerts_table(alerts):
     for a in alerts:
         rows.append([
             a.sku,
-            format_html('<span class="font-medium text-red-600">{}</span>', a.current),
+            format_html('<span class="font-medium text-red-600 dark:text-red-400">{}</span>', a.current),
             a.minimum,
-            format_html('<span class="font-medium text-red-600">{}</span>', a.deficit),
+            format_html('<span class="font-medium text-red-600 dark:text-red-400">{}</span>', a.deficit),
             a.position,
         ])
 
@@ -209,9 +210,11 @@ def _build_operator_alerts_table(alerts):
     """Operator alerts table for dashboard."""
     rows = []
     for alert in alerts:
-        icon = SEVERITY_ICONS.get(alert.severity, "")
         rows.append([
-            f"{icon} {alert.severity.upper()}",
+            table_badge(
+                SEVERITY_LABEL.get(alert.severity, alert.severity),
+                SEVERITY_BADGE_TYPE.get(alert.severity, "base"),
+            ),
             alert.message[:100],
             alert.order_ref or "\u2014",
             alert.created_at_display,

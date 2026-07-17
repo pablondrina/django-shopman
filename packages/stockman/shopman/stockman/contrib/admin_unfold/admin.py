@@ -178,6 +178,7 @@ class QuantAdmin(BaseModelAdmin):
 
     list_display = ['sku', 'position', 'target_date_display', 'quantity_display', 'held_display', 'available_display', 'batch_display', 'expiry_display']
     list_filter = ['position', 'target_date', BelowMinimumFilter, HasStockFilter]
+    list_filter_submit = True
     search_fields = ['sku', 'batch']
     readonly_fields = ['sku', 'position', 'target_date', '_quantity', 'created_at', 'updated_at']
     date_hierarchy = 'target_date'
@@ -233,7 +234,7 @@ class QuantAdmin(BaseModelAdmin):
         else:
             return unfold_badge_numeric(formatted, 'base')
 
-    @display(description=_('Disponivel'))
+    @display(description=_('Disponível'))
     def available_display(self, obj):
         """Display available quantity with Unfold badge."""
         available = obj.available
@@ -320,7 +321,7 @@ class MoveAdmin(BaseModelAdmin):
     def quant_display(self, obj):
         return obj.quant.sku if obj.quant else '?'
 
-    @display(description=_('Variacao'))
+    @display(description=_('Variação'))
     def delta_display(self, obj):
         """Display delta with Unfold badge."""
         formatted = format_quantity(abs(obj.delta))

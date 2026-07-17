@@ -214,10 +214,10 @@ def _defaults_form_fields() -> dict[str, forms.Field]:
             widget=UnfoldAdminIntegerFieldWidget,
         ),
         "defaults_pickup_fallback_slot": forms.CharField(
-            label="Slot fallback",
+            label="Horário de retirada padrão",
             required=False,
             widget=UnfoldAdminTextInputWidget,
-            help_text="Ref de um dos slots abaixo. Ex.: slot-09.",
+            help_text="Ref de um dos horários abaixo. Ex.: slot-09.",
         ),
         "defaults_season_hot_months": forms.MultipleChoiceField(
             label="Meses quentes",
@@ -383,28 +383,28 @@ def _integrations_form_fields() -> dict[str, forms.Field]:
     blank = [("", "Herda do sistema")]
     return {
         "integrations_payment_pix": forms.ChoiceField(
-            label="Adapter de PIX",
+            label="Provedor de PIX",
             required=False,
             choices=blank + _adapter_choices("payment_"),
             widget=UnfoldAdminSelectWidget,
             help_text="Gateway que processa cobranças PIX. Em branco = padrão do sistema.",
         ),
         "integrations_payment_card": forms.ChoiceField(
-            label="Adapter de cartão",
+            label="Provedor de cartão",
             required=False,
             choices=blank + _adapter_choices("payment_"),
             widget=UnfoldAdminSelectWidget,
             help_text="Gateway que processa cartão. Em branco = padrão do sistema.",
         ),
         "integrations_notification_default": forms.ChoiceField(
-            label="Adapter de notificação",
+            label="Provedor de notificação",
             required=False,
             choices=blank + _adapter_choices("notification_"),
             widget=UnfoldAdminSelectWidget,
             help_text="Canal padrão de envio de notificações. Em branco = padrão do sistema.",
         ),
         "integrations_fiscal": forms.ChoiceField(
-            label="Adapter fiscal",
+            label="Provedor fiscal",
             required=False,
             choices=blank + _adapter_choices("fiscal_"),
             widget=UnfoldAdminSelectWidget,
@@ -1151,7 +1151,7 @@ _IDENTITY_FIELDSETS = (
 )
 
 _APPEARANCE_FIELDSETS = (
-    ("Branding", {
+    ("Marca", {
         "fields": ("brand_name", "short_name", "tagline", "description", "logo"),
     }),
     ("Conteúdo padrão do PDP", {
@@ -1173,20 +1173,20 @@ _APPEARANCE_FIELDSETS = (
             "Cores derivadas automaticamente da primária se deixadas em branco. "
             "Neutra claro: fundo no modo claro; neutra escuro: fundo no modo escuro. "
             "Use 'Automático' para seguir o tema do sistema. "
-            "Abaixo, preview da paleta gerada (claro + escuro)."
+            "Abaixo, prévia da paleta gerada (claro + escuro)."
         ),
     }),
     ("Tipografia & Forma", {
         "fields": ("heading_font", "body_font", "border_radius"),
         "description": (
-            "Fontes com preview ao vivo (Google Fonts). Raio dos cantos aplica-se a cards e botões."
+            "Fontes com prévia ao vivo (Google Fonts). Raio dos cantos aplica-se a cards e botões."
         ),
     }),
-    ("Preview do storefront", {
+    ("Prévia da loja", {
         "fields": ("storefront_preview",),
         "description": (
-            "Página inicial em iframe (mesma origem). Salve o formulário e clique em "
-            "<strong>Atualizar preview</strong> para ver cores e tipografia sem sair do admin."
+            "Página inicial embutida (mesma origem). Salve o formulário e clique em "
+            "<strong>Atualizar prévia</strong> para ver cores e tipografia sem sair do admin."
         ),
     }),
     ("Redes Sociais", {
@@ -1391,7 +1391,7 @@ class ShopAppearanceAdmin(_ShopSingletonAdmin):
     fieldsets = _APPEARANCE_FIELDSETS
     readonly_fields = ("color_preview", "storefront_preview")
 
-    @admin.display(description="Preview da paleta (marca → RGB)")
+    @admin.display(description="Prévia da paleta (marca → RGB)")
     def color_preview(self, obj):
         """Swatches dos tokens (canais RGB no storefront)."""
         if not obj or not obj.pk:
@@ -1465,7 +1465,7 @@ class ShopAppearanceAdmin(_ShopSingletonAdmin):
         html_parts.append(mark_safe("</div>"))
         return mark_safe("".join(str(part) for part in html_parts))
 
-    @admin.display(description="Preview ao vivo (iframe)")
+    @admin.display(description="Prévia ao vivo")
     def storefront_preview(self, obj):
         """Iframe da home — requer X-Frame-Options: SAMEORIGIN na HomeView.
 
@@ -1476,7 +1476,7 @@ class ShopAppearanceAdmin(_ShopSingletonAdmin):
         if not obj or not obj.pk:
             return format_html(
                 '<p class="text-sm text-base-500">'
-                "Salve a loja para carregar o preview do storefront.</p>"
+                "Salve a loja para carregar a prévia da loja.</p>"
             )
 
         from shopman.shop.services.storefront_links import home_url
@@ -1499,9 +1499,9 @@ class ShopAppearanceAdmin(_ShopSingletonAdmin):
             'class="border border-base-200 dark:border-base-700 rounded-default '
             "px-3 py-1.5 text-sm font-medium text-base-700 dark:text-base-300 "
             'hover:bg-base-50 dark:hover:bg-base-800 transition cursor-pointer">'
-            "Atualizar preview</button>"
+            "Atualizar prévia</button>"
             "</div>"
-            '<iframe x-bind:src="src" title="Storefront" '
+            '<iframe x-bind:src="src" title="Loja" '
             'class="w-full rounded-default border border-base-200 '
             'dark:border-base-700 bg-white" '
             'style="min-height:min(70vh,640px)"></iframe>'
@@ -1584,9 +1584,30 @@ class ShopIntegrationsAdmin(_ShopSingletonAdmin):
 
 @admin.register(NotificationTemplate)
 class NotificationTemplateAdmin(ModelAdmin):
-    list_display = ("event", "subject", "whatsapp_flow_ns", "is_active")
-    list_filter = ("is_active",)
+    # whatsapp_flow_ns é namespace técnico (fica no fieldset "WhatsApp", com ajuda);
+    # não polui a lista, que fala evento → assunto → ativo.
+    list_display = ("event", "subject", "is_active")
+    list_filter = ("is_active", "event")
     search_fields = ("event", "subject", "body")
     list_editable = ("is_active",)
-    fields = ("event", "subject", "body", "whatsapp_flow_ns", "is_active")
     readonly_fields = ("event",)
+    fieldsets = (
+        (None, {
+            "fields": ("event", "is_active"),
+            "description": (
+                "Modelo de mensagem enviado quando este evento acontece. "
+                "Desative para silenciar o evento sem apagar o texto."
+            ),
+        }),
+        ("Conteúdo", {
+            "fields": ("subject", "body"),
+            "description": "Assunto e corpo da mensagem (e-mail e canais de texto).",
+        }),
+        ("WhatsApp", {
+            "fields": ("whatsapp_flow_ns",),
+            "description": (
+                "Espaço de nomes do fluxo aprovado no WhatsApp Business para este "
+                "evento. Deixe em branco para usar o fluxo padrão da loja."
+            ),
+        }),
+    )
