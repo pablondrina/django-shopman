@@ -56,7 +56,7 @@ class AdminNavigationTests(TestCase):
 
         live = [item for item in groups[0]["items"] if item["has_permission"]]
         live_items = [item["title"] for item in live]
-        self.assertEqual(live_items[:4], ["Pedidos", "Produção", "Fechamento", "POS"])
+        self.assertEqual(live_items[:4], ["Pedidos", "Produção", "Fechamento", "PDV"])
         closing_item = next(item for item in live if item["title"] == "Fechamento")
         self.assertEqual(closing_item["link"], "https://pos.example.com/session/closing")
 
@@ -71,13 +71,13 @@ class AdminNavigationTests(TestCase):
         with override_settings(SHOPMAN_POS_BASE_URL=""):
             groups = admin.site.get_sidebar_list(request)
             live = {item["title"]: item for item in groups[0]["items"]}
-            self.assertNotIn("POS", live)
+            self.assertNotIn("PDV", live)
 
         with override_settings(SHOPMAN_POS_BASE_URL="https://pos.example.com"):
             groups = admin.site.get_sidebar_list(request)
             live = {item["title"]: item for item in groups[0]["items"]}
-            self.assertIn("POS", live)
-            self.assertEqual(live["POS"]["link"], "https://pos.example.com")
+            self.assertIn("PDV", live)
+            self.assertEqual(live["PDV"]["link"], "https://pos.example.com")
 
         production_group = next(group for group in groups if group["title"] == "Produção")
         production_items = [item["title"] for item in production_group["items"] if item["has_permission"]]
@@ -128,7 +128,7 @@ class AdminNavigationTests(TestCase):
             "Canais", "Promoções", "Cupons",
             "Regras de preço", "Faixas de distância", "Zonas de entrega",
             "Grupos de clientes", "Copy Omotenashi", "Templates de notificação",
-            "Estações KDS", "POS tabs",
+            "Estações KDS", "Comandas do PDV",
         }:
             self.assertIn(expected, config_items)
 
@@ -136,7 +136,7 @@ class AdminNavigationTests(TestCase):
         orders_group = next(group for group in groups if group["title"] == "Pedidos e canais")
         orders_items = {item["title"] for item in orders_group["items"]}
         self.assertNotIn("Canais", orders_items)
-        self.assertNotIn("POS tabs", orders_items)
+        self.assertNotIn("Comandas do PDV", orders_items)
 
         catalog_group = next(group for group in groups if group["title"] == "Catálogo")
         catalog_items = {item["title"] for item in catalog_group["items"]}

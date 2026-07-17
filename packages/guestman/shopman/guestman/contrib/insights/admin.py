@@ -2,7 +2,9 @@
 
 from django.contrib import admin
 from shopman.guestman.contrib.insights.models import CustomerInsight
+from shopman.utils import unfold_badge_numeric
 from unfold.admin import ModelAdmin
+from unfold.decorators import display
 
 
 @admin.register(CustomerInsight)
@@ -41,18 +43,17 @@ class CustomerInsightAdmin(ModelAdmin):
         "calculation_version",
     ]
 
+    @display(description="total gasto")
     def formatted_total_spent(self, obj):
         return f"R$ {obj.total_spent:,.2f}"
 
-    formatted_total_spent.short_description = "Total Spent"
-
+    @display(description="risco de perda")
     def churn_risk_display(self, obj):
         if obj.churn_risk is None:
-            return "N/A"
+            return "—"
+        pct = f"{obj.churn_risk:.0%}"
         if obj.churn_risk > 0.7:
-            return f"🔴 {obj.churn_risk:.0%}"
+            return unfold_badge_numeric(pct, "red")
         if obj.churn_risk > 0.4:
-            return f"🟡 {obj.churn_risk:.0%}"
-        return f"🟢 {obj.churn_risk:.0%}"
-
-    churn_risk_display.short_description = "Churn Risk"
+            return unfold_badge_numeric(pct, "yellow")
+        return unfold_badge_numeric(pct, "green")

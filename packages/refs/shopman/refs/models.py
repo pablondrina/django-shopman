@@ -56,8 +56,8 @@ class Ref(models.Model):
 
     class Meta:
         app_label = "refs"
-        verbose_name = _("Referencia")
-        verbose_name_plural = _("Referencias")
+        verbose_name = _("Referência")
+        verbose_name_plural = _("Referências")
         indexes = [
             models.Index(fields=["ref_type", "value", "is_active"], name="ref_type_val_active_idx"),
             models.Index(fields=["target_type", "target_id", "is_active"], name="ref_target_active_idx"),
@@ -81,12 +81,12 @@ class RefSequence(models.Model):
     sequence_name = models.CharField(max_length=32, db_index=True, verbose_name=_("nome da sequencia"))
     scope_hash = models.CharField(max_length=64, db_index=True, verbose_name=_("hash do escopo"))
     scope = models.JSONField(default=dict, verbose_name=_("escopo"))
-    last_value = models.PositiveIntegerField(default=0, verbose_name=_("ultimo valor"))
+    last_value = models.PositiveIntegerField(default=0, verbose_name=_("último valor"))
 
     class Meta:
         app_label = "refs"
-        verbose_name = _("Sequencia de Referencia")
-        verbose_name_plural = _("Sequencias de Referencia")
+        verbose_name = _("Sequência de referência")
+        verbose_name_plural = _("Sequências de referência")
         constraints = [
             models.UniqueConstraint(
                 fields=["sequence_name", "scope_hash"],
