@@ -1,0 +1,116 @@
+{% extends "admin/base.html" %}
+{% load i18n unfold %}
+
+{% block title %}Dashboard | {{ site_title }}{% endblock %}
+
+{% block branding %}
+    {% include "unfold/helpers/site_branding.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-8">
+
+    {# ── ROW 1: Configuração + Auditoria + Copy ─────────────────── #}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8">
+
+        {# Atalhos de configuração #}
+        {% component "unfold/components/card.html" with title="Configuração" %}
+            <div class="flex flex-col gap-3">
+                {% for link in config_links %}
+                    {% component "unfold/components/link.html" with href=link.url icon=link.icon %}
+                        {{ link.label }}
+                    {% endcomponent %}
+                {% endfor %}
+            </div>
+        {% endcomponent %}
+
+        {# Trilhas de auditoria #}
+        {% component "unfold/components/card.html" with title="Auditoria" %}
+            <div class="flex flex-col gap-3">
+                {% for link in audit_links %}
+                    {% component "unfold/components/link.html" with href=link.url icon=link.icon %}
+                        {{ link.label }}
+                    {% endcomponent %}
+                {% endfor %}
+            </div>
+        {% endcomponent %}
+
+        {# Saúde da copy omotenashi #}
+        {% component "unfold/components/card.html" with title="Copy omotenashi" %}
+            <div class="flex flex-col gap-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-3xl font-bold text-font-important-light dark:text-font-important-dark">
+                        {{ omotenashi_health.active_overrides|default:"0" }}
+                    </span>
+                    <span class="text-sm text-base-500">
+                        overrides de copy ativos
+                    </span>
+                </div>
+                {% if omotenashi_health.recent_changes %}
+                    <div class="flex flex-col gap-1 mt-2">
+                        {% component "unfold/components/text.html" with class="text-xs font-semibold text-base-500" %}
+                            Alterações recentes
+                        {% endcomponent %}
+                        {% for change in omotenashi_health.recent_changes %}
+                            {% component "unfold/components/text.html" with class="text-xs text-base-400" %}
+                                {{ change.key }} · {{ change.history_user__username|default:"?" }} · {{ change.history_date|date:"d/m H:i" }}
+                            {% endcomponent %}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+        {% endcomponent %}
+
+    </div>
+
+    {# ── ROW 2: Atenção (alertas) ───────────────────────────────── #}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8">
+
+        {# Estoque baixo #}
+        {% component "unfold/components/card.html" with title="Estoque baixo" %}
+            {% if table_estoque_baixo.rows %}
+                {% component "unfold/components/table.html" with table=table_estoque_baixo card_included=1 striped=1 height=220 %}{% endcomponent %}
+            {% else %}
+                <div class="flex flex-col items-center gap-2 py-8">
+                    {% component "unfold/components/icon.html" with class="text-3xl text-green-700 dark:text-green-400" %}check_circle{% endcomponent %}
+                    {% component "unfold/components/text.html" with class="text-green-700 dark:text-green-400 text-center" %}
+                        Estoque OK, nenhum alerta
+                    {% endcomponent %}
+                </div>
+            {% endif %}
+        {% endcomponent %}
+
+        {# Alertas do operador #}
+        {% component "unfold/components/card.html" with title="Alertas do operador" %}
+            {% if table_operator_alerts.rows %}
+                {% component "unfold/components/table.html" with table=table_operator_alerts card_included=1 striped=1 height=220 %}{% endcomponent %}
+            {% else %}
+                <div class="flex flex-col items-center gap-2 py-8">
+                    {% component "unfold/components/icon.html" with class="text-3xl text-green-700 dark:text-green-400" %}check_circle{% endcomponent %}
+                    {% component "unfold/components/text.html" with class="text-green-700 dark:text-green-400 text-center" %}
+                        Nenhum alerta pendente
+                    {% endcomponent %}
+                </div>
+            {% endif %}
+        {% endcomponent %}
+
+    </div>
+
+    {# ── ROW 3: D-1 Stock ───────────────────────────────────────── #}
+    {% if table_d1 %}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8">
+        {% component "unfold/components/card.html" with title="Estoque D-1" icon="schedule" %}
+            {% component "unfold/components/table.html" with table=table_d1 card_included=1 striped=1 height=220 %}{% endcomponent %}
+            {% if day_closing_url %}
+            <div class="px-4 pb-3">
+                {% component "unfold/components/link.html" with href=day_closing_url icon="arrow_forward" %}
+                    Ir para Fechamento
+                {% endcomponent %}
+            </div>
+            {% endif %}
+        {% endcomponent %}
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

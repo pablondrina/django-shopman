@@ -1,4 +1,9 @@
-"""Unfold admin dashboard callback — operator dashboard widgets.
+"""Unfold admin dashboard callback — landing de configuração e auditoria.
+
+O Admin é CRUD mínimo + configurações: a operação ao vivo mora nos apps Nuxt
+(Gestor/PDV/KDS/Fournil). O dashboard reúne atalhos de configuração, trilhas
+de auditoria, saúde da copy omotenashi e os dados de atenção (alertas de
+estoque, alertas do operador, estoque D-1 pendente de fechamento).
 
 Data is built by ``shopman.backstage.projections.dashboard.build_dashboard()``.
 This module only handles admin-specific table formatting (``format_html``).
@@ -6,33 +11,23 @@ This module only handles admin-specific table formatting (``format_html``).
 
 from __future__ import annotations
 
-import json
 import logging
-import re
-from pathlib import Path
 
 from django.urls import reverse
 from django.utils.html import format_html
-from shopman.utils import table_badge
 
 from shopman.backstage.projections.dashboard import build_dashboard
 from shopman.shop.services import pos_links
 
 logger = logging.getLogger(__name__)
 
-_OMOTENASHI_TAG = re.compile(r"\{%[-\s]*omotenashi\b")
-_STOREFRONT_TEMPLATES = Path(__file__).parents[2] / "storefront" / "templates" / "storefront"
-
 
 def _omotenashi_health() -> dict:
-    """Compute Omotenashi copy health stats for the admin dashboard widget."""
-    html_files = sorted(_STOREFRONT_TEMPLATES.rglob("*.html"))
-    total = len(html_files)
-    using = sum(
-        1 for f in html_files if _OMOTENASHI_TAG.search(f.read_text(encoding="utf-8"))
-    )
-    pct = round(using / total * 100) if total else 0
+    """Compute Omotenashi copy health stats for the admin dashboard widget.
 
+    A superfície do cliente é o storefront Nuxt (headless): o sinal de saúde
+    aqui é o registro de copy (overrides ativos + alterações recentes).
+    """
     try:
         from shopman.shop.models import OmotenashiCopy
 
@@ -47,9 +42,6 @@ def _omotenashi_health() -> dict:
         recent_changes = []
 
     return {
-        "total_templates": total,
-        "using_omotenashi": using,
-        "pct": pct,
         "active_overrides": active_overrides,
         "recent_changes": recent_changes,
     }
@@ -60,41 +52,82 @@ def _day_closing_url() -> str:
     return pos_links.pos_url(pos_links.path_day_closing())
 
 
+def _config_links() -> list[dict]:
+    """Atalhos canônicos de configuração (o papel do Admin)."""
+    return [
+        {
+            "label": "Loja & contato",
+            "url": reverse("admin:shop_shop_changelist"),
+            "icon": "storefront",
+        },
+        {
+            # TODO(PR #110): quando o catálogo de copy ganhar rota própria em
+            # /admin/configuracao/copy/, apontar este atalho para ela.
+            "label": "Catálogo de copy",
+            "url": reverse("admin:shop_omotenashicopy_changelist"),
+            "icon": "edit_note",
+        },
+        {
+            "label": "Templates de notificação",
+            "url": reverse("admin:shop_notificationtemplate_changelist"),
+            "icon": "notifications",
+        },
+        {
+            "label": "Regras de preço",
+            "url": reverse("admin:shop_ruleconfig_changelist"),
+            "icon": "rule",
+        },
+        {
+            "label": "Canais",
+            "url": reverse("admin:shop_channel_changelist"),
+            "icon": "hub",
+        },
+    ]
+
+
+def _audit_links() -> list[dict]:
+    """Trilhas readonly de auditoria (fechamentos, pagamentos, turnos)."""
+    return [
+        {
+            "label": "Fechamentos",
+            "url": reverse("admin:backstage_dayclosing_changelist"),
+            "icon": "event_available",
+        },
+        {
+            "label": "Pagamentos",
+            "url": reverse("admin:payman_paymentintent_changelist"),
+            "icon": "payments",
+        },
+        {
+            "label": "Turnos de caixa",
+            "url": reverse("admin:backstage_cashshift_changelist"),
+            "icon": "point_of_sale",
+        },
+    ]
+
+
 # ── Main callback ────────────────────────────────────────────────────
 
 
 def dashboard_callback(request, context):
-    """Populate admin dashboard with KPIs, charts, and tables."""
+    """Populate admin dashboard with config shortcuts, audit trails and alerts."""
     proj = build_dashboard()
 
     context.update({
-        # KPI cards
-        "order_summary": proj.order_summary,
-        "revenue": proj.revenue,
-        "production": proj.production,
+        # Config + auditoria
+        "config_links": _config_links(),
+        "audit_links": _audit_links(),
+        "omotenashi_health": _omotenashi_health(),
+        # Atenção (alertas e D-1)
         "kpi_stock_alerts": proj.kpi_stock_alerts,
         "kpi_operator_alerts": proj.kpi_operator_alerts,
-        # Quick-link URLs
-        "orders_url": reverse("admin:orderman_order_changelist"),
-        # Fechamento do DIA vive na antesala do PDV (env-gated como o item da sidebar).
-        "day_closing_url": _day_closing_url(),
-        # Charts (JSON for Chart.js)
-        "chart_pedidos_status": proj.chart_pedidos_status,
-        "chart_pedidos_status_options": json.dumps({"indexAxis": "y"}),
-        "chart_vendas_7dias": proj.chart_vendas_7dias,
-        # Tables (admin-specific format_html rendering)
-        "table_pedidos_pendentes": _build_pending_orders_table(proj.pending_orders),
-        "table_producao": _build_production_table(proj.production.wos),
         "table_estoque_baixo": _build_alerts_table(proj.stock_alerts),
-        "recent_orders": proj.recent_orders,
-        "table_recentes": _build_recent_orders_table(proj.recent_orders),
-        "d1_stock": proj.d1_stock,
-        "table_d1": _build_d1_table(proj.d1_stock) if proj.d1_stock else None,
         "operator_alerts": proj.operator_alerts,
         "table_operator_alerts": _build_operator_alerts_table(proj.operator_alerts),
-        "production_suggestions": proj.production_suggestions,
-        "table_sugestao_producao": _build_suggestions_table(proj.production_suggestions),
-        "omotenashi_health": _omotenashi_health(),
+        "d1_stock": proj.d1_stock,
+        "table_d1": _build_d1_table(proj.d1_stock) if proj.d1_stock else None,
+        # Fechamento do DIA vive na antesala do PDV (env-gated como o item da sidebar).
+        "day_closing_url": _day_closing_url(),
     })
     return context
 
@@ -102,72 +135,7 @@ def dashboard_callback(request, context):
 # ── Table builders ───────────────────────────────────────────────────
 # These stay here: they produce format_html output for Unfold table widgets.
 
-ORDER_BADGE_TYPE = {
-    "new": "blue",
-    "confirmed": "blue",
-    "preparing": "orange",
-    "ready": "green",
-    "dispatched": "orange",
-    "delivered": "green",
-    "completed": "green",
-    "cancelled": "red",
-    "returned": "base",
-}
-WO_BADGE_TYPE = {"open": "orange", "done": "green", "void": "red"}
-WO_LABEL = {"open": "Aberta", "done": "Conclu\u00edda", "void": "Cancelada"}
-SEVERITY_ICONS = {"warning": "\u26a0\ufe0f", "error": "\u274c", "critical": "\U0001f534"}
-
-
-def _build_pending_orders_table(pending_orders):
-    """Pending orders (new, confirmed, preparing)."""
-    rows = []
-    for o in pending_orders:
-        rows.append([
-            format_html('<a href="{}" class="font-medium">{}</a>', o.url, o.ref),
-            table_badge(o.status_label, ORDER_BADGE_TYPE.get(o.status, "base")),
-            o.total_display,
-            o.created_at_display,
-        ])
-
-    return {
-        "headers": ["Pedido", "Status", "Total", "Hora"],
-        "rows": rows,
-    }
-
-
-def _build_recent_orders_table(orders):
-    """Full recent orders table."""
-    rows = []
-    for o in orders:
-        rows.append([
-            format_html('<a href="{}" class="font-medium">{}</a>', o.url, o.ref),
-            table_badge(o.status_label, ORDER_BADGE_TYPE.get(o.status, "base")),
-            o.total_display,
-            o.channel_name,
-            o.created_at_display,
-        ])
-
-    return {
-        "headers": ["Pedido", "Status", "Total", "Canal", "Hora"],
-        "rows": rows,
-    }
-
-
-def _build_production_table(wos):
-    """Work orders table with status badge."""
-    rows = []
-    for wo in wos:
-        rows.append([
-            format_html('<a href="{}" class="font-medium">{}</a>', wo.url, wo.ref),
-            wo.output_sku,
-            wo.quantity,
-            table_badge(WO_LABEL.get(wo.status, wo.status), WO_BADGE_TYPE.get(wo.status, "base")),
-        ])
-
-    return {
-        "headers": ["C\u00f3digo", "Produto", "Qtd", "Status"],
-        "rows": rows,
-    }
+SEVERITY_ICONS = {"warning": "⚠️", "error": "❌", "critical": "\U0001f534"}
 
 
 def _build_alerts_table(alerts):
@@ -183,7 +151,7 @@ def _build_alerts_table(alerts):
         ])
 
     return {
-        "headers": ["SKU", "Atual", "M\u00ednimo", "D\u00e9ficit", "Posi\u00e7\u00e3o"],
+        "headers": ["SKU", "Atual", "Mínimo", "Déficit", "Posição"],
         "rows": rows,
     }
 
@@ -213,28 +181,10 @@ def _build_operator_alerts_table(alerts):
         rows.append([
             f"{icon} {alert.severity.upper()}",
             alert.message[:100],
-            alert.order_ref or "\u2014",
+            alert.order_ref or "—",
             alert.created_at_display,
         ])
     return {
         "headers": ["Severidade", "Mensagem", "Pedido", "Data"],
-        "rows": rows,
-    }
-
-
-def _build_suggestions_table(suggestions):
-    """Production suggestions table for dashboard."""
-    rows = []
-    for s in suggestions:
-        rows.append([
-            s.recipe_name,
-            s.output_sku,
-            format_html('<span class="font-medium">{}</span>', s.quantity),
-            s.avg_demand,
-            s.safety_pct or "\u2014",
-        ])
-
-    return {
-        "headers": ["Ficha técnica", "Produto", "Sugerido", "M\u00e9dia", "Margem"],
         "rows": rows,
     }
