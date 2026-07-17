@@ -9,6 +9,7 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from shopman.backstage.admin_console.closing import day_closing_console_view
+from shopman.backstage.admin_console.copy_catalog import copy_catalog_view
 from shopman.backstage.admin_console.production import (
     production_commitments_view,
     production_console_view,
@@ -78,6 +79,11 @@ urlpatterns = [
         "admin/operacao/fechamento/",
         admin.site.admin_view(day_closing_console_view),
         name="admin_console_day_closing",
+    ),
+    path(
+        "admin/configuracao/copy/",
+        admin.site.admin_view(copy_catalog_view),
+        name="admin_console_copy_catalog",
     ),
     path("admin/2fa/verify/", admin_2fa_verify, name="admin_2fa_verify"),
     path("admin/", admin.site.urls),

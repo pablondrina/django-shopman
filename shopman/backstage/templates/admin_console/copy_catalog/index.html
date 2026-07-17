@@ -1,0 +1,61 @@
+{% extends "admin/base.html" %}
+{% load i18n unfold %}
+
+{% block title %}Catálogo de copy | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block content %}
+{% include "unfold/helpers/messages.html" %}
+<main id="copy-catalog-main" role="main">
+{% component "unfold/components/container.html" %}
+  <div class="flex flex-col gap-6">
+    <div class="flex flex-col gap-1">
+      {% component "unfold/components/title.html" %}
+        Catálogo de copy
+      {% endcomponent %}
+      {% component "unfold/components/text.html" with class="text-base-500" %}
+        Toda frase da loja, organizada pela tela onde aparece. Ache o texto que você viu e personalize sem decorar chave.
+      {% endcomponent %}
+      {% component "unfold/components/text.html" with class="text-sm text-base-500" %}
+        {{ copy_catalog.total_keys }} chaves ({{ copy_catalog.mapped_keys }} mapeadas em telas) · {{ copy_catalog.active_overrides }} personalizações ativas.
+      {% endcomponent %}
+    </div>
+
+    <form method="get" class="flex flex-col gap-3 lg:flex-row lg:items-center">
+      <div class="flex-1">
+        {% include "unfold/helpers/field.html" with field=copy_catalog_form.q %}
+      </div>
+      <div class="flex-1">
+        {% include "unfold/helpers/field.html" with field=copy_catalog_form.surface %}
+      </div>
+      <div class="flex gap-2">
+        {% component "unfold/components/button.html" with submit=1 variant="primary" size="sm" icon="search" %}
+          Filtrar
+        {% endcomponent %}
+        {% url 'admin:shop_omotenashicopy_changelist' as overrides_url %}
+        {% component "unfold/components/button.html" with href=overrides_url variant="default" size="sm" icon="tune" %}
+          Ver personalizações
+        {% endcomponent %}
+      </div>
+    </form>
+
+    {% if not copy_catalog_tables %}
+      {% component "unfold/components/text.html" with class="text-base-500" %}
+        Nada encontrado com esse filtro. Tente parte do texto que aparece na tela.
+      {% endcomponent %}
+    {% endif %}
+
+    {% for group in copy_catalog_tables %}
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center gap-2">
+          {% component "unfold/components/title.html" with class="text-lg" %}
+            {{ group.surface }} · {{ group.screen }}
+          {% endcomponent %}
+          {% include "unfold/helpers/label.html" with text=group.count type="info" %}
+        </div>
+        {% component "unfold/components/table.html" with table=group.table striped=1 %}{% endcomponent %}
+      </div>
+    {% endfor %}
+  </div>
+{% endcomponent %}
+</main>
+{% endblock %}
