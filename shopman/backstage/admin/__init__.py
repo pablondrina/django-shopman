@@ -1,4 +1,4 @@
-"""Backstage admin — KDS, closing, alerts, cash register, operation, dashboard, shop extensions."""
+"""Backstage admin — KDS, closing, alerts, cash register, operation, dashboard."""
 
 from shopman.backstage.admin.alerts import OperatorAlertAdmin  # noqa: F401
 from shopman.backstage.admin.cash_register import CashShiftAdmin, POSTerminalAdmin  # noqa: F401
@@ -12,4 +12,3 @@ from shopman.backstage.admin.operation import (  # noqa: F401
 )
 from shopman.backstage.admin.operators import PinCredentialAdmin  # noqa: F401
 from shopman.backstage.admin.pos import POSTabAdmin  # noqa: F401
-from shopman.backstage.admin.shop_extensions import ShopAdminWithBackstageURLs  # noqa: F401

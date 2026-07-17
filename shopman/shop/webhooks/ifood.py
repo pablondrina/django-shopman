@@ -14,7 +14,7 @@ token is not configured, all requests are rejected with 403 — in any
 environment. That is deliberate: the "correct" integration is the one
 that runs, full stop.
 
-Dev simulation (the ``inject_simulated_ifood_order`` admin action and
+Dev simulation (the ``inject_ifood_order`` management command and
 the storefront checkout button) remains a developer tool that calls
 :func:`shopman.shop.services.ifood_ingest.ingest` directly. This webhook
 reuses the exact same ingest entry point, so a real callback and a

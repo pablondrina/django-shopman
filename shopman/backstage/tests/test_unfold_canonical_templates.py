@@ -29,7 +29,7 @@ def test_unfold_gate_default_scope_covers_admin_package_surfaces() -> None:
     }
 
     assert "shopman/backstage/templates/admin_console/production/index.html" in files
-    assert "shopman/shop/templates/admin/index.html" in files
+    assert "shopman/shop/templates/admin/dashboard.html" in files
     assert "packages/refs/shopman/refs/templates/admin/refs/rename_confirm.html" in files
     assert "packages/orderman/shopman/orderman/templates/orderman/admin/session_change_form.html" in files
     assert "packages/offerman/shopman/offerman/contrib/admin_unfold/admin.py" in files
@@ -75,7 +75,7 @@ def test_unfold_gate_scoped_targets_are_limited_to_registered_surface() -> None:
     }
 
     assert "shopman/backstage/templates/admin_console/production/index.html" in files
-    assert "shopman/shop/templates/admin/index.html" not in files
+    assert "shopman/shop/templates/admin/dashboard.html" not in files
 
 
 def test_unfold_installation_is_pinned_to_generated_official_inventory() -> None:

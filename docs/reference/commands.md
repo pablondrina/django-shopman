@@ -17,6 +17,7 @@
 | [`auth_cleanup`](#auth_cleanup) | doorman | Manutenção | Remove tokens/códigos expirados |
 | [`reconcile_payments`](#reconcile_payments) | shop | Operação | Reconcilia pedidos cujo webhook de pagamento pode ter sido perdido |
 | [`diagnose_remote_order`](#diagnose_remote_order) | shop | Operação | Diagnostica pedido remoto preso lendo fontes canônicas |
+| [`inject_ifood_order`](#inject_ifood_order) | shop | Dev | Injeta pedido iFood simulado pela ingestão canônica (apenas DEBUG) |
 | [`reconcile_financial_day`](#reconcile_financial_day) | backstage | Operação | Reconcilia pedido, intent, transação e fechamento diário |
 | [`smoke_gateways`](#smoke_gateways) | backstage | Operação | Estressa webhooks/gateways com fixtures locais e matriz sandbox |
 | [`omotenashi_qa`](#omotenashi_qa) | backstage | QA | Lista matriz manual QA Omotenashi com evidências do seed |
@@ -249,6 +250,23 @@ python manage.py diagnose_remote_order ORDER-REF
 ```
 
 **Veja também:** [runbook de pedido remoto preso](../runbooks/pedido-remoto-preso.md).
+
+---
+
+### inject_ifood_order
+
+**App:** `shopman.shop`
+**Arquivo:** `shopman/shop/management/commands/inject_ifood_order.py`
+
+Monta um payload iFood mínimo com o primeiro produto real do Offerman (para
+passar as checagens de estoque/preço de ponta a ponta) e o ingere via
+`ifood_ingest.ingest` no canal `ifood`. Ferramenta de dev, gated por DEBUG:
+fora de `DEBUG=True` o comando falha. Substitui a antiga admin action
+`inject_simulated_ifood_order` do ChannelAdmin.
+
+```bash
+python manage.py inject_ifood_order
+```
 
 ---
 

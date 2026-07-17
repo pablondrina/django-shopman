@@ -1,9 +1,9 @@
 // Presentation — fechamento do DIA (contagem cega de sobras/perdas).
 //
 // Transforms puras sobre a DayClosingProjection. As BADGES derivam de
-// `classification` AQUI (a projection carrega badge_css/badge_label do Admin;
-// a superfície não consome — cada app decide a própria pele). "D-1" é jargão
-// interno: o rótulo visível é sempre "Ontem".
+// `classification` AQUI (a projection não carrega presentation — cada app
+// decide a própria pele). "D-1" é jargão interno: o rótulo visível é sempre
+// "Ontem".
 
 import type {
   ClosingItemProjection,

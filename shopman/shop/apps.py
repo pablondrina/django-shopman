@@ -40,6 +40,11 @@ class ShopmanConfig(AppConfig):
         # 0. Register system checks
         import shopman.shop.checks  # noqa: F401
 
+        # 0b. Dashboard do Admin: template próprio, registrado explicitamente.
+        #     "admin/index.html" de app é sombreado pelo do Unfold (que vem
+        #     antes em INSTALLED_APPS), então o nome precisa ser exclusivo.
+        self._register_admin_dashboard()
+
         # 1. Register handlers, modifiers, validators
         self._register_handlers()
 
@@ -64,6 +69,11 @@ class ShopmanConfig(AppConfig):
 
         # 8. Inject store-driven stock-alert cooldown into the stockman Core
         self._register_stock_alert_resolvers()
+
+    def _register_admin_dashboard(self):
+        from django.contrib import admin
+
+        admin.site.index_template = "admin/dashboard.html"
 
     def _register_ref_types(self):
         try:

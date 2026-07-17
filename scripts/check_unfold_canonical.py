@@ -166,7 +166,7 @@ CANONICAL_ADMIN_SURFACES: tuple[Surface, ...] = (
     Surface(
         id="admin-dashboard",
         kind="canonical-admin-unfold-page",
-        templates=(ROOT / "shopman/shop/templates/admin/index.html",),
+        templates=(ROOT / "shopman/shop/templates/admin/dashboard.html",),
         controllers=(ROOT / "shopman/backstage/admin/dashboard.py",),
         projections=(ROOT / "shopman/backstage/projections/dashboard.py",),
         urls=("/admin/",),

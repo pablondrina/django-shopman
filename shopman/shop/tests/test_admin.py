@@ -847,55 +847,44 @@ class TestBatchAdminExtension:
 
 
 class TestDashboardCallback:
-    def test_returns_context_with_kpis(self, db):
+    def test_returns_config_audit_and_alerts_context(self, db):
         from shopman.backstage.admin.dashboard import dashboard_callback
 
         request = RequestFactory().get("/admin/")
         context = {}
         result = dashboard_callback(request, context)
 
-        assert "order_summary" in result
-        assert "revenue" in result
-        assert "production" in result
+        assert "config_links" in result
+        assert "audit_links" in result
+        assert "omotenashi_health" in result
         assert "kpi_stock_alerts" in result
-        assert "chart_pedidos_status" in result
-        assert "chart_vendas_7dias" in result
-        assert "table_pedidos_pendentes" in result
-        assert "recent_orders" in result
+        assert "kpi_operator_alerts" in result
+        assert "table_estoque_baixo" in result
         assert "operator_alerts" in result
+        assert "day_closing_url" in result
 
-    def test_order_summary_structure(self, db):
+    def test_no_live_operation_widgets(self, db):
+        """Operação ao vivo (pedidos, produção) mora nos apps Nuxt, não aqui."""
         from shopman.backstage.admin.dashboard import dashboard_callback
 
         request = RequestFactory().get("/admin/")
-        context = {}
-        result = dashboard_callback(request, context)
+        result = dashboard_callback(request, {})
 
-        summary = result["order_summary"]
-        assert hasattr(summary, "total")
-        assert hasattr(summary, "new_count")
-        assert hasattr(summary, "cards")
+        for gone in (
+            "order_summary", "revenue", "production", "chart_pedidos_status",
+            "chart_vendas_7dias", "table_pedidos_pendentes", "recent_orders",
+            "table_recentes", "table_producao", "table_sugestao_producao",
+        ):
+            assert gone not in result
 
-    def test_revenue_structure(self, db):
+    def test_config_links_resolve(self, db):
         from shopman.backstage.admin.dashboard import dashboard_callback
 
         request = RequestFactory().get("/admin/")
-        context = {}
-        result = dashboard_callback(request, context)
+        result = dashboard_callback(request, {})
 
-        revenue = result["revenue"]
-        assert hasattr(revenue, "today_q")
-        assert hasattr(revenue, "today_display")
-        assert hasattr(revenue, "yesterday_q")
-        assert hasattr(revenue, "trend_up")
-
-    def test_format_brl(self):
-        from shopman.backstage.projections.dashboard import _format_brl
-
-        assert _format_brl(0) == "R$ 0,00"
-        assert _format_brl(1500) == "R$ 15,00"
-        assert _format_brl(150000) == "R$ 1.500,00"
-        assert _format_brl(None) == "R$ 0,00"
+        for link in result["config_links"] + result["audit_links"]:
+            assert link["url"].startswith("/admin/")
 
 
 class TestProductionBackstageRoutes:

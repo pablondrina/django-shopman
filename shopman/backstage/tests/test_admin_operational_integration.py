@@ -28,7 +28,6 @@ from shopman.orderman.models import Order, OrderItem
 
 from shopman.backstage.admin import navigation
 from shopman.backstage.admin_console import production as admin_production
-from shopman.backstage.projections.dashboard import build_dashboard
 from shopman.shop.models import Shop
 
 
@@ -168,32 +167,6 @@ class AdminNavigationTests(TestCase):
             ["Painel", "Planejamento", "Produção", "Fichas técnicas", "Relatórios"],
         )
         self.assertEqual(str(WorkOrder._meta.verbose_name_plural), "Produção")
-
-
-class AdminDashboardSemanticsTests(TestCase):
-    def test_production_kpi_uses_product_quantities_not_only_work_order_counts(self) -> None:
-        recipe = Recipe.objects.create(
-            ref="admin-ciabatta",
-            name="Ciabatta",
-            output_sku="CIABATTA",
-            batch_size=10,
-        )
-        planned = craft.plan(recipe, 13, date=date.today())
-        started = craft.plan(recipe, 8, date=date.today(), operator_ref="user:ana")
-        craft.start(started, quantity=8, actor="test")
-        finished = craft.plan(recipe, 5, date=date.today(), operator_ref="user:bia")
-        craft.start(finished, quantity=5, actor="test")
-        craft.finish(finished, finished=4, actor="test")
-
-        production = build_dashboard().production
-
-        self.assertEqual(production.open, 2)
-        self.assertEqual(production.done, 1)
-        self.assertEqual(production.planned_qty, "26")
-        self.assertEqual(production.started_qty, "13")
-        self.assertEqual(production.finished_qty, "4")
-        self.assertEqual(production.loss_qty, "1")
-        self.assertIn(planned.ref, [row.ref for row in production.wos])
 
 
 class AdminProductionConsoleTests(TestCase):

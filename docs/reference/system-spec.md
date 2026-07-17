@@ -511,11 +511,11 @@ Templates (app precedence), static, Shop tokens, canais/presets, adapters (setti
 
 ### 4.2 POV: Operador de pedidos
 
-`/admin/operacao/pedidos/` tabs por status (polling/HTMX). Card NEW com timer Alpine verde/amarelo/vermelho. Auto-confirm countdown visível. Reject → CANCELLED → dispatch on_cancelled → release+refund+notif. Passa timer → Directive confirmation.timeout → ConfirmationTimeoutHandler → CONFIRMED.
+Gestor de pedidos (`surfaces/orders-nuxt`, rota `/board`) consumindo `api/v1/backstage/` via BFF, com push SSE (fetch canônico + poll fallback). Card NEW com timer verde/amarelo/vermelho. Auto-confirm countdown visível. Reject → CANCELLED → dispatch on_cancelled → release+refund+notif. Passa timer → Directive confirmation.timeout → ConfirmationTimeoutHandler → CONFIRMED.
 
 ### 4.3 POV: Cozinha (KDS)
 
-HTMX polling 5s; Alpine timer 1s. Prep ticket com checkboxes por item + "Pronto". Timer amarelo em target, vermelho em 2×target + priority_high icon. `kds.on_all_tickets_done` → READY → dispatch on_ready.
+KDS (`surfaces/kds-nuxt`) com push SSE + poll fallback. Prep ticket com checkboxes por item + "Pronto". Timer amarelo em target, vermelho em 2×target + priority_high icon. `kds.on_all_tickets_done` → READY → dispatch on_ready.
 
 ### 4.4 POV: Caixa (POS)
 
@@ -523,7 +523,7 @@ Staff login → abrir caixa → POS board (grid + carrinho) → lookup phone →
 
 ### 4.5 POV: Dono / gestor
 
-Admin Unfold dashboard KPIs + charts + tabelas (pendentes, produção, estoque baixo, D-1, recentes, alerts, sugestão produção). Configura promoção no admin → aplicada automaticamente pelo modifier pipeline. Closing: qty_unsold por SKU → D-1 movido para "ontem"; perecível vira perda; DayClosing audit record.
+Admin Unfold é CRUD + configuração: dashboard como landing de config/auditoria (atalhos de configuração, trilhas de auditoria, saúde da copy omotenashi, alertas de estoque/operador, estoque D-1). Operação ao vivo mora nos apps Nuxt (Gestor/PDV/KDS/Fournil). Configura promoção no admin → aplicada automaticamente pelo modifier pipeline. Closing na antesala do PDV (`surfaces/pos-nuxt`, rota `/session/closing`): qty_unsold por SKU → D-1 movido para "ontem"; perecível vira perda; DayClosing audit record (readonly no Admin).
 
 ### 4.6 POV: Desenvolvedor / integrador
 
