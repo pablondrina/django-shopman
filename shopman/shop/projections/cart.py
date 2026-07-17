@@ -404,12 +404,35 @@ def _planned_hold(session_key: str, sku: str) -> tuple[bool, bool, str | None, s
     planned = availability_service.classify_planned_hold_for_session_sku(session_key, sku)
     deadline = planned.get("deadline")
     planned_for = planned.get("planned_for")
+    if planned_for is not None:
+        # Piso fulfillável: a fornada pode estar datada para HOJE, mas se a loja já
+        # fechou (ou hoje é dia fechado) não há retirada hoje. A promessa ao cliente
+        # nunca fica abaixo do próximo dia operante — senão a sacola diz "Previsto
+        # pra hoje" enquanto o acompanhamento (correto) diz "Estamos fechados".
+        planned_for = max(planned_for, _earliest_fulfillable_date())
     return (
         planned["is_awaiting_confirmation"],
         planned["is_ready_for_confirmation"],
         deadline.isoformat() if deadline is not None else None,
         planned_for.isoformat() if planned_for is not None else None,
     )
+
+
+def _earliest_fulfillable_date():
+    """Próxima data em que a loja realmente opera (hoje só se ainda aberta).
+
+    Fonte da verdade é o ``business_calendar`` (pula dia fechado/feriado e descarta
+    hoje após o fechamento). Degrada para ``localdate()`` se sem agenda."""
+    from django.utils import timezone
+
+    try:
+        from shopman.shop.services import business_calendar
+
+        dates = business_calendar.available_dates(max_count=1)
+        return dates[0] if dates else timezone.localdate()
+    except Exception:
+        logger.debug("cart._earliest_fulfillable_date degraded", exc_info=True)
+        return timezone.localdate()
 
 
 def _line_availability(

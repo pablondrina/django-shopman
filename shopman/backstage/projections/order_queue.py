@@ -191,10 +191,11 @@ class TwoZoneQueueProjection:
     expedition_delivery_count: int
     expedition_count: int
     total_count: int
-    # Encomendas confirmadas para datas futuras (WP-D): fora das colunas do
-    # dia, ordenadas pela data combinada. Pedidos NOVOS com data futura
-    # continuam na Entrada — o operador ainda precisa aceitar; é a aceitação
-    # que move o pedido para cá. No dia, o despertador (preorder.activate)
+    # Encomendas para datas futuras (WP-D): fora das colunas do dia, ordenadas
+    # pela data combinada. Inclui pedidos NOVOS (ainda a aceitar) e confirmados —
+    # ambos carregam o badge "Agendado · <data>", então pertencem aqui, não na
+    # Entrada (o badge e a seção precisam concordar). O card novo mantém prazo de
+    # confirmação e ação de aceitar. No dia, o despertador (preorder.activate)
     # devolve o pedido ao fluxo normal.
     preorders: tuple[OrderCardProjection, ...] = ()
     preorders_count: int = 0
@@ -433,15 +434,27 @@ def build_two_zone_queue() -> TwoZoneQueueProjection:
 
     new_orders = [o for o in all_orders if o.status == "new"]
     deadlines = _confirmation_deadlines([o.ref for o in new_orders])
-    intake = tuple(_build_card(o, deadline=deadlines.get(o.ref)) for o in new_orders)
-    # Encomenda confirmada para data futura não é trabalho do dia: sai do
-    # Preparo (não polui a coluna) e vive no grupo próprio até o despertador
-    # devolvê-la ao fluxo na data (WP-D).
+    # Encomenda para data futura não é trabalho do dia — vive no grupo "Agendados",
+    # nunca na Entrada/Preparo do dia. Vale para pedido NOVO (ainda a aceitar) e
+    # confirmado: o card de encomenda carrega o badge "Agendado · <data>", então
+    # tê-lo na Entrada com esse badge é contraditório para o operador. O card novo
+    # mantém o prazo de confirmação (auto-confirm) e o botão de aceitar; o
+    # despertador (preorder.activate) devolve o pedido ao fluxo na data (WP-D).
+    intake = tuple(
+        _build_card(o, deadline=deadlines.get(o.ref))
+        for o in new_orders
+        if not _is_future_preorder(o)
+    )
     prep_orders = [o for o in all_orders if o.status in ("confirmed", "preparing")]
-    future_preorders = [o for o in prep_orders if _is_future_preorder(o)]
     prep = tuple(_build_card(o) for o in prep_orders if not _is_future_preorder(o))
+    # Só estados pré-fulfillment viram "Agendados"; ready/dispatched/delivered
+    # seguem nas colunas de expedição mesmo que a data combinada seja futura.
+    future_preorders = [
+        o for o in all_orders
+        if o.status in ("new", "confirmed", "preparing") and _is_future_preorder(o)
+    ]
     preorders = tuple(
-        _build_card(o)
+        _build_card(o, deadline=deadlines.get(o.ref))
         for o in sorted(future_preorders, key=lambda o: (get_commitment_date(o), o.created_at))
     )
     preparing_count = len(prep)

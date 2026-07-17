@@ -308,6 +308,61 @@ class TestAwaitingConfirmationIsNotUnavailable:
         assert _planned_for_display(None) is None
         assert _planned_for_display("nonsense") is None
 
+    def test_planned_hold_never_promises_today_when_store_closed(
+        self, client, channel, product,
+    ):
+        """Bug de produção: com a loja fechada a sacola dizia "Previsto pra hoje"
+        enquanto o acompanhamento dizia "Estamos fechados". O read-side fixa o piso
+        fulfillável — uma fornada datada para HOJE vira "amanhã" com a loja fechada.
+
+        Fechamento determinístico (independe do relógio): hoje é ``closed_date``."""
+        from datetime import date, timedelta
+        from decimal import Decimal
+
+        from shopman.shop.models import Shop
+        from shopman.stockman import stock
+        from shopman.stockman.models import Position, PositionKind
+
+        from shopman.storefront.tests.web.conftest import _ensure_listing_item
+
+        today = date.today()
+        tomorrow = today + timedelta(days=1)
+        shop = Shop.load()
+        # Fechado hoje de forma determinística (independe do relógio): hoje é
+        # feriado. O closed_date só é respeitado com horário regular configurado.
+        shop.opening_hours = {
+            d: {"open": "08:00", "close": "18:00"}
+            for d in ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+        }
+        shop.defaults = {**(shop.defaults or {}), "closed_dates": [{"date": today.isoformat(), "label": "Feriado"}]}
+        shop.save(update_fields=["opening_hours", "defaults"])
+
+        _ensure_listing_item(channel, product, price_q=90)
+        position, _ = Position.objects.get_or_create(
+            ref="loja",
+            defaults={"name": "Loja Principal", "kind": PositionKind.PHYSICAL, "is_saleable": True},
+        )
+        stock.plan(
+            quantity=Decimal("10"), product=product, target_date=today,
+            position=position, reason="fornada planejada (loja fechada)",
+        )
+        resp = client.put(
+            f"/api/v1/cart/skus/{product.sku}/",
+            data=json.dumps({"qty": 2}),
+            content_type="application/json",
+        )
+        assert resp.status_code in (200, 201)
+
+        request = _request_with_cart_session(client)
+        proj = build_cart(request=request, channel_ref=STOREFRONT_CHANNEL_REF)
+        item = proj.items[0]
+
+        assert item.is_awaiting_confirmation is True
+        # Loja fechada hoje → a fornada de HOJE é prometida para o próximo dia
+        # operante, nunca "hoje" (consistente com o acompanhamento).
+        assert item.planned_for_date == tomorrow.isoformat()
+        assert item.planned_for_notice == "Previsto para amanhã"
+
 
 # ──────────────────────────────────────────────────────────────────────
 # Minimum order progress

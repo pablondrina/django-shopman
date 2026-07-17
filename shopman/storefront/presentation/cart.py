@@ -354,6 +354,8 @@ def _planned_for_notice(
 
 
 def _planned_for_display(planned_iso: str | None) -> str | None:
+    # A data já chega TRUTHFUL do read-side (``shop.projections.cart`` fixa o piso
+    # fulfillável: nunca "hoje" com a loja fechada). Aqui é só formatação.
     if not planned_iso:
         return None
     try:
