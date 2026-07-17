@@ -28,14 +28,16 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class ClosingItemProjection:
-    """A single SKU row in the day closing form."""
+    """A single SKU row in the day closing form.
+
+    A pele (badge/rótulo) é derivada de ``classification`` por cada superfície
+    consumidora — a projection não carrega presentation.
+    """
 
     sku: str
     name: str
     qty_available: int
     classification: str  # "d1", "loss", "neutral"
-    badge_label: str  # "D-1", "Perda", "Neutro"
-    badge_css: str  # Tailwind classes for badge
 
 
 @dataclass(frozen=True)
@@ -207,16 +209,10 @@ def _build_items() -> list[ClosingItemProjection]:
 
         if allows_d1:
             classification = "d1"
-            badge_label = "Ontem"
-            badge_css = "bg-warning/80 text-warning-foreground"
         elif shelf_life == 0:
             classification = "loss"
-            badge_label = "Perda"
-            badge_css = "bg-danger/80 text-danger-foreground"
         else:
             classification = "neutral"
-            badge_label = "Neutro"
-            badge_css = "bg-muted text-muted-foreground"
 
         items.append(
             ClosingItemProjection(
@@ -224,8 +220,6 @@ def _build_items() -> list[ClosingItemProjection]:
                 name=name,
                 qty_available=int(qty),
                 classification=classification,
-                badge_label=badge_label,
-                badge_css=badge_css,
             )
         )
 
