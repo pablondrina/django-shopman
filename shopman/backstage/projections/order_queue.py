@@ -29,7 +29,7 @@ from shopman.shop.projections.types import (
 )
 from shopman.shop.services import operator_orders
 from shopman.shop.services import payment as payment_svc
-from shopman.shop.services.order_helpers import get_fulfillment_type
+from shopman.shop.services.order_helpers import get_commitment_date, get_fulfillment_type
 
 if TYPE_CHECKING:
     pass
@@ -124,6 +124,12 @@ class OrderCardProjection:
     # quando não há corrida registrada no pedido.
     courier_status: str = ""
     courier_status_label: str = ""
+    # Encomenda (WP-D): pedido com data futura. ``commitment_date`` ISO +
+    # display curto ("amanhã", "sáb, 19/07") para o badge do card. Um pedido
+    # deixa de ser encomenda no dia (mesma régua do lifecycle).
+    is_preorder: bool = False
+    commitment_date: str = ""
+    commitment_date_display: str = ""
 
 
 @dataclass(frozen=True)
@@ -185,6 +191,13 @@ class TwoZoneQueueProjection:
     expedition_delivery_count: int
     expedition_count: int
     total_count: int
+    # Encomendas confirmadas para datas futuras (WP-D): fora das colunas do
+    # dia, ordenadas pela data combinada. Pedidos NOVOS com data futura
+    # continuam na Entrada — o operador ainda precisa aceitar; é a aceitação
+    # que move o pedido para cá. No dia, o despertador (preorder.activate)
+    # devolve o pedido ao fluxo normal.
+    preorders: tuple[OrderCardProjection, ...] = ()
+    preorders_count: int = 0
 
 
 # ── Builders ───────────────────────────────────────────────────────────
@@ -421,7 +434,16 @@ def build_two_zone_queue() -> TwoZoneQueueProjection:
     new_orders = [o for o in all_orders if o.status == "new"]
     deadlines = _confirmation_deadlines([o.ref for o in new_orders])
     intake = tuple(_build_card(o, deadline=deadlines.get(o.ref)) for o in new_orders)
-    prep = tuple(_build_card(o) for o in all_orders if o.status in ("confirmed", "preparing"))
+    # Encomenda confirmada para data futura não é trabalho do dia: sai do
+    # Preparo (não polui a coluna) e vive no grupo próprio até o despertador
+    # devolvê-la ao fluxo na data (WP-D).
+    prep_orders = [o for o in all_orders if o.status in ("confirmed", "preparing")]
+    future_preorders = [o for o in prep_orders if _is_future_preorder(o)]
+    prep = tuple(_build_card(o) for o in prep_orders if not _is_future_preorder(o))
+    preorders = tuple(
+        _build_card(o)
+        for o in sorted(future_preorders, key=lambda o: (get_commitment_date(o), o.created_at))
+    )
     preparing_count = len(prep)
 
     ready_orders = [o for o in all_orders if o.status == "ready"]
@@ -443,6 +465,8 @@ def build_two_zone_queue() -> TwoZoneQueueProjection:
         + len(expedition_delivery)
         + len(expedition_delivery_transit),
         total_count=len(all_orders),
+        preorders=preorders,
+        preorders_count=len(preorders),
     )
 
 
@@ -472,6 +496,26 @@ def _confirmation_deadlines(refs: list[str]) -> dict[str, tuple[str, str]]:
         if ref and ref not in out:
             out[ref] = (str((d.payload or {}).get("expires_at") or ""), str((d.payload or {}).get("action") or ""))
     return out
+
+
+def _is_future_preorder(order: Order) -> bool:
+    """Encomenda = data combinada no futuro (régua do lifecycle)."""
+    commitment = get_commitment_date(order)
+    return commitment is not None and commitment > timezone.localdate()
+
+
+def _commitment_date_display(commitment) -> str:
+    """Display curto da data combinada para o badge do card do operador."""
+    from datetime import timedelta
+
+    from django.utils import formats
+
+    today = timezone.localdate()
+    if commitment == today:
+        return "hoje"
+    if commitment == today + timedelta(days=1):
+        return "amanhã"
+    return f"{formats.date_format(commitment, 'D')}, {formats.date_format(commitment, 'd/m')}"
 
 
 def _build_card(order: Order, deadline: tuple[str, str] | None = None) -> OrderCardProjection:
@@ -514,6 +558,8 @@ def _build_card(order: Order, deadline: tuple[str, str] | None = None) -> OrderC
     payment_status = _payment_status(order)
     payment_method_label = _payment_method_label(method, payment_data)
     fiscal_status, fiscal_status_label, _fiscal_links = _fiscal_status(order)
+    commitment = get_commitment_date(order)
+    is_preorder = commitment is not None and commitment > timezone.localdate()
 
     return OrderCardProjection(
         ref=order.ref,
@@ -552,6 +598,9 @@ def _build_card(order: Order, deadline: tuple[str, str] | None = None) -> OrderC
         confirmation_action=deadline[1] if deadline else "",
         courier_status=_card_courier_status(order),
         courier_status_label=COURIER_STATUS_LABELS.get(_card_courier_status(order), ""),
+        is_preorder=is_preorder,
+        commitment_date=commitment.isoformat() if commitment else "",
+        commitment_date_display=_commitment_date_display(commitment) if is_preorder else "",
     )
 
 

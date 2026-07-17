@@ -183,22 +183,32 @@ def _production_summary(closing_date: date) -> dict:
 
 
 def _reconciliation_errors(*, closing_date: date, items: list[dict]) -> list[dict]:
+    from django.db.models import Q
     from shopman.orderman.models import Order
+
+    from shopman.shop.services.order_helpers import get_commitment_date
 
     saleable_by_sku = {row["sku"]: int(row.get("qty_remaining", 0)) + int(row.get("qty_applied", 0)) for row in items}
     produced_by_sku: dict[str, int] = {}
     for row in _production_summary(closing_date).values():
         produced_by_sku[str(row["output_sku"])] = produced_by_sku.get(str(row["output_sku"]), 0) + int(row["finished"])
 
+    # Base do "vendido" é a DATA COMBINADA, não a data da venda (WP-D): a
+    # encomenda feita hoje para sábado consome o estoque de sábado — contá-la
+    # hoje fabricava deficit falso (baixa adiada), e ignorá-la no sábado
+    # esconderia deficits reais. Financeiro/caixa seguem no dia do pagamento.
     sold_by_sku: dict[str, int] = {}
     orders = (
         Order.objects.filter(
-            created_at__date=closing_date,
+            Q(created_at__date=closing_date) | Q(data__delivery_date=closing_date.isoformat()),
         )
         .exclude(status__in=["cancelled", "returned"])
         .prefetch_related("items")
     )
     for order in orders:
+        commitment = get_commitment_date(order) or timezone.localtime(order.created_at).date()
+        if commitment != closing_date:
+            continue
         for item in order.items.all():
             sold_by_sku[item.sku] = sold_by_sku.get(item.sku, 0) + int(item.qty)
 

@@ -69,6 +69,9 @@ export interface OrderCardProjection {
   confirmation_action: string;
   courier_status: string;
   courier_status_label: string;
+  is_preorder: boolean;
+  commitment_date: string;
+  commitment_date_display: string;
 }
 
 /** Expanded detail for a single order (operator side-panel). */
@@ -121,4 +124,6 @@ export interface TwoZoneQueueProjection {
   expedition_delivery_count: number;
   expedition_count: number;
   total_count: number;
+  preorders: OrderCardProjection[];
+  preorders_count: number;
 }

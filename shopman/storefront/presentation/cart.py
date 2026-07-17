@@ -81,6 +81,8 @@ class CartItemProjection:
     is_ready_for_confirmation: bool
     confirmation_deadline_iso: str | None       # ISO 8601 UTC, fuels the countdown na loja Nuxt
     confirmation_deadline_display: str | None   # pre-formatted HH:MM for badge copy / toast
+    planned_for_date: str | None                # ISO date da fornada que a linha espera
+    planned_for_notice: str | None              # "Previsto para amanhã" (copy omotenashi + data)
 
 
 @dataclass(frozen=True)
@@ -201,7 +203,12 @@ def build_cart(
     data = cart_data.build_cart(session_key, channel_ref)
 
     image_by_sku = _image_by_sku(line.sku for line in data.lines)
-    items = tuple(_present_line(line, image_by_sku) for line in data.lines)
+    planned_notice_template = (
+        resolve_copy("CART_WAITLIST_PLANNED_DATE", moment="*", audience="*").message or ""
+    ).strip()
+    items = tuple(
+        _present_line(line, image_by_sku, planned_notice_template) for line in data.lines
+    )
 
     min_order = present_minimum_order(data.minimum_order)
     delivery_minimum = present_minimum_order(data.delivery_minimum)
@@ -260,7 +267,9 @@ def build_cart(
 
 
 def _present_line(
-    line: cart_data.CartLineProjection, image_by_sku: dict[str, str | None],
+    line: cart_data.CartLineProjection,
+    image_by_sku: dict[str, str | None],
+    planned_notice_template: str = "",
 ) -> CartItemProjection:
     # ``is_available`` already reflects the own-hold correction. When false,
     # the stock really fell behind what this session reserved — surface the
@@ -300,6 +309,8 @@ def _present_line(
         is_ready_for_confirmation=line.is_ready_for_confirmation,
         confirmation_deadline_iso=line.confirmation_deadline_iso,
         confirmation_deadline_display=_deadline_display(line.confirmation_deadline_iso),
+        planned_for_date=line.planned_for_date,
+        planned_for_notice=_planned_for_notice(line, planned_notice_template),
     )
 
 
@@ -324,6 +335,43 @@ def _delivery_distance_display(data: cart_data.CartProjection) -> str | None:
     if km == int(km):
         return f"{int(km)} km"
     return f"{km:.1f}".replace(".", ",") + " km"
+
+
+def _planned_for_notice(
+    line: cart_data.CartLineProjection, template: str,
+) -> str | None:
+    """Compose the waitlist line's expected-batch notice ("Previsto para amanhã").
+
+    Only meaningful while the line still awaits materialization — a ready
+    line already shows the confirmation deadline instead.
+    """
+    if not line.is_awaiting_confirmation or not template:
+        return None
+    display = _planned_for_display(line.planned_for_date)
+    if not display:
+        return None
+    return template.replace("{date}", display)
+
+
+def _planned_for_display(planned_iso: str | None) -> str | None:
+    if not planned_iso:
+        return None
+    try:
+        from datetime import date, timedelta
+
+        from django.utils import formats
+        from django.utils import timezone as _tz
+
+        planned = date.fromisoformat(planned_iso)
+        today = _tz.localdate()
+        if planned <= today:
+            return "hoje"
+        if planned == today + timedelta(days=1):
+            return "amanhã"
+        return f"{formats.date_format(planned, 'l')}, {formats.date_format(planned, 'd/m')}"
+    except Exception:
+        logger.debug("cart._planned_for_display degraded", exc_info=True)
+        return None
 
 
 def _deadline_display(deadline_iso: str | None) -> str | None:

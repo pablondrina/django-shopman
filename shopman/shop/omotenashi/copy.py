@@ -155,6 +155,11 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "CART_WAITLIST_NOTICE": {
         WILDCARD: {WILDCARD: CopyEntry(message="Envie o pedido para garantir a sua prioridade.")},
     },
+    # Data prevista da fornada na linha em lista de espera. ``{date}`` vira
+    # "hoje" / "amanhã" / "sábado, 19/07" na presentation da sacola.
+    "CART_WAITLIST_PLANNED_DATE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Previsto para {date}")},
+    },
     # Motivos do botão de checkout desabilitado — antes hardcoded na presentation,
     # agora no registro para o operador reescrever como qualquer outra microcopy.
     "CART_CHECKOUT_BLOCK_EMPTY": {
@@ -168,6 +173,11 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
     "CART_CHECKOUT_BLOCK_CHANNEL": {
         WILDCARD: {WILDCARD: CopyEntry(message="Checkout indisponível para este canal.")},
+    },
+    # Título do cross-sell na página de produto (descoberta lateral por
+    # keywords). Antes hardcoded na tela; agora admin-configurável.
+    "PRODUCT_CROSS_SELL_HEADING": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Você também pode gostar")},
     },
     # "Me avise quando disponível" — CTA de reposição no erro de esgotado do carrinho
     # (reaproveita o fluxo de StockAlertSubscribe já existente).
@@ -481,6 +491,29 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     },
     "TRACKING_STATUS_READY_PICKUP": {
         WILDCARD: {WILDCARD: CopyEntry(title="Pronto para retirada")},
+    },
+    # Encomenda agendada (WP-D): pedido confirmado com data futura, entre a
+    # confirmação e o dia combinado. ``{when}`` vira "sábado, 19/07 · A partir
+    # das 09h" na presentation.
+    "TRACKING_STATUS_PREORDER_SCHEDULED": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Encomenda confirmada")},
+    },
+    "TRACKING_PROMISE_PREORDER_TITLE": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Encomenda confirmada")},
+    },
+    "TRACKING_PROMISE_PREORDER_MESSAGE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Seu pedido está garantido para {when}. Preparamos tudo fresco no dia.")},
+    },
+    "TRACKING_PROMISE_PREORDER_MESSAGE_NO_DATE": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Seu pedido está garantido. Preparamos tudo fresco no dia combinado.")},
+    },
+    "TRACKING_PROMISE_PREORDER_NEXT": {
+        WILDCARD: {WILDCARD: CopyEntry(message="No dia, avisamos você quando o preparo começar.")},
+    },
+    # Confirmação de encomenda: prefixo do combinado ("Pedido para" + "sábado,
+    # 19/07 · A partir das 09h") no lugar do ETA de preparo.
+    "CONFIRMATION_PREORDER_WHEN_PREFIX": {
+        WILDCARD: {WILDCARD: CopyEntry(message="Pedido para")},
     },
     "TRACKING_STEP_RECEIVED": {
         WILDCARD: {WILDCARD: CopyEntry(title="Recebemos seu pedido")},

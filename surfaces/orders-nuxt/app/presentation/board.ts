@@ -177,6 +177,32 @@ export function zonesView(queue: TwoZoneQueueProjection): ZoneView[] {
   ];
 }
 
+// ── Encomendas (pedidos confirmados para datas futuras) ────────────────────
+
+export interface PreorderGroup {
+  /** ISO date the group is committed to (sort key). */
+  date: string;
+  /** Operator-facing label ("amanhã", "sáb, 19/07"). */
+  label: string;
+  cards: OrderCardProjection[];
+}
+
+/** Group the queue's future preorders by commitment date, soonest first.
+ *  The server already sorts cards by (commitment_date, created_at). */
+export function preorderGroups(queue: Pick<TwoZoneQueueProjection, "preorders">): PreorderGroup[] {
+  const groups = new Map<string, PreorderGroup>();
+  for (const card of queue.preorders ?? []) {
+    const date = card.commitment_date || "";
+    const existing = groups.get(date);
+    if (existing) {
+      existing.cards.push(card);
+    } else {
+      groups.set(date, { date, label: card.commitment_date_display || date, cards: [card] });
+    }
+  }
+  return [...groups.values()];
+}
+
 // ── Action affordances ─────────────────────────────────────────────────────
 
 export type AffordanceRef = "confirm" | "advance" | "reject" | "settle_cash";

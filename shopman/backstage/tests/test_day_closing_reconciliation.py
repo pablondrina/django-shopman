@@ -165,3 +165,80 @@ def test_reconciliation_error_from_dict():
     raw = {"sku": "X", "sold": 10, "available": 6, "deficit": 4}
     err = ReconciliationError.from_dict(raw)
     assert err == ReconciliationError(sku="X", sold_qty=10, available_qty=6, deficit_qty=4)
+
+
+@pytest.mark.django_db
+def test_future_preorder_does_not_create_false_deficit(client, setup_stock, closing_user):
+    """WP-D: encomenda vendida hoje para data futura NÃO conta como vendida
+    hoje na reconciliação de estoque — a baixa só acontece na data combinada.
+    Contá-la hoje fabricava um deficit falso (estoque nunca saiu)."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    preorder = Order.objects.create(
+        ref="RECON-ENC",
+        channel_ref="web",
+        status="confirmed",
+        total_q=500,
+        data={"delivery_date": (timezone.localdate() + timedelta(days=2)).isoformat()},
+    )
+    OrderItem.objects.create(order=preorder, line_id="1", sku="RECON-SKU", name="Recon", qty=5, unit_price_q=100, line_total_q=500)
+    client.force_login(closing_user)
+
+    response = client.post("/admin/operacao/fechamento/", {"qty_RECON-SKU": "2"})
+
+    assert response.status_code == 302
+    assert DayClosing.objects.get().data["reconciliation_errors"] == []
+
+
+@pytest.mark.django_db
+def test_preorder_counts_in_reconciliation_of_the_delivery_day(setup_stock):
+    """Contraprova: no fechamento DA DATA combinada a encomenda conta como
+    vendida — ali o estoque saiu de verdade."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from shopman.backstage.services.closing import _reconciliation_errors
+
+    delivery_day = timezone.localdate() + timedelta(days=2)
+    preorder = Order.objects.create(
+        ref="RECON-ENC-DIA",
+        channel_ref="web",
+        status="confirmed",
+        total_q=500,
+        data={"delivery_date": delivery_day.isoformat()},
+    )
+    OrderItem.objects.create(order=preorder, line_id="1", sku="RECON-SKU", name="Recon", qty=5, unit_price_q=100, line_total_q=500)
+
+    errors = _reconciliation_errors(closing_date=delivery_day, items=[])
+
+    assert errors == [{"sku": "RECON-SKU", "sold": 5, "available": 0, "deficit": 5}]
+
+
+@pytest.mark.django_db
+def test_build_day_closing_lists_upcoming_preorders(setup_stock):
+    """WP-D: o fechamento informa as encomendas dos próximos dias (qtd + total),
+    agregadas pela data combinada."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    tomorrow = (timezone.localdate() + timedelta(days=1)).isoformat()
+    saturday = (timezone.localdate() + timedelta(days=3)).isoformat()
+    Order.objects.create(ref="ENC-1", channel_ref="web", status="confirmed", total_q=1500, data={"delivery_date": tomorrow})
+    Order.objects.create(ref="ENC-2", channel_ref="web", status="confirmed", total_q=2500, data={"delivery_date": tomorrow})
+    Order.objects.create(ref="ENC-3", channel_ref="web", status="confirmed", total_q=1000, data={"delivery_date": saturday})
+    # Cancelada e de hoje ficam de fora.
+    Order.objects.create(ref="ENC-4", channel_ref="web", status="cancelled", total_q=999, data={"delivery_date": tomorrow})
+    Order.objects.create(ref="HOJE-1", channel_ref="web", status="confirmed", total_q=999, data={"delivery_date": timezone.localdate().isoformat()})
+
+    closing = build_day_closing()
+
+    assert closing.has_upcoming_preorders is True
+    assert [(row.date_display, row.orders_count, row.total_display) for row in closing.upcoming_preorders] == [
+        ("amanhã", 2, "R$ 40,00"),
+        (closing.upcoming_preorders[1].date_display, 1, "R$ 10,00"),
+    ]
+    assert closing.upcoming_preorders[0].total_q == 4000

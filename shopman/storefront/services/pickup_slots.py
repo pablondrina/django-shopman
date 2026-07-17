@@ -443,3 +443,13 @@ def _find_slot_by_ref(slots: list[dict], ref: str) -> dict | None:
         if s["ref"] == ref:
             return s
     return None
+
+
+def slot_label(slot_ref: str | None) -> str:
+    """Customer-facing label of a configured slot ("A partir das 09h").
+
+    Resolves against ``Shop.defaults["pickup_slots"]`` (or the defaults);
+    an unknown ref falls back to the ref itself so the surface never goes
+    blank on config drift.
+    """
+    return _slot_label(get_slots(), slot_ref)

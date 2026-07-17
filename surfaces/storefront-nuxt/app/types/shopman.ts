@@ -155,6 +155,7 @@ export interface ProductDetailProjection {
   seo_keywords: string[]
   breadcrumb_category: CategoryProjection | null
   cross_sell: CatalogItemProjection[]
+  cross_sell_heading: string
 }
 
 export interface MinimumOrderProgressProjection {
@@ -195,6 +196,8 @@ export interface CartItemProjection {
   is_ready_for_confirmation: boolean
   confirmation_deadline_iso: string | null
   confirmation_deadline_display: string | null
+  planned_for_date: string | null
+  planned_for_notice: string | null
 }
 
 export interface CartProjection {
@@ -783,6 +786,8 @@ export interface TrackingResponse {
   status: string
   status_label: string
   status_color: string
+  is_preorder: boolean
+  when_display: string | null
   copy: TrackingCopyProjection
   promise: TrackingPromiseProjection
   promise_rows: TrackingPromiseRowProjection[]

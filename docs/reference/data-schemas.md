@@ -19,7 +19,7 @@ O Core não impõe schema — a governança é por convenção documentada aqui.
 | `fulfillment_type` | `string` | CheckoutView, POS, API, iFood webhook | CommitService, MinimumOrderValidator | `"pickup"` ou `"delivery"` |
 | `delivery_address` | `string` | CheckoutView, API, iFood webhook | CommitService, CustomerIdentificationHandler | Endereço formatado (texto livre) |
 | `delivery_date` | `string` | CheckoutView | CommitService | ISO date (`YYYY-MM-DD`). Se futuro, indica encomenda |
-| `delivery_time_slot` | `string` | CheckoutView | CommitService | Faixa horária: `"manha"`, `"tarde"`, etc. |
+| `delivery_time_slot` | `string` | CheckoutView | CommitService | Ref do slot configurado em `Shop.defaults["pickup_slots"]` (`"slot-09"`, `"slot-12"`, `"slot-15"`); o label ("A partir das 09h") resolve via `storefront.services.pickup_slots.slot_label` |
 | `order_notes` | `string` | CheckoutView, iFood webhook | CommitService, KDS ticket (`customer_note`) | Observações do pedido escritas pelo **cliente** no checkout. Exibida no ticket do KDS (nota do cliente). Distinta da `kitchen_note` (nota do operador) |
 | `origin_channel` | `string` | CartService, POS, iFood webhook | CommitService, hooks.py | Canal de origem: `"web"`, `"whatsapp"`, `"ifood"`, `"pos"`, `"instagram"` |
 | `coupon_code` | `string` | CartService.apply_coupon | CouponModifier, CartService.get_cart_summary | Código do cupom aplicado (uppercase) |
@@ -73,7 +73,7 @@ Paths **proibidas** (geridas pelo sistema): `checks`, `issues`, `state`, `status
   "fulfillment_type": "delivery",
   "delivery_address": "Rua das Flores 123 - Centro - Londrina",
   "delivery_date": "2026-04-01",
-  "delivery_time_slot": "manha",
+  "delivery_time_slot": "slot-09",
   "order_notes": "Sem cebola",
   "origin_channel": "whatsapp",
   "coupon_code": "WELCOME10",
@@ -302,7 +302,7 @@ Classificações: **canonical** = fonte de verdade para decisões; **display** =
     "is_verified": true
   },
   "delivery_date": "2026-04-02",
-  "delivery_time_slot": "manha",
+  "delivery_time_slot": "slot-09",
   "order_notes": "Sem cebola",
   "origin_channel": "web",
   "is_preorder": true,

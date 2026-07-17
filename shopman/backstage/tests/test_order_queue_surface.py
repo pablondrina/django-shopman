@@ -65,6 +65,56 @@ class OrderQueueSurfaceTests(TestCase):
         self.assertEqual(queue.expedition_delivery_count, 2)
         self.assertEqual(queue.total_count, 6)
 
+    def test_future_preorder_leaves_prep_for_the_preorders_group(self) -> None:
+        """WP-D: encomenda CONFIRMADA para data futura sai do Preparo (não
+        polui o dia) e vive no grupo próprio, ordenada pela data combinada.
+        Pedido NOVO com data futura fica na Entrada — ainda precisa do aceite."""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        tomorrow = (timezone.localdate() + timedelta(days=1)).isoformat()
+        saturday = (timezone.localdate() + timedelta(days=3)).isoformat()
+
+        _order("Q-HOJE", "confirmed")
+        later = _order("Q-SAB", "confirmed")
+        later.data["delivery_date"] = saturday
+        later.save(update_fields=["data", "updated_at"])
+        sooner = _order("Q-AMANHA", "confirmed")
+        sooner.data["delivery_date"] = tomorrow
+        sooner.save(update_fields=["data", "updated_at"])
+        new_preorder = _order("Q-NOVA-ENC", "new")
+        new_preorder.data["delivery_date"] = tomorrow
+        new_preorder.save(update_fields=["data", "updated_at"])
+
+        queue = build_two_zone_queue()
+
+        self.assertEqual([o.ref for o in queue.prep], ["Q-HOJE"])
+        self.assertEqual([o.ref for o in queue.preorders], ["Q-AMANHA", "Q-SAB"])
+        self.assertEqual(queue.preorders_count, 2)
+        self.assertEqual([o.ref for o in queue.intake], ["Q-NOVA-ENC"])
+
+        cards = {c.ref: c for c in queue.preorders + queue.intake + queue.prep}
+        self.assertTrue(cards["Q-AMANHA"].is_preorder)
+        self.assertEqual(cards["Q-AMANHA"].commitment_date, tomorrow)
+        self.assertEqual(cards["Q-AMANHA"].commitment_date_display, "amanhã")
+        self.assertTrue(cards["Q-NOVA-ENC"].is_preorder)
+        self.assertFalse(cards["Q-HOJE"].is_preorder)
+        self.assertEqual(cards["Q-HOJE"].commitment_date_display, "")
+
+    def test_past_or_today_commitment_date_is_not_a_preorder(self) -> None:
+        """No dia (ou depois dela) a encomenda volta ao fluxo normal do board."""
+        from django.utils import timezone
+
+        today_order = _order("Q-DIA", "confirmed")
+        today_order.data["delivery_date"] = timezone.localdate().isoformat()
+        today_order.save(update_fields=["data", "updated_at"])
+
+        queue = build_two_zone_queue()
+
+        self.assertEqual([o.ref for o in queue.prep], ["Q-DIA"])
+        self.assertEqual(queue.preorders, ())
+
     def test_confirmation_deadline_surfaces_on_new_card(self) -> None:
         from shopman.orderman.models import Directive
 

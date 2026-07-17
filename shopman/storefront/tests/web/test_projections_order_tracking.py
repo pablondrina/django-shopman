@@ -27,6 +27,90 @@ pytestmark = pytest.mark.django_db
 
 
 # ──────────────────────────────────────────────────────────────────────
+# Encomenda (WP-D) — pedido com data futura
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestPreorderTracking:
+    """Pedido confirmado com ``delivery_date`` futura conta a história de
+    encomenda: estado ``preorder_scheduled``, o combinado ("amanhã · A partir
+    das 09h") e o rótulo "Encomenda confirmada"."""
+
+    def _make_preorder(self, order, *, days_ahead=1, slot="slot-09"):
+        from datetime import timedelta
+
+        from django.utils import timezone as _tz
+        from shopman.orderman.models import Order as _Order
+
+        target = (_tz.localdate() + timedelta(days=days_ahead)).isoformat()
+        data = dict(order.data or {})
+        data.update({
+            "fulfillment_type": "pickup",
+            "delivery_date": target,
+            "delivery_time_slot": slot,
+            "is_preorder": True,
+        })
+        _Order.objects.filter(pk=order.pk).update(status="confirmed", data=data)
+        order.refresh_from_db()
+        return order, target
+
+    def test_confirmed_future_order_is_preorder_scheduled(self, order):
+        order, target = self._make_preorder(order)
+
+        proj = build_order_tracking(order)
+
+        assert proj.is_preorder is True
+        assert proj.promise.state == "preorder_scheduled"
+        assert proj.status_label == "Encomenda confirmada"
+        assert proj.when_display == "amanhã · A partir das 09h"
+        assert "garantido para amanhã · A partir das 09h" in proj.promise.message
+        assert proj.promise.next_event == "No dia, avisamos você quando o preparo começar."
+
+    def test_future_order_without_slot_shows_date_only(self, order):
+        from datetime import date
+
+        from django.utils import formats
+
+        order, target = self._make_preorder(order, days_ahead=3, slot="")
+
+        proj = build_order_tracking(order)
+
+        expected_date = date.fromisoformat(target)
+        expected = f"{formats.date_format(expected_date, 'l')}, {formats.date_format(expected_date, 'd/m')}"
+        assert proj.when_display == expected
+        assert proj.promise.state == "preorder_scheduled"
+
+    def test_on_the_day_the_preorder_rejoins_the_normal_flow(self, order):
+        order, _ = self._make_preorder(order, days_ahead=0)
+
+        proj = build_order_tracking(order)
+
+        assert proj.is_preorder is False
+        assert proj.when_display is None
+        assert proj.promise.state != "preorder_scheduled"
+
+    def test_unpaid_pix_preorder_keeps_payment_first(self, order_with_payment):
+        from datetime import timedelta
+
+        from django.utils import timezone as _tz
+        from shopman.orderman.models import Order as _Order
+
+        data = dict(order_with_payment.data or {})
+        data.update({
+            "delivery_date": (_tz.localdate() + timedelta(days=1)).isoformat(),
+            "delivery_time_slot": "slot-09",
+        })
+        _Order.objects.filter(pk=order_with_payment.pk).update(status="confirmed", data=data)
+        order_with_payment.refresh_from_db()
+
+        proj = build_order_tracking(order_with_payment)
+
+        # Sem pagamento confirmado, a promise continua sendo o pagamento.
+        assert proj.promise.state in {"payment_requested", "payment_pending"}
+        assert proj.is_preorder is True
+
+
+# ──────────────────────────────────────────────────────────────────────
 # OrderTrackingProjection — shape
 # ──────────────────────────────────────────────────────────────────────
 

@@ -86,6 +86,7 @@ STATUS_LABEL_COPY: dict[str, tuple[str, str]] = {
     "card_authorized": ("TRACKING_STATUS_CARD_AUTHORIZED", "Pagamento autorizado"),
     "ready_delivery": ("TRACKING_STATUS_READY_DELIVERY", "Aguardando entregador"),
     "ready_pickup": ("TRACKING_STATUS_READY_PICKUP", "Pronto para retirada"),
+    "preorder_scheduled": ("TRACKING_STATUS_PREORDER_SCHEDULED", "Encomenda confirmada"),
 }
 
 # Semantic payment status descriptor → customer-facing label.
@@ -221,6 +222,11 @@ class OrderTrackingProjection:
     status: str
     status_label: str
     status_color: str
+    # Encomenda (WP-D): quando o pedido tem data futura, ``when_display`` traz
+    # o combinado como o cliente escolheu no checkout ("sábado, 19/07 · A
+    # partir das 09h") para o cabeçalho/resumo da página.
+    is_preorder: bool
+    when_display: str | None
     copy: OrderTrackingCopyProjection
     promise: OrderTrackingPromiseProjection
     promise_rows: tuple[OrderTrackingPromiseRowProjection, ...]
@@ -289,12 +295,21 @@ def build_order_tracking_status(order) -> OrderTrackingStatusProjection:
 def present_tracking(data: TrackingData) -> OrderTrackingProjection:
     copy = build_copy("TRACKING")
     last_updated_display = copy.title("TRACKING_PROMISE_UPDATED_NOW", "Atualizado agora")
-    promise = _present_promise(data.promise, status=data.status, is_delivery=data.is_delivery, copy=copy)
+    when_display = _when_display(data.commitment_date, data.commitment_slot_ref)
+    promise = _present_promise(
+        data.promise,
+        status=data.status,
+        is_delivery=data.is_delivery,
+        copy=copy,
+        when_display=when_display,
+    )
     return OrderTrackingProjection(
         order_ref=data.order_ref,
         status=data.status,
         status_label=_status_label(data.display_status_key, data.status, copy),
         status_color=status_color(data.status),
+        is_preorder=data.is_preorder,
+        when_display=when_display if data.is_preorder else None,
         copy=_tracking_copy(copy),
         promise=promise,
         promise_rows=_build_promise_rows(promise, copy=copy),
@@ -390,6 +405,41 @@ def _eta_display(eta_at: str | None) -> str | None:
         return None
 
 
+def _when_display(commitment_date_iso: str | None, slot_ref: str | None) -> str | None:
+    """"sábado, 19/07 · A partir das 09h" — a data e o slot como o cliente
+    escolheu no checkout (mesma composição do ``whenSummary`` da loja)."""
+    date_part = _commitment_date_display(commitment_date_iso)
+    if not date_part:
+        return None
+    if slot_ref:
+        from shopman.storefront.services.pickup_slots import slot_label
+
+        label = slot_label(slot_ref)
+        if label:
+            return f"{date_part} · {label}"
+    return date_part
+
+
+def _commitment_date_display(commitment_date_iso: str | None) -> str | None:
+    if not commitment_date_iso:
+        return None
+    try:
+        from datetime import date, timedelta
+
+        from django.utils import formats
+
+        commitment = date.fromisoformat(commitment_date_iso)
+        today = timezone.localdate()
+        if commitment == today:
+            return "hoje"
+        if commitment == today + timedelta(days=1):
+            return "amanhã"
+        return f"{formats.date_format(commitment, 'l')}, {formats.date_format(commitment, 'd/m')}"
+    except Exception:
+        logger.debug("order_tracking._commitment_date_display degraded", exc_info=True)
+        return None
+
+
 def _fmt_timestamp(iso: str | None) -> str:
     if not iso:
         return ""
@@ -462,12 +512,14 @@ def _present_promise(
     status: str,
     is_delivery: bool,
     copy: CopyCatalog,
+    when_display: str | None = None,
 ) -> OrderTrackingPromiseProjection:
     title, message, next_event, recovery, _ = _promise_copy(
         data,
         status=status,
         is_delivery=is_delivery,
         copy=copy,
+        when_display=when_display,
     )
     active_notification = _active_notification(data, copy)
     return OrderTrackingPromiseProjection(
@@ -494,9 +546,28 @@ def _promise_copy(
     status: str,
     is_delivery: bool,
     copy: CopyCatalog,
+    when_display: str | None = None,
 ) -> tuple[str, str, str, str, str]:
     """Return (title, message, next_event, recovery, active_notification)."""
     state = data.state
+
+    if state == "preorder_scheduled":
+        title = copy.title("TRACKING_PROMISE_PREORDER_TITLE", "Encomenda confirmada")
+        if when_display:
+            message = copy.message(
+                "TRACKING_PROMISE_PREORDER_MESSAGE",
+                "Seu pedido está garantido para {when}. Preparamos tudo fresco no dia.",
+            ).replace("{when}", when_display)
+        else:
+            message = copy.message(
+                "TRACKING_PROMISE_PREORDER_MESSAGE_NO_DATE",
+                "Seu pedido está garantido. Preparamos tudo fresco no dia combinado.",
+            )
+        next_event = copy.message(
+            "TRACKING_PROMISE_PREORDER_NEXT",
+            "No dia, avisamos você quando o preparo começar.",
+        )
+        return title, message, next_event, "", ""
 
     if state == "payment_expired":
         title, message = _pair(copy, "TRACKING_PAYMENT_EXPIRED",

@@ -225,6 +225,7 @@ def _notify_stock_arrived(session, *, sku: str, target_date, hold_ids: list[str]
 
     try:
         backend = _notification_backend(customer)
+        deadline_at = _deadline_at_for_holds(hold_ids or [])
         notify(
             event="stock.arrived",
             recipient=_notification_recipient(customer, backend=backend),
@@ -232,9 +233,15 @@ def _notify_stock_arrived(session, *, sku: str, target_date, hold_ids: list[str]
                 "sku": sku,
                 "product_name": product_name,
                 "target_date": str(target_date) if target_date else None,
-                "deadline_at": _deadline_at_for_holds(hold_ids or []),
+                "deadline_at": deadline_at,
                 "cart_url": _cart_url(),
                 "session_key": session.session_key,
+                # Pedaços prontos p/ o template compartilhado do stock.arrived
+                # (o caminho "Me avise" preenche os mesmos placeholders).
+                "reserve_note": " Sua reserva esta garantida.",
+                "deadline_note": _deadline_note(deadline_at),
+                "cta": "Finalize seu pedido:",
+                "action_url": _cart_url(),
             },
             backend=backend,
         )
@@ -344,6 +351,23 @@ def _deadline_at_for_holds(hold_ids: list[str]) -> str | None:
     if not deadlines:
         return None
     return min(deadlines).isoformat()
+
+
+def _deadline_note(deadline_at: str | None) -> str:
+    """" Confirme ate as HH:MM." — vazio sem deadline (nunca prometemos prazo
+    que não existe)."""
+    if not deadline_at:
+        return ""
+    try:
+        from datetime import datetime
+
+        from django.utils import timezone as _tz
+
+        local = _tz.localtime(datetime.fromisoformat(deadline_at))
+        return f" Confirme ate as {local.strftime('%H:%M')}."
+    except Exception:
+        logger.debug("stock_receivers._deadline_note degraded", exc_info=True)
+        return ""
 
 
 def _cart_url() -> str:

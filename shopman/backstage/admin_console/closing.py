@@ -80,6 +80,7 @@ class DayClosingConsoleView(UnfoldModelAdminViewMixin, TemplateView):
             "day_closing_production_table": _production_table(closing),
             "day_closing_pending_production_table": _pending_production_table(closing),
             "day_closing_reconciliation_table": _reconciliation_table(closing),
+            "day_closing_upcoming_preorders_table": _upcoming_preorders_table(closing),
             "day_closing_reports_url": _reports_url(closing),
         })
         return context
@@ -151,6 +152,16 @@ def _reconciliation_table(closing) -> dict:
         "rows": [
             [error.sku, error.sold_qty, error.available_qty, error.deficit_qty]
             for error in closing.reconciliation_errors
+        ],
+    }
+
+
+def _upcoming_preorders_table(closing) -> dict:
+    return {
+        "headers": ["Data", "Pedidos", "Total"],
+        "rows": [
+            [row.date_display, row.orders_count, row.total_display]
+            for row in closing.upcoming_preorders
         ],
     }
 

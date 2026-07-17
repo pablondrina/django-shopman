@@ -14,6 +14,7 @@ import {
   matchesFulfillment,
   matchesQuery,
   nextSort,
+  preorderGroups,
   resolveShortcut,
   rowsToCsv,
   sortCards,
@@ -126,6 +127,8 @@ describe("zonesView", () => {
     expedition_delivery_count: 2,
     expedition_count: 3,
     total_count: 6,
+    preorders: [],
+    preorders_count: 0,
   });
 
   it("groups the two-zone queue into three columns with merged Saída", () => {
@@ -135,6 +138,28 @@ describe("zonesView", () => {
     expect(zones[1]!.count).toBe(2);
     expect(zones[2]!.count).toBe(3); // pickup + delivery + transit
     expect(zones[2]!.cards.map((c) => c.ref)).toEqual(["D", "E", "F"]);
+  });
+});
+
+describe("preorderGroups", () => {
+  const preorderCard = (ref: string, date: string, label: string) =>
+    card({ ref, is_preorder: true, commitment_date: date, commitment_date_display: label });
+
+  it("groups future preorders by commitment date preserving server order", () => {
+    const groups = preorderGroups({
+      preorders: [
+        preorderCard("P1", "2026-07-17", "amanhã"),
+        preorderCard("P2", "2026-07-17", "amanhã"),
+        preorderCard("P3", "2026-07-19", "sáb, 19/07"),
+      ],
+    });
+    expect(groups.map((g) => g.label)).toEqual(["amanhã", "sáb, 19/07"]);
+    expect(groups[0]!.cards.map((c) => c.ref)).toEqual(["P1", "P2"]);
+    expect(groups[1]!.cards.map((c) => c.ref)).toEqual(["P3"]);
+  });
+
+  it("returns no groups when the queue has no preorders", () => {
+    expect(preorderGroups({ preorders: [] })).toEqual([]);
   });
 });
 

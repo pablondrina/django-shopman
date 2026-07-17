@@ -257,7 +257,7 @@ useHead({
         </article>
 
         <section v-if="crossSell.length" class="mt-8" data-product-cross-sell>
-          <h2 class="shop-heading">Talvez você também goste</h2>
+          <h2 class="shop-heading">{{ product?.cross_sell_heading || 'Você também pode gostar' }}</h2>
           <div class="mt-1 grid grid-cols-1 gap-x-8 md:grid-cols-2">
             <ProductListItem
               v-for="item in crossSell"
@@ -275,8 +275,8 @@ useHead({
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">
               <p class="truncate shop-body">{{ product.name }}</p>
-              <p class="shop-price-strong text-background">{{ product.price_display }}</p>
-              <p v-if="product.unit_weight_label" class="text-xs text-background/70">
+              <p class="shop-price-strong text-ink-foreground">{{ product.price_display }}</p>
+              <p v-if="product.unit_weight_label" class="text-xs text-ink-foreground/70">
                 {{ compactUnitWeightLabel(product.unit_weight_label) }}
               </p>
             </div>

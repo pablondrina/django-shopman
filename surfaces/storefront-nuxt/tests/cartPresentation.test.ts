@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applySkuQty, cartHoldBanner, cartItemsCount, formatCentavos, holdBannerVariant, holdCountdown, isOptimisticLine, lineHoldState, substituteSwapPlan } from '~/presentation/cart'
+import { applySkuQty, cartHoldBanner, cartItemsCount, formatCentavos, holdBannerVariant, holdCountdown, isOptimisticLine, lineHoldState, reviewWaitlist, substituteSwapPlan } from '~/presentation/cart'
 import type { CartItemProjection, CartProjection, ProductMutationMeta, SubstituteProjection } from '~/types/shopman'
 
 function line (overrides: Partial<CartItemProjection> = {}): CartItemProjection {
@@ -22,6 +22,8 @@ function line (overrides: Partial<CartItemProjection> = {}): CartItemProjection 
     is_ready_for_confirmation: false,
     confirmation_deadline_iso: null,
     confirmation_deadline_display: null,
+    planned_for_date: null,
+    planned_for_notice: null,
     ...overrides
   }
 }
@@ -182,9 +184,35 @@ describe('cart presentation — planned hold', () => {
   it('maps line flags to a hold state, ready taking precedence', () => {
     expect(lineHoldState(line())).toBeNull()
     expect(lineHoldState(line({ is_awaiting_confirmation: true })))
-      .toEqual({ kind: 'awaiting', deadlineIso: null, deadlineDisplay: null })
+      .toEqual({ kind: 'awaiting', deadlineIso: null, deadlineDisplay: null, plannedForNotice: null })
     expect(lineHoldState(line({ is_ready_for_confirmation: true, confirmation_deadline_iso: deadline, confirmation_deadline_display: '12:30' })))
-      .toEqual({ kind: 'ready', deadlineIso: deadline, deadlineDisplay: '12:30' })
+      .toEqual({ kind: 'ready', deadlineIso: deadline, deadlineDisplay: '12:30', plannedForNotice: null })
+  })
+
+  it('review tells the waitlist story only for same-day orders', () => {
+    const today = '2026-07-17'
+    const tomorrow = '2026-07-18'
+    const awaiting = line({ is_awaiting_confirmation: true, planned_for_date: today, planned_for_notice: 'Previsto para hoje' })
+
+    // Sem data escolhida (sacola) e pedido para HOJE → fila da fornada do dia.
+    expect(reviewWaitlist(awaiting, '', today)).toEqual({ notice: 'Previsto para hoje' })
+    expect(reviewWaitlist(awaiting, today, today)).toEqual({ notice: 'Previsto para hoje' })
+    // Pedido AGENDADO para outra data: não há fila (a reserva nasce na data
+    // com prioridade de pedido) → badge, data e aviso somem juntos.
+    expect(reviewWaitlist(awaiting, tomorrow, today)).toBeNull()
+    // Linha sem espera nunca conta a história.
+    expect(reviewWaitlist(line(), today, today)).toBeNull()
+    // Hold sem data conhecida cai no "hoje": mostra para hoje, some no agendado.
+    const noBatch = line({ is_awaiting_confirmation: true, planned_for_date: null, planned_for_notice: null })
+    expect(reviewWaitlist(noBatch, today, today)).toEqual({ notice: '' })
+    expect(reviewWaitlist(noBatch, tomorrow, today)).toBeNull()
+  })
+
+  it('carries the expected-batch notice on awaiting lines only', () => {
+    const awaiting = line({ is_awaiting_confirmation: true, planned_for_date: '2026-07-17', planned_for_notice: 'Previsto para amanhã' })
+    expect(lineHoldState(awaiting)?.plannedForNotice).toBe('Previsto para amanhã')
+    const ready = line({ is_ready_for_confirmation: true, planned_for_notice: 'Previsto para amanhã' })
+    expect(lineHoldState(ready)?.plannedForNotice).toBeNull()
   })
 
   it('counts down to the deadline and clamps at zero', () => {

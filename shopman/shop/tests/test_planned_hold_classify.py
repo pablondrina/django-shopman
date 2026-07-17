@@ -91,6 +91,15 @@ class TestClassifyPlannedHoldForSessionSku:
         assert result["is_awaiting_confirmation"] is True
         assert result["is_ready_for_confirmation"] is False
         assert result["deadline"] is None
+        assert result["planned_for"] == date.today() + timedelta(days=1)
+
+    def test_planned_for_is_earliest_batch_date(self):
+        _make_hold(quant=_planned_quant(date.today() + timedelta(days=3)), expires_at=None, planned=True)
+        _make_hold(quant=_planned_quant(date.today() + timedelta(days=1)), expires_at=None, planned=True)
+
+        result = classify_planned_hold_for_session_sku(SESSION_KEY, SKU)
+
+        assert result["planned_for"] == date.today() + timedelta(days=1)
 
     def test_demand_only_hold_is_awaiting(self):
         # quant=None (pure demand) — also a planned hold.
@@ -158,6 +167,7 @@ class TestClassifyPlannedHoldForSessionSku:
             "is_awaiting_confirmation": False,
             "is_ready_for_confirmation": False,
             "deadline": None,
+            "planned_for": None,
         }
         assert classify_planned_hold_for_session_sku("", SKU) == empty
         assert classify_planned_hold_for_session_sku(SESSION_KEY, "") == empty

@@ -74,6 +74,14 @@ MESSAGE_TEMPLATES: dict[str, str] = {
         "Lembrete: seu pedido {order_ref} esta agendado para amanha. "
         "Ja estamos preparando tudo!"
     ),
+    # Chegada de estoque (AVAILABILITY-PLAN §8.3 + "Me avise"): os pedaços
+    # reserve_note/deadline_note/cta/action_url vem prontos do emissor —
+    # reserva de sacola materializada traz prazo + link do carrinho; o
+    # "Me avise" (sem reserva) traz o link do produto.
+    "stock.arrived": (
+        "Boa noticia! {product_name} chegou.{reserve_note}{deadline_note} "
+        "{cta} {action_url}"
+    ),
 }
 
 
