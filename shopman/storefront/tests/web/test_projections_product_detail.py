@@ -280,7 +280,7 @@ class TestAllergenAndConservation:
 
 
 class TestCrossSell:
-    """"Talvez você também goste" — lateral discovery via shared keywords,
+    """"Você também pode gostar" — lateral discovery via shared keywords,
     rendered with the canonical catalog card (one card shape)."""
 
     def test_cross_sell_surfaces_keyword_relatives(self, listing, product, croissant):
@@ -294,6 +294,9 @@ class TestCrossSell:
         cross_sell_skus = {item.sku for item in proj.cross_sell}
         assert croissant.sku in cross_sell_skus
         assert product.sku not in cross_sell_skus  # never recommends itself
+        # Título via registro omotenashi (PRODUCT_CROSS_SELL_HEADING) — o
+        # operador reescreve no Admin sem tocar na tela.
+        assert proj.cross_sell_heading == "Você também pode gostar"
 
     def test_cross_sell_empty_without_shared_keywords(self, listing, product, croissant):
         _publish_on_listing(listing, product)

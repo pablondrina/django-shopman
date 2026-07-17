@@ -179,10 +179,12 @@ class ProductDetailProjection:
     # Breadcrumb
     breadcrumb_category: CategoryProjection | None
 
-    # Cross-sell ("Talvez você também goste") — lateral discovery via shared
-    # keywords, rendered with the canonical catalog card. Distinct from
-    # substitutes (which stay in the stock-error modal, AVAILABILITY-PLAN §5).
+    # Cross-sell — lateral discovery via shared keywords, rendered with the
+    # canonical catalog card. Distinct from substitutes (which stay in the
+    # stock-error modal, AVAILABILITY-PLAN §5). Heading comes from the
+    # omotenashi registry (``PRODUCT_CROSS_SELL_HEADING``, admin-editable).
     cross_sell: tuple[CatalogItemProjection, ...] = ()
+    cross_sell_heading: str = ""
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -357,6 +359,7 @@ def build_product_detail(
         seo_keywords=seo_keywords,
         breadcrumb_category=breadcrumb_category,
         cross_sell=cross_sell,
+        cross_sell_heading=_cross_sell_heading(),
     )
 
 
@@ -507,6 +510,15 @@ def _conservation(product: Any) -> ConservationInfoProjection | None:
         shelf_life_label=shelf_life_label,
         storage_tip=storage_tip,
     )
+
+
+def _cross_sell_heading() -> str:
+    from shopman.shop.omotenashi import resolve_copy
+
+    return (
+        resolve_copy("PRODUCT_CROSS_SELL_HEADING", moment="*", audience="*").title
+        or "Você também pode gostar"
+    ).strip()
 
 
 def _food_safety_notice() -> str:

@@ -155,6 +155,7 @@ export interface ProductDetailProjection {
   seo_keywords: string[]
   breadcrumb_category: CategoryProjection | null
   cross_sell: CatalogItemProjection[]
+  cross_sell_heading: string
 }
 
 export interface MinimumOrderProgressProjection {

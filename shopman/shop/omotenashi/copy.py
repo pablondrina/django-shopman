@@ -174,6 +174,11 @@ OMOTENASHI_DEFAULTS: dict[str, dict[str, dict[str, CopyEntry]]] = {
     "CART_CHECKOUT_BLOCK_CHANNEL": {
         WILDCARD: {WILDCARD: CopyEntry(message="Checkout indisponível para este canal.")},
     },
+    # Título do cross-sell na página de produto (descoberta lateral por
+    # keywords). Antes hardcoded na tela; agora admin-configurável.
+    "PRODUCT_CROSS_SELL_HEADING": {
+        WILDCARD: {WILDCARD: CopyEntry(title="Você também pode gostar")},
+    },
     # "Me avise quando disponível" — CTA de reposição no erro de esgotado do carrinho
     # (reaproveita o fluxo de StockAlertSubscribe já existente).
     "SOLDOUT_NOTIFY_CTA": {

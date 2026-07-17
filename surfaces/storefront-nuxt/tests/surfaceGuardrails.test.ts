@@ -626,7 +626,8 @@ describe('surface UX guardrails', () => {
     // ao título e interior aberto com recuo extra (+16px sobre o trigger).
     expect(productRoute).toContain('class="-mx-4 mt-6 border-t sm:-mx-6 lg:mx-0 [&_[data-slot=accordion-trigger]]:font-semibold sm:[&_[data-slot=accordion-trigger]]:px-6 lg:[&_[data-slot=accordion-trigger]]:px-0 [&_[data-slot=accordion-content]>div]:px-8 sm:[&_[data-slot=accordion-content]>div]:px-10 lg:[&_[data-slot=accordion-content]>div]:px-4"')
     expect(productRoute).toContain('data-product-cross-sell')
-    expect(productRoute).toContain('Talvez você também goste')
+    // Título do cross-sell vem do registro omotenashi (PRODUCT_CROSS_SELL_HEADING).
+    expect(productRoute).toContain('cross_sell_heading')
     expect(productRoute).toContain('<ProductListItem')
     expect(productRoute).toContain('% VD')
     expect(upsellRail).toContain('<UiItem variant="outline" size="sm" class="w-full items-stretch gap-3 rounded-none border-0 bg-card p-3">')

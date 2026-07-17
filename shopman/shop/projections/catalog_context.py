@@ -120,7 +120,7 @@ def keywords_by_sku(skus: list[str]) -> dict[str, list[str]]:
 
 
 def related_skus(sku: str, *, limit: int = 6) -> list[str]:
-    """SKUs for lateral discovery ("Talvez você também goste"), keyword-scored.
+    """SKUs for lateral discovery ("Você também pode gostar"), keyword-scored.
 
     This is **cross-sell**, NOT substitution: it does not restrict to the same
     collection (lateral = across categories) and is shown regardless of the
