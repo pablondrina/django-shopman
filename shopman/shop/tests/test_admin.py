@@ -771,8 +771,9 @@ class TestOperatorAlertAdmin:
     def test_list_display_fields(self, db):
         alert_admin = admin.site._registry[OperatorAlert]
         assert "type" in alert_admin.list_display
-        assert "severity" in alert_admin.list_display
-        assert "acknowledged" in alert_admin.list_display
+        # Severity/acknowledged are surfaced as badges (não a coluna crua duplicada).
+        assert "severity_badge" in alert_admin.list_display
+        assert "acknowledged_badge" in alert_admin.list_display
 
     def test_mark_acknowledged_action(self, db):
         alert_admin = admin.site._registry[OperatorAlert]

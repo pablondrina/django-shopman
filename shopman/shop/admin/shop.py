@@ -1585,8 +1585,27 @@ class ShopIntegrationsAdmin(_ShopSingletonAdmin):
 @admin.register(NotificationTemplate)
 class NotificationTemplateAdmin(ModelAdmin):
     list_display = ("event", "subject", "whatsapp_flow_ns", "is_active")
-    list_filter = ("is_active",)
+    list_filter = ("is_active", "event")
     search_fields = ("event", "subject", "body")
     list_editable = ("is_active",)
-    fields = ("event", "subject", "body", "whatsapp_flow_ns", "is_active")
     readonly_fields = ("event",)
+    fieldsets = (
+        (None, {
+            "fields": ("event", "is_active"),
+            "description": (
+                "Modelo de mensagem enviado quando este evento acontece. "
+                "Desative para silenciar o evento sem apagar o texto."
+            ),
+        }),
+        ("Conteúdo", {
+            "fields": ("subject", "body"),
+            "description": "Assunto e corpo da mensagem (e-mail e canais de texto).",
+        }),
+        ("WhatsApp", {
+            "fields": ("whatsapp_flow_ns",),
+            "description": (
+                "Espaço de nomes do fluxo aprovado no WhatsApp Business para este "
+                "evento. Deixe em branco para usar o fluxo padrão da loja."
+            ),
+        }),
+    )

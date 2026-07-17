@@ -74,5 +74,5 @@ class SupplierMaterialCostAdmin(BaseModelAdmin):
     @display(description=_("Preferencial"))
     def preferred_display(self, obj: SupplierMaterialCost):
         if obj.is_preferred:
-            return unfold_badge(_("Canônico"), "green")
+            return unfold_badge(_("Preferencial"), "green")
         return unfold_badge(_("Alternativo"), "base")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from django.contrib import admin
+from django.db.models import Exists, OuterRef
 from shopman.orderman.models import Session
 from shopman.utils import unfold_badge
 from unfold.admin import ModelAdmin
@@ -20,18 +21,24 @@ class POSTabAdmin(ModelAdmin):
     compressed_fields = True
     list_fullwidth = True
 
+    def get_queryset(self, request):
+        # Anota "em uso" com um único EXISTS por página em vez de uma query por
+        # linha (N+1) ao renderizar o badge de estado da comanda.
+        open_pdv = Session.objects.filter(
+            channel_ref="pdv",
+            state="open",
+            handle_type="pos_tab",
+            handle_ref=OuterRef("ref"),
+        )
+        return super().get_queryset(request).annotate(_in_use=Exists(open_pdv))
+
     @display(description="atalho")
     def display_ref(self, obj):
         return obj.display_ref
 
     @display(description="estado")
     def state_display(self, obj):
-        in_use = Session.objects.filter(
-            channel_ref="pdv",
-            state="open",
-            handle_type="pos_tab",
-            handle_ref=obj.ref,
-        ).exists()
+        in_use = getattr(obj, "_in_use", False)
         return unfold_badge("em uso" if in_use else "vazia", "yellow" if in_use else "base")
 
     @display(description="ativa")

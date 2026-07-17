@@ -17,6 +17,7 @@ from shopman.orderman.integrations import get_shop_channel_model
 # Unfold is optional - fallback to standard Django admin if not installed
 try:
     from unfold.admin import ModelAdmin as UnfoldModelAdmin
+    from unfold.admin import TabularInline as UnfoldTabularInline
     from unfold.contrib.filters.admin.choice_filters import ChoicesRadioFilter
     from unfold.contrib.filters.admin.datetime_filters import RangeDateFilter
     from unfold.contrib.filters.admin.numeric_filters import RangeNumericFilter
@@ -27,6 +28,7 @@ try:
 
     UNFOLD_AVAILABLE = True
     ModelAdmin = UnfoldModelAdmin
+    TabularInline = UnfoldTabularInline
 
     # Use unfold decorators
     def action(func=None, **kwargs):
@@ -38,6 +40,7 @@ try:
 except ImportError:
     UNFOLD_AVAILABLE = False
     ModelAdmin = admin.ModelAdmin
+    TabularInline = admin.TabularInline
 
     class ActionVariant:
         DEFAULT = "default"
@@ -716,7 +719,7 @@ class SessionAdmin(ModelAdmin):
         return super().changelist_view(request, extra_context=extra_context)
 
 
-class OrderItemInline(admin.TabularInline):
+class OrderItemInline(TabularInline):
     model = OrderItem
     extra = 0
     readonly_fields = (
@@ -734,7 +737,7 @@ class OrderItemInline(admin.TabularInline):
         return False
 
 
-class OrderEventInline(admin.TabularInline):
+class OrderEventInline(TabularInline):
     model = OrderEvent
     extra = 0
     readonly_fields = ("type", "actor", "payload", "created_at")
@@ -745,7 +748,7 @@ class OrderEventInline(admin.TabularInline):
         return False
 
 
-class FulfillmentOrderInline(admin.TabularInline):
+class FulfillmentOrderInline(TabularInline):
     """Read-only view of the order's fulfillments (carrier, tracking, dates)."""
 
     model = Fulfillment
@@ -753,8 +756,8 @@ class FulfillmentOrderInline(admin.TabularInline):
     fields = ("status", "carrier", "tracking_code", "dispatched_at", "delivered_at")
     readonly_fields = ("status", "carrier", "tracking_code", "dispatched_at", "delivered_at")
     can_delete = False
-    verbose_name = _("fulfillment")
-    verbose_name_plural = _("fulfillments")
+    verbose_name = _("expedição")
+    verbose_name_plural = _("expedições")
 
     def has_add_permission(self, request, obj=None):
         return False
@@ -997,7 +1000,7 @@ class OrderAdmin(ModelAdmin):
         if time_slot:
             label += f" ({time_slot})"
         if is_preorder:
-            return format_html('<span style="color:#E2A336;font-weight:600">{}</span>', label)
+            return format_html('<span class="font-semibold text-amber-700 dark:text-amber-400">{}</span>', label)
         return label
 
     @display(description=_("linhas"))
@@ -1180,11 +1183,11 @@ class OrderAdmin(ModelAdmin):
 
 
 class HighAttemptsFilter(admin.SimpleListFilter):
-    title = "tentativas"
+    title = _("tentativas")
     parameter_name = "high_attempts"
 
     def lookups(self, request, model_admin):
-        return [("yes", "≥ 3 tentativas")]
+        return [("yes", _("≥ 3 tentativas"))]
 
     def queryset(self, request, queryset):
         if self.value() == "yes":
@@ -1453,7 +1456,7 @@ class IdempotencyKeyAdmin(ModelAdmin):
 # =============================================================================
 
 
-class FulfillmentItemInline(admin.TabularInline):
+class FulfillmentItemInline(TabularInline):
     model = FulfillmentItem
     extra = 0
     readonly_fields = ("order_item", "qty")

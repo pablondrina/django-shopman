@@ -769,7 +769,7 @@ class WorkOrderAdmin(BaseModelAdmin):
             return HttpResponseRedirect(reverse("admin:craftsman_workorder_changelist"))
 
         if wo.status not in (WorkOrder.Status.PLANNED, WorkOrder.Status.STARTED):
-            messages.warning(request, _("Apenas ordens planned/started podem ser anuladas."))
+            messages.warning(request, _("Apenas ordens planejadas/iniciadas podem ser canceladas."))
             return HttpResponseRedirect(reverse("admin:craftsman_workorder_changelist"))
 
         actor = getattr(request.user, "username", None) or "admin"

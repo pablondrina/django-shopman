@@ -33,7 +33,12 @@ from shopman.utils.contrib.admin_unfold.base import BaseModelAdmin, BaseTabularI
 from unfold.contrib.filters.admin.numeric_filters import RangeNumericFilter
 from unfold.contrib.import_export.forms import ExportForm, ImportForm
 from unfold.decorators import display
-from unfold.widgets import UnfoldAdminTextareaWidget
+from unfold.forms import ActionForm
+from unfold.widgets import (
+    UnfoldAdminSelectWidget,
+    UnfoldAdminTextareaWidget,
+    UnfoldAdminTextInputWidget,
+)
 
 # Unregister basic admins
 for model in [Collection, Listing, Product]:
@@ -262,6 +267,24 @@ class _ProductImportExportBase(ImportExportModelAdmin, BaseModelAdmin):
     export_form_class = ExportForm
 
 
+class ProductActionForm(ActionForm):
+    """Campos reais na barra de ações (em vez de POST cru) para as ações que
+    pedem um parâmetro: o percentual de reajuste e a coleção de destino."""
+
+    price_percent = forms.CharField(
+        required=False,
+        label=_("Percentual"),
+        help_text=_("Ex.: 10 para +10%, -5 para -5%."),
+        widget=UnfoldAdminTextInputWidget,
+    )
+    collection_id = forms.ModelChoiceField(
+        queryset=Collection.objects.filter(is_active=True).order_by("name"),
+        required=False,
+        label=_("Coleção"),
+        widget=UnfoldAdminSelectWidget,
+    )
+
+
 @admin.register(Product)
 class ProductAdmin(_ProductImportExportBase):
     from shopman.offerman.contrib.admin_unfold.resources import ProductResource
@@ -452,6 +475,7 @@ class ProductAdmin(_ProductImportExportBase):
         except ImportError:
             return "-"
 
+    action_form = ProductActionForm
     actions = [
         "unpublish_products",
         "publish_products",
@@ -495,7 +519,7 @@ class ProductAdmin(_ProductImportExportBase):
         if not percent_str:
             messages.warning(
                 request,
-                _("Informe o percentual no campo 'price_percent'. Ex: 10 para +10%, -5 para -5%."),
+                _("Preencha o campo Percentual ao lado da ação. Ex.: 10 para +10%, -5 para -5%."),
             )
             return
 
@@ -523,22 +547,20 @@ class ProductAdmin(_ProductImportExportBase):
             },
         )
 
-    @admin.action(description=_("Adicionar à collection"))
+    @admin.action(description=_("Adicionar à coleção"))
     def add_to_collection(self, request, queryset):
         collection_id = request.POST.get("collection_id", "").strip()
         if not collection_id:
-            collections = Collection.objects.filter(is_active=True).order_by("name")
-            options = ", ".join(f"{c.pk}={c.name}" for c in collections[:20])
             messages.warning(
                 request,
-                _("Informe 'collection_id' no POST. Collections ativas: %(opts)s") % {"opts": options},
+                _("Escolha a coleção de destino no campo Coleção ao lado da ação."),
             )
             return
 
         try:
             collection = Collection.objects.get(pk=collection_id)
         except Collection.DoesNotExist:
-            messages.error(request, _("Collection não encontrada: %(id)s") % {"id": collection_id})
+            messages.error(request, _("Coleção não encontrada: %(id)s") % {"id": collection_id})
             return
 
         created = 0

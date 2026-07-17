@@ -32,6 +32,7 @@ class CashMovementInline(admin.TabularInline):
 class CashShiftAdmin(ModelAdmin):
     list_display = ("operator", "terminal", "opened_at", "status_display", "opening_display", "closing_display", "difference_display")
     list_filter = ("status", "terminal", "opened_at")
+    search_fields = ("operator", "terminal__ref", "terminal__label")
     # ``notes`` é editável (gerente anota/corrige um turno fechado); a alteração
     # fica registrada no histórico do admin (LogEntry: quem/quando). Os valores
     # financeiros permanecem read-only (mutados só via PDV/serviço).
@@ -160,12 +161,18 @@ class POSTerminalAdmin(ModelAdmin):
     fields = ("ref", "label", "channel_ref", "location_ref", "is_active", "metadata", "health_display")
     compressed_fields = True
 
+    _HEALTH = {
+        "ready": ("pronto", "green"),
+        "warning": ("atenção", "yellow"),
+        "error": ("erro", "red"),
+    }
+
     def health_display(self, obj):
         if obj is None:
             return "—"
         from shopman.backstage.services.pos_terminal import runtime_profile
 
         profile = runtime_profile(obj)
-        color = "green" if profile.status == "ready" else "yellow"
-        return unfold_badge(profile.status, color)
-    health_display.short_description = "Health"
+        label, color = self._HEALTH.get(profile.status, (profile.status, "base"))
+        return unfold_badge(label, color)
+    health_display.short_description = "saúde"

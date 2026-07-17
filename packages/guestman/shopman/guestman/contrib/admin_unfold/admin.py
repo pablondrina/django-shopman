@@ -22,7 +22,7 @@ from shopman.guestman.models import (
     CustomerGroup,
     ExternalIdentity,
 )
-from shopman.utils.contrib.admin_unfold.badges import unfold_badge
+from shopman.utils.contrib.admin_unfold.badges import unfold_badge, unfold_badge_numeric
 from shopman.utils.contrib.admin_unfold.base import BaseModelAdmin, BaseTabularInline
 from unfold.contrib.filters.admin.dropdown_filters import ChoicesDropdownFilter
 from unfold.decorators import display
@@ -90,13 +90,19 @@ class CustomerGroupAdmin(BaseModelAdmin):
     search_fields = ["ref", "name"]
     ordering = ["-priority", "name"]
 
+    def get_queryset(self, request):
+        # Anota a contagem num único JOIN em vez de uma query por linha (N+1).
+        from django.db.models import Count
+
+        return super().get_queryset(request).annotate(_customer_count=Count("customers"))
+
     @display(description="Padrão", boolean=True)
     def is_default_badge(self, obj):
         return obj.is_default
 
-    @display(description="Clientes")
+    @display(description="Clientes", ordering="_customer_count")
     def customer_count(self, obj):
-        return obj.customers.count()
+        return getattr(obj, "_customer_count", obj.customers.count())
 
 
 # =============================================================================
@@ -119,7 +125,7 @@ class CustomerAdmin(BaseModelAdmin):
         "customer_type_badge",
         "group",
         "phone",
-        "orders_link",
+        "orders_count",
         "rfm_segment_badge",
         "churn_risk_badge",
         "is_active_badge",
@@ -182,17 +188,17 @@ class CustomerAdmin(BaseModelAdmin):
         return obj.is_active
 
     @display(description="Pedidos")
-    def orders_link(self, obj):
+    def orders_count(self, obj):
         """Show order count using Orderman's public customer-history contract."""
         try:
             from shopman.orderman.services import CustomerOrderHistoryService
 
             count = CustomerOrderHistoryService.get_customer_stats(obj.ref).total_orders
             if count == 0:
-                return "-"
-            return f"{count} pedido{'s' if count != 1 else ''}"
+                return "—"
+            return unfold_badge_numeric(str(count), "base")
         except ImportError:
-            return "-"
+            return "—"
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -534,9 +540,12 @@ if LoyaltyAccount is not None:
         def customer_ref(self, obj):
             return obj.account.customer.ref
 
+        _TYPE_COLORS = {"earn": "green", "redeem": "blue", "adjust": "yellow", "expire": "red"}
+
         @display(description=_("Tipo"))
         def type_badge(self, obj):
-            return unfold_badge(obj.get_transaction_type_display(), "base")
+            color = self._TYPE_COLORS.get(obj.transaction_type, "base")
+            return unfold_badge(obj.get_transaction_type_display(), color)
 
         @display(description=_("Pontos"))
         def points_badge(self, obj):
