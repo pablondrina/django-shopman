@@ -22,8 +22,8 @@ class POSTab(models.Model):
     updated_at = models.DateTimeField("atualizada em", auto_now=True)
 
     class Meta:
-        verbose_name = "POS tab"
-        verbose_name_plural = "POS tabs"
+        verbose_name = "comanda do PDV"
+        verbose_name_plural = "comandas do PDV"
         ordering = ["ref"]
 
     @property

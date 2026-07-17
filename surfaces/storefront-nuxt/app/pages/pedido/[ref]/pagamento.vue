@@ -27,12 +27,12 @@ const copy = computed(() => data.value?.copy ?? {
   order_ref_label: 'Pedido',
   total_label: 'Total',
   meta_description: 'Pague seu pedido para seguirmos com o preparo',
-  card_intro: 'Conclua o pagamento no ambiente seguro do Stripe. A confirmação é automática. Volte aqui se quiser acompanhar seu pedido.',
+  card_intro: 'Conclua o pagamento no nosso ambiente seguro. A confirmação é automática. Volte aqui se quiser acompanhar seu pedido.',
   card_security_note: 'Pagamento processado por provedor seguro. Nós não recebemos os dados do seu cartão.',
   pix_instruction: 'Escaneie o QR Code ou copie o código Pix abaixo.',
-  pix_copy_label: 'Copia e cola PIX',
+  pix_copy_label: 'Pix Copia e Cola',
   pix_copy_btn: 'Copiar código',
-  pix_copied: 'Código PIX copiado.',
+  pix_copied: 'Código Pix copiado.',
   pix_expires_label: 'Tempo para pagar'
 })
 const errorView = computed(() => orderAccessErrorView((error.value as { statusCode?: number } | null)?.statusCode, 'payment'))
@@ -109,6 +109,26 @@ async function copyPix () {
   useSonner.success(copy.value.pix_copied)
 }
 
+// PIX expirado nunca é beco sem saída: re-busca o pagamento (o backend reemite um
+// intent novo quando o prazo vence) e re-ancora a janela do countdown. Se o poll
+// tinha parado no estado terminal, ele volta sozinho quando o estado deixa de ser
+// terminal.
+const regenerating = ref(false)
+async function regeneratePix () {
+  if (regenerating.value) return
+  regenerating.value = true
+  expiryHandled = false
+  pixWindowSeconds.value = 0
+  failedPolls.value = 0
+  try {
+    await refresh()
+  } catch (e) {
+    if (import.meta.client) useSonner.error(errorDetail(e, 'Não foi possível gerar um novo código agora.'))
+  } finally {
+    regenerating.value = false
+  }
+}
+
 async function postAction (action: Action) {
   actionPending.value = { ...actionPending.value, [action.ref]: true }
   try {
@@ -178,7 +198,14 @@ useSeoMeta({
         <h1 class="mt-1 shop-title">{{ copy.order_ref_label }} {{ orderRef }}</h1>
       </div>
 
-      <UiSkeleton v-if="pending" class="h-96 rounded-lg" />
+      <!-- Skeleton que espelha o layout real (painel + cartão de pagamento). -->
+      <div v-if="pending" class="shop-stack-block">
+        <UiSkeleton class="h-20 rounded-lg" />
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <UiSkeleton class="h-72 rounded-lg" />
+          <UiSkeleton class="h-40 rounded-lg" />
+        </div>
+      </div>
 
       <UiAlert v-else-if="error" variant="warning" :icon="errorView.icon">
         <UiAlertTitle>{{ errorView.title }}</UiAlertTitle>
@@ -221,9 +248,12 @@ useSeoMeta({
                     <p class="shop-meta">{{ copy.card_security_note }}</p>
                   </div>
                 </div>
-                <UiButton :href="payment.checkout_url" target="_blank" class="w-full" :class="simulating ? 'pointer-events-none opacity-50' : ''" size="lg" icon="lucide:credit-card">
+                <UiButton :href="payment.checkout_url" target="_blank" rel="noopener noreferrer" class="w-full" :class="simulating ? 'pointer-events-none opacity-50' : ''" size="lg" icon="lucide:credit-card">
                   Pagar com cartão
                 </UiButton>
+                <!-- No celular o popup pode ser bloqueado: deixamos claro que dá
+                     para tocar de novo, sem o cliente achar que travou. -->
+                <p class="shop-meta text-center">Não abriu? Toque no botão novamente.</p>
               </div>
 
               <div v-else-if="payment.method === 'card'" class="flex items-center gap-3 rounded-lg border p-4">
@@ -235,28 +265,46 @@ useSeoMeta({
 
               <div v-if="payment.pix_qr_code || payment.pix_copy_paste" class="grid grid-cols-1 gap-4 sm:grid-cols-[220px_minmax(0,1fr)]">
                 <div class="rounded-lg border bg-white p-4">
-                  <img v-if="payment.pix_qr_code" :src="payment.pix_qr_code" alt="QR Code PIX" class="w-full" />
+                  <img v-if="payment.pix_qr_code" :src="payment.pix_qr_code" alt="QR Code Pix" class="w-full" />
                   <div v-else class="flex aspect-square items-center justify-center text-muted-foreground">
                     <Icon name="lucide:qr-code" class="size-12" />
                   </div>
                 </div>
                 <div class="shop-stack-block">
                   <p class="shop-muted">{{ copy.pix_copy_label }}</p>
-                  <pre class="max-h-40 overflow-auto rounded-lg border bg-muted p-3 text-xs whitespace-pre-wrap">{{ payment.pix_copy_paste }}</pre>
-                  <UiButton variant="outline" icon="lucide:copy" class="w-full sm:w-auto" @click="copyPix">{{ copy.pix_copy_btn }}</UiButton>
+                  <!-- Tocar o próprio código copia (além do botão): no celular,
+                       selecionar 100+ chars à mão é penoso. -->
+                  <pre
+                    class="max-h-40 cursor-pointer overflow-auto rounded-lg border bg-muted p-3 text-xs whitespace-pre-wrap"
+                    role="button"
+                    tabindex="0"
+                    aria-label="Copiar código Pix"
+                    @click="copyPix"
+                    @keydown.enter.prevent="copyPix"
+                    @keydown.space.prevent="copyPix"
+                  >{{ payment.pix_copy_paste }}</pre>
+                  <UiButton variant="outline" size="lg" icon="lucide:copy" class="w-full sm:w-auto" @click="copyPix">{{ copy.pix_copy_btn }}</UiButton>
 
-                  <p v-if="connectionLost" class="rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400" role="status">
-                    Sem conexão no momento — se você já pagou, a confirmação chega assim que a internet voltar.
+                  <p v-if="connectionLost" class="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-800 dark:text-amber-300" role="status">
+                    Sem conexão no momento. Se você já pagou, a confirmação chega assim que a internet voltar.
                   </p>
-                  <div v-if="pixCountdown && !pixCountdown.isExpired" class="space-y-2" role="timer" aria-live="polite">
+                  <div v-if="pixCountdown && !pixCountdown.isExpired" class="space-y-2" role="timer">
                     <div class="flex items-center justify-between shop-body">
                       <span class="text-muted-foreground">{{ copy.pix_expires_label }}</span>
                       <span class="shop-price" :class="pixUrgent ? 'text-destructive' : 'text-foreground'">{{ pixCountdown.mmss }}</span>
                     </div>
                     <UiProgress :model-value="pixPct" :class="pixUrgent ? '[&>div]:bg-destructive' : ''" />
-                    <p class="shop-meta">Assim que o pagamento cair, atualizamos esta tela sozinhos.</p>
+                    <p class="shop-meta">Assim que o pagamento cair, atualizamos esta tela automaticamente.</p>
                   </div>
-                  <p v-else-if="pixCountdown?.isExpired" class="shop-body font-semibold text-destructive">O prazo do PIX expirou.</p>
+                  <!-- PIX expirado: estado explícito + caminho de saída (gerar novo
+                       código). Nunca um QR morto sem próximo passo. -->
+                  <div v-else-if="pixCountdown?.isExpired" class="shop-stack-tight rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                    <p class="shop-body font-semibold text-destructive">O prazo do Pix expirou.</p>
+                    <p class="shop-muted">Gere um novo código para concluir o pagamento. Seu pedido continua guardado.</p>
+                    <UiButton size="lg" icon="lucide:refresh-cw" :loading="regenerating" class="w-full sm:w-auto" @click="regeneratePix">
+                      Gerar novo código Pix
+                    </UiButton>
+                  </div>
                 </div>
               </div>
 
@@ -274,7 +322,7 @@ useSeoMeta({
               </div>
 
               <UiAlert v-if="payment.error_message" variant="destructive">
-                <UiAlertTitle>Gateway</UiAlertTitle>
+                <UiAlertTitle>Não foi possível concluir o pagamento</UiAlertTitle>
                 <UiAlertDescription>{{ payment.error_message }}</UiAlertDescription>
               </UiAlert>
 

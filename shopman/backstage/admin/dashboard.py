@@ -15,6 +15,7 @@ import logging
 
 from django.urls import reverse
 from django.utils.html import format_html
+from shopman.utils import table_badge
 
 from shopman.backstage.projections.dashboard import build_dashboard
 from shopman.shop.services import pos_links
@@ -135,7 +136,8 @@ def dashboard_callback(request, context):
 # ── Table builders ───────────────────────────────────────────────────
 # These stay here: they produce format_html output for Unfold table widgets.
 
-SEVERITY_ICONS = {"warning": "⚠️", "error": "❌", "critical": "\U0001f534"}
+SEVERITY_LABEL = {"warning": "Aten\u00e7\u00e3o", "error": "Erro", "critical": "Cr\u00edtico"}
+SEVERITY_BADGE_TYPE = {"warning": "orange", "error": "red", "critical": "red"}
 
 
 def _build_alerts_table(alerts):
@@ -144,9 +146,9 @@ def _build_alerts_table(alerts):
     for a in alerts:
         rows.append([
             a.sku,
-            format_html('<span class="font-medium text-red-600">{}</span>', a.current),
+            format_html('<span class="font-medium text-red-600 dark:text-red-400">{}</span>', a.current),
             a.minimum,
-            format_html('<span class="font-medium text-red-600">{}</span>', a.deficit),
+            format_html('<span class="font-medium text-red-600 dark:text-red-400">{}</span>', a.deficit),
             a.position,
         ])
 
@@ -177,9 +179,11 @@ def _build_operator_alerts_table(alerts):
     """Operator alerts table for dashboard."""
     rows = []
     for alert in alerts:
-        icon = SEVERITY_ICONS.get(alert.severity, "")
         rows.append([
-            f"{icon} {alert.severity.upper()}",
+            table_badge(
+                SEVERITY_LABEL.get(alert.severity, alert.severity),
+                SEVERITY_BADGE_TYPE.get(alert.severity, "base"),
+            ),
             alert.message[:100],
             alert.order_ref or "—",
             alert.created_at_display,

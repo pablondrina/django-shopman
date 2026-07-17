@@ -1,9 +1,14 @@
 """Consent admin."""
 
 from django.contrib import admin
+from django.urls import reverse
 from django.utils.html import format_html
 from shopman.guestman.contrib.consent.models import CommunicationConsent
+from shopman.utils import unfold_badge
 from unfold.admin import ModelAdmin
+from unfold.decorators import display
+
+_STATUS_COLORS = {"opted_in": "green", "opted_out": "red", "pending": "yellow"}
 
 
 @admin.register(CommunicationConsent)
@@ -22,28 +27,11 @@ class CommunicationConsentAdmin(ModelAdmin):
     raw_id_fields = ["customer"]
     readonly_fields = ["created_at", "updated_at"]
 
+    @display(description="situação")
     def status_badge(self, obj):
-        colors = {
-            "opted_in": "#28a745",
-            "opted_out": "#dc3545",
-            "pending": "#ffc107",
-        }
-        color = colors.get(obj.status, "#6c757d")
-        text_color = "#000" if obj.status == "pending" else "#fff"
-        return format_html(
-            '<span style="background:{}; color:{}; padding:2px 8px; '
-            'border-radius:3px; font-size:11px;">{}</span>',
-            color,
-            text_color,
-            obj.get_status_display(),
-        )
+        return unfold_badge(obj.get_status_display(), _STATUS_COLORS.get(obj.status, "base"))
 
-    status_badge.short_description = "Status"
-
+    @display(description="cliente")
     def customer_link(self, obj):
-        from django.urls import reverse
-
         url = reverse("admin:guestman_customer_change", args=[obj.customer.pk])
-        return format_html('<a href="{}">{}</a>', url, obj.customer.ref)
-
-    customer_link.short_description = "Cliente"
+        return format_html('<a class="font-medium text-link" href="{}">{}</a>', url, obj.customer.ref)

@@ -15,13 +15,13 @@ defineProps<{ rows: OrderSummaryRow[] }>()
 </script>
 
 <template>
-  <dl class="divide-y text-sm">
+  <div class="divide-y text-sm">
     <div v-for="(row, i) in rows" :key="i" class="flex items-baseline gap-3 py-2 first:pt-0">
       <Icon :name="row.icon" class="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
-      <dd class="min-w-0 flex-1">
+      <div class="min-w-0 flex-1">
         <span v-for="(line, j) in row.lines" :key="j" class="block">{{ line }}</span>
         <span v-if="row.muted" class="block text-muted-foreground">{{ row.muted }}</span>
-      </dd>
+      </div>
     </div>
-  </dl>
+  </div>
 </template>

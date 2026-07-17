@@ -134,9 +134,9 @@ class TestShopAdminStorefrontPreview:
         url = reverse("admin:shop_shopappearance_change", args=[shop.pk])
         resp = client.get(url)
         assert resp.status_code == 200
-        assert b'title="Storefront"' in resp.content
+        assert b'title="Loja"' in resp.content
         assert b'x-bind:src="src"' in resp.content
-        assert b"Atualizar preview" in resp.content
+        assert "Atualizar prévia".encode() in resp.content
 
 
 class TestShopAdminOpeningHours:
@@ -771,8 +771,9 @@ class TestOperatorAlertAdmin:
     def test_list_display_fields(self, db):
         alert_admin = admin.site._registry[OperatorAlert]
         assert "type" in alert_admin.list_display
-        assert "severity" in alert_admin.list_display
-        assert "acknowledged" in alert_admin.list_display
+        # Severity/acknowledged are surfaced as badges (não a coluna crua duplicada).
+        assert "severity_badge" in alert_admin.list_display
+        assert "acknowledged_badge" in alert_admin.list_display
 
     def test_mark_acknowledged_action(self, db):
         alert_admin = admin.site._registry[OperatorAlert]

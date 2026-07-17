@@ -141,7 +141,7 @@ class RefUnfoldAdmin(BaseModelAdmin):
             _("{count} referência(s) desativada(s).").format(count=count),
         )
 
-    @admin.action(description=_("Rename value..."))
+    @admin.action(description=_("Renomear valor…"))
     def rename_value_action(self, request, queryset):
         """Intermediate page to rename ref values for the selected refs."""
         form = RenameValueForm(request.POST or None)
@@ -171,7 +171,7 @@ class RefUnfoldAdmin(BaseModelAdmin):
                 "action_checkbox_name": admin.helpers.ACTION_CHECKBOX_NAME,
                 "opts": self.model._meta,
                 "app_label": self.model._meta.app_label,
-                "title": _("Rename refs"),
+                "title": _("Renomear referências"),
             },
         )
 
