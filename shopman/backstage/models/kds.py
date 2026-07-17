@@ -35,8 +35,8 @@ class KDSInstance(models.Model):
     )
 
     class Meta:
-        verbose_name = "instância KDS"
-        verbose_name_plural = "instâncias KDS"
+        verbose_name = "estação KDS"
+        verbose_name_plural = "estações KDS"
         ordering = ["name"]
 
     def __str__(self):
