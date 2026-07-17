@@ -16,6 +16,7 @@ module, layered on top of the generated interfaces.
 
 from __future__ import annotations
 
+import datetime
 import types
 import typing
 from dataclasses import fields, is_dataclass
@@ -28,6 +29,9 @@ _SCALAR_TS = {
     int: "number",
     float: "number",
     bool: "boolean",
+    # ``projection_data`` serializa date/datetime como string ISO.
+    datetime.date: "string",
+    datetime.datetime: "string",
     typing.Any: "unknown",
 }
 

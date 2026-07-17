@@ -16,13 +16,19 @@ const query = defineModel<string>("query", { default: "" });
 const route = useRoute();
 
 // As visões do dia em abas-etapa: decide → separa/pesa → produz → expede → painel.
-const tabs = [
+// "Relatórios" (persona gestor) só entra quando a sonda de acesso confirma a
+// perm fina no backend — o operador de chão nem vê a entrada.
+const { allowed: reportsAllowed } = useReportsAccess();
+const tabs = computed(() => [
   { to: "/plan", label: "Planejamento", icon: "lucide:layout-grid" },
   { to: "/mise-en-place", label: "Preparação", icon: "lucide:scale" },
   { to: "/", label: "Produção", icon: "lucide:flame" },
   { to: "/expedite", label: "Expedição", icon: "lucide:package-check" },
   { to: "/board", label: "Painel", icon: "lucide:tower-control" },
-];
+  ...(reportsAllowed.value
+    ? [{ to: "/reports", label: "Relatórios", icon: "lucide:table-2" }]
+    : []),
+]);
 function isActive(to: string): boolean {
   return to === "/" ? route.path === "/" : route.path.startsWith(to);
 }
