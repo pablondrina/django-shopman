@@ -24,3 +24,14 @@ class StorefrontConfig(AppConfig):
             dispatch_uid="storefront.stock_alerts.on_move",
             weak=False,
         )
+
+        # "Me avise quando sair do forno": o gatilho é a fornada, não a reposição.
+        from shopman.craftsman.signals import production_changed
+
+        from shopman.storefront.handlers import on_production_finished_for_stock_alerts
+
+        production_changed.connect(
+            on_production_finished_for_stock_alerts,
+            dispatch_uid="storefront.stock_alerts.on_production_finished",
+            weak=False,
+        )

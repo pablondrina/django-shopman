@@ -155,3 +155,78 @@ def test_move_receiver_skips_when_no_pending_subscription():
     ):
         handlers.on_move_for_stock_alerts(sender=None, instance=fake)
     nb.assert_not_called()
+
+
+# ── trigger (fornada) ───────────────────────────────────────────────
+
+
+def test_bake_receiver_notifies_production_ready_subscribers():
+    """"Me avise quando sair do forno" dispara na fornada, não na reposição."""
+    from shopman.storefront import handlers
+
+    stock_alerts.subscribe("SKU-BAKE", phone=PHONE, alert_type="production_ready")
+    with (
+        patch("shopman.storefront.services.stock_alerts.notify_bake_ready") as nb,
+        patch("django.db.transaction.on_commit", side_effect=lambda fn: fn()),
+    ):
+        handlers.on_production_finished_for_stock_alerts(
+            sender=None, product_ref="SKU-BAKE", date=None, action="finished", work_order=None
+        )
+    nb.assert_called_once_with("SKU-BAKE")
+
+
+def test_bake_receiver_ignores_other_production_actions():
+    from shopman.storefront import handlers
+
+    stock_alerts.subscribe("SKU-BAKE", phone=PHONE, alert_type="production_ready")
+    with (
+        patch("shopman.storefront.services.stock_alerts.notify_bake_ready") as nb,
+        patch("django.db.transaction.on_commit", side_effect=lambda fn: fn()),
+    ):
+        handlers.on_production_finished_for_stock_alerts(
+            sender=None, product_ref="SKU-BAKE", date=None, action="started", work_order=None
+        )
+    nb.assert_not_called()
+
+
+def test_stock_back_subscriber_is_not_woken_by_a_bake():
+    """Os dois gatilhos são independentes: quem espera reposição não recebe fornada."""
+    from shopman.storefront import handlers
+
+    stock_alerts.subscribe("SKU-BAKE", phone=PHONE)  # stock_back (default)
+    with (
+        patch("shopman.storefront.services.stock_alerts.notify_bake_ready") as nb,
+        patch("django.db.transaction.on_commit", side_effect=lambda fn: fn()),
+    ):
+        handlers.on_production_finished_for_stock_alerts(
+            sender=None, product_ref="SKU-BAKE", date=None, action="finished", work_order=None
+        )
+    nb.assert_not_called()
+
+
+def test_both_alert_types_coexist_for_the_same_shopper():
+    back = stock_alerts.subscribe("SKU-BOTH", phone=PHONE)
+    bake = stock_alerts.subscribe("SKU-BOTH", phone=PHONE, alert_type="production_ready")
+    assert back.pk != bake.pk
+    assert bake.alert_type == "production_ready"
+
+
+def test_endpoint_accepts_the_bake_alert_type(client):
+    p = _publish(sku="SKU-BAKE-API")
+    resp = client.post(
+        f"/api/v1/availability/{p.sku}/notify/",
+        {"phone": PHONE, "alert_type": "production_ready"},
+    )
+    assert resp.status_code == 200
+    sub = StockAlertSubscription.objects.get(sku=p.sku)
+    assert sub.alert_type == "production_ready"
+
+
+def test_endpoint_rejects_an_unknown_alert_type(client):
+    p = _publish(sku="SKU-BAD-TYPE")
+    resp = client.post(
+        f"/api/v1/availability/{p.sku}/notify/",
+        {"phone": PHONE, "alert_type": "telepatia"},
+    )
+    assert resp.status_code == 400
+    assert resp.json()["field"] == "alert_type"

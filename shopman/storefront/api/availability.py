@@ -84,10 +84,12 @@ class AvailabilityView(APIView):
     ratelimit(key="user_or_ip", rate="10/m", method="POST", block=False), name="dispatch"
 )
 class StockAlertSubscribeView(APIView):
-    """POST /api/v1/availability/<sku>/notify/ — "Me avise quando disponível".
+    """POST /api/v1/availability/<sku>/notify/ — "Me avise quando…".
 
     Aberto a cliente logado (usa o telefone da conta) ou anônimo (telefone no
-    corpo). Registra uma assinatura pendente; o aviso dispara quando o SKU volta.
+    corpo). Registra uma assinatura pendente. O corpo escolhe o gatilho via
+    ``alert_type``: ``stock_back`` (default, "quando voltar ao estoque") ou
+    ``production_ready`` ("quando sair do forno").
     """
 
     authentication_classes = [SessionAuthentication]
@@ -105,7 +107,15 @@ class StockAlertSubscribeView(APIView):
         from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
         from shopman.storefront.identity import get_authenticated_customer
         from shopman.storefront.intents._phone import normalize_phone_input
+        from shopman.storefront.models import StockAlertSubscription
         from shopman.storefront.services import stock_alerts
+
+        alert_type = str(request.data.get("alert_type") or "").strip()
+        if alert_type and alert_type not in StockAlertSubscription.AlertType.values:
+            return Response(
+                {"detail": "Tipo de aviso desconhecido.", "field": "alert_type"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         customer = get_authenticated_customer(request)
         phone = normalize_phone_input(str(request.data.get("phone") or "")) or ""
@@ -116,7 +126,13 @@ class StockAlertSubscribeView(APIView):
             )
 
         channel_ref = request.GET.get("channel") or STOREFRONT_CHANNEL_REF
-        sub = stock_alerts.subscribe(sku, channel_ref=channel_ref, customer=customer, phone=phone)
+        sub = stock_alerts.subscribe(
+            sku,
+            channel_ref=channel_ref,
+            customer=customer,
+            phone=phone,
+            alert_type=alert_type,
+        )
         if sub is None:
             return Response(
                 {"detail": "Não foi possível registrar o aviso."},
