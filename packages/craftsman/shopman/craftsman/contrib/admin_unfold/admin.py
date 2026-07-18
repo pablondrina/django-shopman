@@ -498,6 +498,7 @@ class WorkOrderAdmin(BaseModelAdmin):
         "schedule_badge",
         "planned_display",
         "produced_display",
+        "loss_display",
         "commitments_display",
         "status_badge",
     ]

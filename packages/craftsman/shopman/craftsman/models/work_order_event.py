@@ -107,8 +107,8 @@ class WorkOrderEvent(models.Model):
 
     class Meta:
         db_table = "crafting_work_order_event"
-        verbose_name = _("Evento da Ordem")
-        verbose_name_plural = _("Eventos da Ordem")
+        verbose_name = _("evento da ordem")
+        verbose_name_plural = _("eventos da ordem")
         unique_together = [("work_order", "seq")]
         ordering = ["work_order", "seq"]
 

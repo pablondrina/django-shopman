@@ -138,8 +138,8 @@ class WorkOrder(models.Model):
 
     class Meta:
         db_table = "crafting_work_order"
-        verbose_name = _("Ordem de Produção")
-        verbose_name_plural = _("Produção")
+        verbose_name = _("ordem de produção")
+        verbose_name_plural = _("ordens de produção")
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["status", "target_date"]),

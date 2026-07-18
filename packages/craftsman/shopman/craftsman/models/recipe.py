@@ -92,8 +92,8 @@ class Recipe(models.Model):
 
     class Meta:
         db_table = "crafting_recipe"
-        verbose_name = _("Ficha técnica")
-        verbose_name_plural = _("Fichas técnicas")
+        verbose_name = _("ficha técnica")
+        verbose_name_plural = _("fichas técnicas")
         ordering = ["name"]
         indexes = [
             models.Index(fields=["output_sku"]),
@@ -213,8 +213,8 @@ class RecipeItem(models.Model):
 
     class Meta:
         db_table = "crafting_recipe_item"
-        verbose_name = _("Ingrediente")
-        verbose_name_plural = _("Ingredientes")
+        verbose_name = _("ingrediente")
+        verbose_name_plural = _("ingredientes")
         ordering = ["sort_order"]
         unique_together = [("recipe", "input_sku")]
         constraints = [

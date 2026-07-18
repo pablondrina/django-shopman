@@ -718,8 +718,8 @@ UNFOLD = {
             "models": ["orderman.order", "orderman.session", "orderman.directive"],
             "items": [
                 {"title": "Pedidos", "link": reverse_lazy("admin:orderman_order_changelist")},
-                {"title": "Sessões", "link": reverse_lazy("admin:orderman_session_changelist")},
-                {"title": "Diretivas", "link": reverse_lazy("admin:orderman_directive_changelist")},
+                {"title": "Comandas", "link": reverse_lazy("admin:orderman_session_changelist")},
+                {"title": "Ações", "link": reverse_lazy("admin:orderman_directive_changelist")},
             ],
         },
     ],

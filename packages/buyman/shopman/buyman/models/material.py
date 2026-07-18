@@ -41,8 +41,8 @@ class Material(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Atualizado em"))
 
     class Meta:
-        verbose_name = _("Insumo")
-        verbose_name_plural = _("Insumos")
+        verbose_name = _("insumo")
+        verbose_name_plural = _("insumos")
         ordering = ["sku"]
 
     @property

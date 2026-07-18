@@ -37,8 +37,8 @@ class ProductComponent(models.Model):
     )
 
     class Meta:
-        verbose_name = _("Componente de Produto")
-        verbose_name_plural = _("Componentes de Produto")
+        verbose_name = _("componente de produto")
+        verbose_name_plural = _("componentes de produto")
         constraints = [
             models.UniqueConstraint(
                 fields=["parent", "component"],

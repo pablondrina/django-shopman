@@ -30,8 +30,8 @@ class SupplierMaterialCost(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Atualizado em"))
 
     class Meta:
-        verbose_name = _("Custo de insumo por fornecedor")
-        verbose_name_plural = _("Custos de insumo por fornecedor")
+        verbose_name = _("custo de insumo por fornecedor")
+        verbose_name_plural = _("custos de insumo por fornecedor")
         ordering = ["material", "supplier"]
         constraints = [
             models.UniqueConstraint(

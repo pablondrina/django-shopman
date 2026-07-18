@@ -92,8 +92,8 @@ class Move(models.Model):
     objects = MoveQuerySet.as_manager()
 
     class Meta:
-        verbose_name = _('Movimento')
-        verbose_name_plural = _('Movimentos')
+        verbose_name = _('movimento')
+        verbose_name_plural = _('movimentos')
         ordering = ['timestamp']
         indexes = [
             models.Index(fields=['quant', 'timestamp']),

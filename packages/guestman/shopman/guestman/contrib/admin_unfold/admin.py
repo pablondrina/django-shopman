@@ -40,22 +40,25 @@ for model in [Customer, CustomerGroup, CustomerAddress, ContactPoint, ExternalId
 # =============================================================================
 
 
+# Rótulos PT-BR dos segmentos (o valor cru vem em inglês da insight): fonte única
+# usada pelo filtro E pela coluna, para o operador nunca ver "At Risk"/"Lost".
+RFM_SEGMENT_LABELS = {
+    "champion": "Campeão",
+    "loyal_customer": "Cliente fiel",
+    "recent_customer": "Cliente recente",
+    "at_risk": "Em risco",
+    "lost": "Perdido",
+    "regular": "Regular",
+}
+
+
 class RFMSegmentFilter(admin.SimpleListFilter):
     """Filter customers by RFM segment (via CustomerInsight)."""
-    title = _("Segmento RFM")
+    title = _("Segmento")
     parameter_name = "rfm_segment"
 
-    RFM_CHOICES = [
-        ("champion", _("Champion")),
-        ("loyal_customer", _("Loyal Customer")),
-        ("recent_customer", _("Recent Customer")),
-        ("at_risk", _("At Risk")),
-        ("lost", _("Lost")),
-        ("regular", _("Regular")),
-    ]
-
     def lookups(self, request, model_admin):
-        return self.RFM_CHOICES
+        return list(RFM_SEGMENT_LABELS.items())
 
     def queryset(self, request, queryset):
         value = self.value()
@@ -120,22 +123,23 @@ class CustomerAddressInline(BaseTabularInline):
 @admin.register(Customer)
 class CustomerAdmin(BaseModelAdmin):
     list_display = [
-        "ref",
-        "name",
+        "customer_header",
         "customer_type_badge",
         "group",
-        "phone",
         "orders_count",
         "rfm_segment_badge",
         "churn_risk_badge",
         "is_active_badge",
     ]
+    list_display_links = ["customer_header"]
     list_filter = [
         "customer_type",
         ("group", ChoicesDropdownFilter),
         "is_active",
         RFMSegmentFilter,
     ]
+    list_filter_submit = True
+    date_hierarchy = "created_at"
     search_fields = ["ref", "first_name", "last_name", "document", "phone", "email"]
     readonly_fields = ["uuid", "created_at", "updated_at"]
     inlines = [CustomerAddressInline]
@@ -173,6 +177,13 @@ class CustomerAdmin(BaseModelAdmin):
     ]
 
     actions = ["export_selected_csv", "recalculate_insights"]
+
+    @display(description="Cliente", header=True)
+    def customer_header(self, obj):
+        # Célula de duas linhas do Unfold: nome em destaque, telefone abaixo, com
+        # as iniciais no avatar. Substitui as colunas soltas ref/nome/telefone.
+        initials = "".join(p[0] for p in obj.name.split()[:2]).upper() or "?"
+        return [obj.name, obj.phone or obj.ref, initials]
 
     @display(description="Tipo")
     def customer_type_badge(self, obj):
@@ -214,12 +225,12 @@ class CustomerAdmin(BaseModelAdmin):
             pass
         return qs
 
-    @display(description=_("Segmento RFM"))
+    @display(description=_("Segmento"))
     def rfm_segment_badge(self, obj):
         """Display RFM segment badge from CustomerInsight."""
         segment = getattr(obj, "_rfm_segment", None)
         if not segment:
-            return "-"
+            return "—"
         segment_colors = {
             "champion": "green",
             "loyal_customer": "blue",
@@ -229,10 +240,11 @@ class CustomerAdmin(BaseModelAdmin):
             "regular": "base",
         }
         color = segment_colors.get(segment, "base")
-        label = segment.replace("_", " ").title()
+        # Rótulo PT-BR (nunca "At Risk"/"Lost" na cara do operador).
+        label = RFM_SEGMENT_LABELS.get(segment, segment.replace("_", " ").capitalize())
         return unfold_badge(label, color)
 
-    @display(description=_("Churn"))
+    @display(description=_("Risco de perda"))
     def churn_risk_badge(self, obj):
         """Display churn risk badge from CustomerInsight."""
         churn_risk = getattr(obj, "_churn_risk", None)

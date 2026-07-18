@@ -49,8 +49,8 @@ class RuleConfig(models.Model):
 
     class Meta:
         ordering = ["priority"]
-        verbose_name = "regra configurável"
-        verbose_name_plural = "regras configuráveis"
+        verbose_name = "regra"
+        verbose_name_plural = "regras"
         permissions = [
             ("manage_rules", "Pode gerenciar regras de pricing e validação"),
         ]

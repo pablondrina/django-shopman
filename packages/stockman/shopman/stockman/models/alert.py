@@ -65,8 +65,8 @@ class StockAlert(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_('Atualizado em'))
 
     class Meta:
-        verbose_name = _('Alerta de Estoque')
-        verbose_name_plural = _('Alertas de Estoque')
+        verbose_name = _('alerta de estoque')
+        verbose_name_plural = _('alertas de estoque')
         constraints = [
             models.UniqueConstraint(
                 fields=['sku', 'position'],

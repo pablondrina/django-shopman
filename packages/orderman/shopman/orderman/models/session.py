@@ -139,8 +139,8 @@ class Session(models.Model):
 
     class Meta:
         app_label = "orderman"
-        verbose_name = _("sessão")
-        verbose_name_plural = _("sessões")
+        verbose_name = _("comanda")
+        verbose_name_plural = _("comandas")
         constraints = [
             models.UniqueConstraint(fields=["channel_ref", "session_key"], name="ord_uniq_session_channel_key"),
             models.UniqueConstraint(
@@ -305,8 +305,8 @@ class SessionItem(models.Model):
 
     class Meta:
         app_label = "orderman"
-        verbose_name = _("item da sessão")
-        verbose_name_plural = _("itens da sessão")
+        verbose_name = _("item da comanda")
+        verbose_name_plural = _("itens da comanda")
         constraints = [
             models.UniqueConstraint(
                 fields=["session", "line_id"],
@@ -377,8 +377,8 @@ class SessionEvent(models.Model):
 
     class Meta:
         app_label = "orderman"
-        verbose_name = _("evento da sessão")
-        verbose_name_plural = _("eventos da sessão")
+        verbose_name = _("evento da comanda")
+        verbose_name_plural = _("eventos da comanda")
         ordering = ("session_key", "seq")
         constraints = [
             models.UniqueConstraint(

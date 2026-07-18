@@ -49,8 +49,8 @@ class Collection(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("atualizado em"))
 
     class Meta:
-        verbose_name = _("Coleção")
-        verbose_name_plural = _("Coleções")
+        verbose_name = _("coleção")
+        verbose_name_plural = _("coleções")
         ordering = ["sort_order", "name"]
 
     def __str__(self):
@@ -178,8 +178,8 @@ class CollectionItem(models.Model):
     sort_order = models.IntegerField(default=0, verbose_name=_("ordem"))
 
     class Meta:
-        verbose_name = _("Item de Coleção")
-        verbose_name_plural = _("Itens de Coleção")
+        verbose_name = _("item de coleção")
+        verbose_name_plural = _("itens de coleção")
         constraints = [
             models.UniqueConstraint(
                 fields=["collection", "product"],

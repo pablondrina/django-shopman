@@ -71,8 +71,8 @@ class Directive(models.Model):
 
     class Meta:
         app_label = "orderman"
-        verbose_name = _("diretiva")
-        verbose_name_plural = _("diretivas")
+        verbose_name = _("ação pendente")
+        verbose_name_plural = _("ações pendentes")
         constraints = [
             # Dedupe como GARANTIA, não convenção: no máximo UMA directive viva
             # (queued/running) por (topic, dedupe_key). Fecha a corrida do

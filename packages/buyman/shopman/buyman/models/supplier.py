@@ -24,8 +24,8 @@ class Supplier(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Atualizado em"))
 
     class Meta:
-        verbose_name = _("Fornecedor")
-        verbose_name_plural = _("Fornecedores")
+        verbose_name = _("fornecedor")
+        verbose_name_plural = _("fornecedores")
         ordering = ["name"]
 
     def __str__(self) -> str:

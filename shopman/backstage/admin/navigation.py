@@ -48,7 +48,7 @@ def get_sidebar_navigation(request):
 
     Pedidos/POS/KDS são apps Nuxt headless dedicados (sem rota Django): só
     aparecem quando a base URL do deployment está configurada (evita link morto).
-    O histórico/CRUD de pedidos segue no grupo "Pedidos e canais".
+    O histórico/CRUD de pedidos segue no grupo "Pedidos".
     """
     live_items = []
     orders_url = _orders_base_url()
@@ -110,10 +110,10 @@ def get_sidebar_navigation(request):
     )
     return [
         _group("Operação ao vivo", "bolt", live_items, collapsible=False),
-        _group("Pedidos e canais", "hub", [
-            _item("Histórico de pedidos", "assignment", _url("admin:orderman_order_changelist"), permission=_can_manage_orders),
-            _item("Sessões abertas", "shopping_bag", _url("admin:orderman_session_changelist") + "?state__exact=open", permission=_can_manage_orders),
-            _item("Diretivas pendentes", "playlist_add_check", _url("admin:orderman_directive_changelist") + "?status__exact=queued", permission=_can_manage_orders),
+        _group("Pedidos", "hub", [
+            _item("Histórico de pedidos", "receipt_long", _url("admin:orderman_order_changelist"), permission=_can_manage_orders),
+            _item("Comandas abertas", "shopping_bag", _url("admin:orderman_session_changelist") + "?state__exact=open", permission=_can_manage_orders),
+            _item("Ações pendentes", "playlist_add_check", _url("admin:orderman_directive_changelist") + "?status__exact=queued", permission=_can_manage_orders),
         ]),
         _group("Produção", "factory", [
             _item("Painel", "monitoring", _url("admin_console_production_dashboard"), permission=_can_access_production),
@@ -165,7 +165,7 @@ def get_sidebar_navigation(request):
             _item("Faixas de distância", "straighten", _url("admin:storefront_deliverydistanceband_changelist"), permission=_is_staff),
             _item("Zonas de entrega", "pin_drop", _url("admin:storefront_deliveryzone_changelist"), permission=_is_staff),
             _item("Grupos de clientes", "groups", _url("admin:guestman_customergroup_changelist"), permission=_is_staff),
-            _item("Copy Omotenashi", "format_quote", _url("admin:shop_omotenashicopy_changelist"), permission=_is_staff),
+            _item("Textos da interface", "format_quote", _url("admin:shop_omotenashicopy_changelist"), permission=_is_staff),
             _item("Templates de notificação", "mail", _url("admin:shop_notificationtemplate_changelist"), permission=_is_staff),
             _item("Estações KDS", "settings_input_component", _url("admin:backstage_kdsinstance_changelist"), permission=_can_operate_kds),
             _item("Comandas do PDV", "receipt", _url("admin:backstage_postab_changelist"), permission=_can_operate_pos),

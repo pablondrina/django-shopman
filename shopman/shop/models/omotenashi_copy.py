@@ -44,8 +44,8 @@ class OmotenashiCopy(models.Model):
     history = HistoricalRecords()
 
     class Meta:
-        verbose_name = "cópia omotenashi"
-        verbose_name_plural = "cópias omotenashi"
+        verbose_name = "texto da interface"
+        verbose_name_plural = "textos da interface"
         ordering = ("key", "moment", "audience")
         constraints = [
             models.UniqueConstraint(

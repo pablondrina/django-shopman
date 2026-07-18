@@ -153,10 +153,19 @@ class CollectionAdmin(BaseModelAdmin):
     def is_smart_badge(self, obj):
         return obj.is_smart
 
+    def get_queryset(self, request):
+        # Conta os itens manuais num único JOIN, evitando uma query por linha (N+1)
+        # no caso comum. Coleção smart resolve a membership pela regra (query própria,
+        # mas smart collections são poucas).
+        from django.db.models import Count
+
+        return super().get_queryset(request).annotate(_items_count=Count("items"))
+
     @display(description="Produtos")
     def products_count(self, obj):
-        # smart-aware: regra resolve a membership; manual conta os itens explícitos.
-        return obj.product_queryset().count()
+        if getattr(obj, "is_smart", False):
+            return obj.product_queryset().count()
+        return getattr(obj, "_items_count", 0)
 
 
 # =============================================================================
@@ -301,9 +310,7 @@ class ProductAdmin(_ProductImportExportBase):
 
     autocomplete_extra_fields = ["base_price_q"]
     list_display = [
-        "image_thumbnail",
-        "sku",
-        "name",
+        "product_header",
         "formatted_price",
         "cost_display",
         "margin_display",
@@ -311,6 +318,7 @@ class ProductAdmin(_ProductImportExportBase):
         "is_bundle_display",
         "stock_available_display",
     ]
+    list_display_links = ["product_header"]
     list_filter = [
         "is_published",
         "is_sellable",
@@ -400,14 +408,12 @@ class ProductAdmin(_ProductImportExportBase):
         ),
     ]
 
-    @display(description="")
-    def image_thumbnail(self, obj):
-        if obj.image_url:
-            return format_html(
-                '<img src="{}" alt="{}" class="block h-10 object-cover rounded-default w-10">',
-                obj.image_url, obj.name,
-            )
-        return ""
+    @display(description="Produto", header=True)
+    def product_header(self, obj):
+        # Célula de duas linhas do Unfold: nome em destaque, SKU abaixo, com a
+        # foto do produto como thumbnail. Colapsa foto+sku+nome numa coluna só.
+        image = {"path": obj.image_url, "squared": True} if obj.image_url else None
+        return [obj.name, obj.sku, None, image]
 
     @display(description="Preço")
     def formatted_price(self, obj):

@@ -88,8 +88,8 @@ class PaymentIntent(models.Model):
     class Meta:
         app_label = "payman"
         ordering = ["-created_at"]
-        verbose_name = _("intenção de pagamento")
-        verbose_name_plural = _("intenções de pagamento")
+        verbose_name = _("cobrança")
+        verbose_name_plural = _("cobranças")
         constraints = [
             models.CheckConstraint(
                 condition=models.Q(amount_q__gt=0),

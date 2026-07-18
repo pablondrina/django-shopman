@@ -834,9 +834,8 @@ class OrderAdmin(ModelAdmin):
     # Changelist Unfold padrão (history/auditoria). A operação de pedidos vive no app
     # Nuxt dedicado (Gestor); o template custom anterior era chrome do console removido.
     list_display = (
-        "ref",
+        "order_header",
         "channel_ref",
-        "handle_ref",
         "status_badge",
         "delivery_date_display",
         "items_count_display",
@@ -846,6 +845,7 @@ class OrderAdmin(ModelAdmin):
         "operation_link_display",
         "created_at",
     )
+    list_display_links = ("order_header",)
     list_filter = (
         SalesChannelFilter,
         ("status", ChoicesRadioFilter),
@@ -972,6 +972,12 @@ class OrderAdmin(ModelAdmin):
     # Cores de referência BADGES:
     # - Azul=#5EB1EF (info), Amarelo=#E2A336 (warning), Verde=#5BB98B (success), Vermelho=#EB8E90 (danger), Cinza=secondary
     # Status canônicos: new, confirmed, preparing, ready, dispatched, delivered, completed, cancelled, returned
+    @display(description=_("pedido"), header=True)
+    def order_header(self, obj: Order) -> list:
+        # Célula de duas linhas: ref em destaque, o contato do cliente abaixo.
+        # Substitui as colunas soltas ref + handle_ref no changelist de auditoria.
+        return [obj.ref, obj.handle_ref or "—"]
+
     @display(
         description=_("status"),
         label={
@@ -1479,7 +1485,7 @@ class FulfillmentAdminForm(forms.ModelForm):
 @admin.register(Fulfillment)
 class FulfillmentAdmin(ModelAdmin):
     form = FulfillmentAdminForm
-    list_display = ("id", "order", "status_badge", "carrier", "tracking_code", "created_at")
+    list_display = ("order", "status_badge", "carrier", "tracking_code", "created_at")
     list_filter = (("status", ChoicesRadioFilter),)
     search_fields = ("order__ref", "tracking_code", "carrier")
     ordering = ("-created_at",)

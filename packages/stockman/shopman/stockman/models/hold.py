@@ -139,8 +139,8 @@ class Hold(models.Model):
     objects = HoldQuerySet.as_manager()
 
     class Meta:
-        verbose_name = _('Reserva')
-        verbose_name_plural = _('Reservas')
+        verbose_name = _('reserva')
+        verbose_name_plural = _('reservas')
         indexes = [
             models.Index(fields=['status', 'expires_at'], name='stocking_ho_status_exp_idx'),
             models.Index(fields=['sku', 'target_date'], name='stocking_ho_sku_tgt_idx'),

@@ -59,8 +59,8 @@ class Position(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_('atualizado em'))
 
     class Meta:
-        verbose_name = _('Posição')
-        verbose_name_plural = _('Posições')
+        verbose_name = _('posição')
+        verbose_name_plural = _('posições')
         ordering = ['ref']
 
     def __str__(self) -> str:

@@ -45,7 +45,7 @@ class AdminNavigationTests(TestCase):
         titles = [group["title"] for group in groups]
 
         self.assertEqual(titles[0], "Operação ao vivo")
-        self.assertIn("Pedidos e canais", titles)
+        self.assertIn("Pedidos", titles)
         self.assertIn("Produção", titles)
         self.assertIn("Auditoria e acesso", titles)
         self.assertNotIn("Regras", titles)
@@ -120,13 +120,13 @@ class AdminNavigationTests(TestCase):
             "Produção", "Integrações",
             "Canais", "Promoções", "Cupons",
             "Regras de preço", "Faixas de distância", "Zonas de entrega",
-            "Grupos de clientes", "Copy Omotenashi", "Templates de notificação",
+            "Grupos de clientes", "Textos da interface", "Templates de notificação",
             "Estações KDS", "Comandas do PDV",
         }:
             self.assertIn(expected, config_items)
 
         # E saiu dos grupos de DADOS onde estava disperso.
-        orders_group = next(group for group in groups if group["title"] == "Pedidos e canais")
+        orders_group = next(group for group in groups if group["title"] == "Pedidos")
         orders_items = {item["title"] for item in orders_group["items"]}
         self.assertNotIn("Canais", orders_items)
         self.assertNotIn("Comandas do PDV", orders_items)
@@ -160,7 +160,7 @@ class AdminNavigationTests(TestCase):
             [item["title"] for item in production_tabs["items"]],
             ["Painel", "Planejamento", "Produção", "Fichas técnicas", "Relatórios"],
         )
-        self.assertEqual(str(WorkOrder._meta.verbose_name_plural), "Produção")
+        self.assertEqual(str(WorkOrder._meta.verbose_name_plural), "ordens de produção")
 
 
 class AdminDashboardSemanticsTests(TestCase):
@@ -639,8 +639,8 @@ class RecipeAdminSemanticsTests(TestCase):
         self.assertIsInstance(form.fields["input_sku"].widget, craftsman_admin.UnfoldAdminSelect2Widget)
         self.assertIsInstance(form.fields["unit"].widget, craftsman_admin.UnfoldAdminSelectWidget)
         self.assertIsInstance(recipe_form.fields["output_sku"].widget, craftsman_admin.UnfoldAdminSelect2Widget)
-        self.assertEqual(str(Recipe._meta.verbose_name), "Ficha técnica")
-        self.assertEqual(str(Recipe._meta.verbose_name_plural), "Fichas técnicas")
+        self.assertEqual(str(Recipe._meta.verbose_name), "ficha técnica")
+        self.assertEqual(str(Recipe._meta.verbose_name_plural), "fichas técnicas")
         self.assertEqual(str(Recipe._meta.get_field("output_sku").verbose_name), "SKU produzido")
         self.assertEqual(str(recipe_form.fields["output_sku"].label), "SKU produzido")
         self.assertEqual(str(recipe_form.fields["batch_size"].label), "Rendimento base")

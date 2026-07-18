@@ -33,8 +33,8 @@ class RefSequence(models.Model):
 
     class Meta:
         db_table = "crafting_code_sequence"
-        verbose_name = _("Sequência de Referência")
-        verbose_name_plural = _("Sequências de Referência")
+        verbose_name = _("sequência de referência")
+        verbose_name_plural = _("sequências de referência")
 
     def __str__(self) -> str:
         return f"{self.prefix} → {self.last_value}"

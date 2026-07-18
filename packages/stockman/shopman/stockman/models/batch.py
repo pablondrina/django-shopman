@@ -101,8 +101,8 @@ class Batch(models.Model):
     objects = BatchQuerySet.as_manager()
 
     class Meta:
-        verbose_name = _('Lote')
-        verbose_name_plural = _('Lotes')
+        verbose_name = _('lote')
+        verbose_name_plural = _('lotes')
         ordering = ['expiry_date', 'production_date']
         indexes = [
             models.Index(fields=['sku'], name='stocking_ba_sku_idx'),

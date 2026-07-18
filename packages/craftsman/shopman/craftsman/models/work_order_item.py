@@ -76,8 +76,8 @@ class WorkOrderItem(models.Model):
 
     class Meta:
         db_table = "crafting_work_order_item"
-        verbose_name = _("Item da Ordem")
-        verbose_name_plural = _("Itens da Ordem")
+        verbose_name = _("item da ordem")
+        verbose_name_plural = _("itens da ordem")
         indexes = [
             models.Index(fields=["work_order", "kind"]),
             models.Index(fields=["item_ref", "kind"]),

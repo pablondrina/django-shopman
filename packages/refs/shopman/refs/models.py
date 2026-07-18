@@ -56,8 +56,8 @@ class Ref(models.Model):
 
     class Meta:
         app_label = "refs"
-        verbose_name = _("Referência")
-        verbose_name_plural = _("Referências")
+        verbose_name = _("referência")
+        verbose_name_plural = _("referências")
         indexes = [
             models.Index(fields=["ref_type", "value", "is_active"], name="ref_type_val_active_idx"),
             models.Index(fields=["target_type", "target_id", "is_active"], name="ref_target_active_idx"),
@@ -85,8 +85,8 @@ class RefSequence(models.Model):
 
     class Meta:
         app_label = "refs"
-        verbose_name = _("Sequência de referência")
-        verbose_name_plural = _("Sequências de referência")
+        verbose_name = _("sequência de referência")
+        verbose_name_plural = _("sequências de referência")
         constraints = [
             models.UniqueConstraint(
                 fields=["sequence_name", "scope_hash"],

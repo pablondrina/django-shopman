@@ -59,8 +59,8 @@ class Listing(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("atualizado em"))
 
     class Meta:
-        verbose_name = _("Listagem")
-        verbose_name_plural = _("Listagens")
+        verbose_name = _("vitrine")
+        verbose_name_plural = _("vitrines")
         ordering = ["-priority", "name"]
 
     def __str__(self):
@@ -123,8 +123,8 @@ class ListingItem(models.Model):
     history = HistoricalRecords()
 
     class Meta:
-        verbose_name = _("Item de Listagem")
-        verbose_name_plural = _("Itens de Listagem")
+        verbose_name = _("item de vitrine")
+        verbose_name_plural = _("itens de vitrine")
         constraints = [
             models.UniqueConstraint(
                 fields=["listing", "product", "min_qty"],

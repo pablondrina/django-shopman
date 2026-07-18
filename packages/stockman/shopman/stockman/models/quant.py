@@ -133,8 +133,8 @@ class Quant(models.Model):
     objects = QuantManager()
 
     class Meta:
-        verbose_name = _('Saldo')
-        verbose_name_plural = _('Saldos')
+        verbose_name = _('saldo')
+        verbose_name_plural = _('saldos')
         constraints = [
             models.UniqueConstraint(
                 fields=['sku', 'position', 'target_date', 'batch'],
