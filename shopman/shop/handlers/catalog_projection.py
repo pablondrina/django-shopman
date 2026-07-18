@@ -53,14 +53,18 @@ class CatalogProjectHandler:
         # published + sellable) or retract it (paused, unpublished, or dropped
         # from the listing). Reading state at handle time makes the directive
         # idempotent to the final state, so rapid pause→resume converges.
+        from shopman.shop.services import catalog_sync
+
         item = _get_projected_item(sku, listing_ref)
+        retracting = not (item is not None and item.is_published and item.is_sellable)
         try:
-            if item is not None and item.is_published and item.is_sellable:
+            if not retracting:
                 result = self.backend.project([item], channel=listing_ref)
             else:
                 result = self.backend.retract([sku], channel=listing_ref)
         except IFoodRateLimitError as exc:
-            # Rate limit: defer with Retry-After from API response
+            # Rate limit: defer with Retry-After from API response.
+            catalog_sync.record_sync(sku, listing_ref, status="pending", error="rate limited")
             message.status = "queued"
             message.available_at = timezone.now() + timedelta(seconds=exc.retry_after)
             message.save(update_fields=["status", "available_at", "updated_at"])
@@ -71,8 +75,12 @@ class CatalogProjectHandler:
             return
 
         if result.success:
+            catalog_sync.record_sync(
+                sku, listing_ref, status="retracted" if retracting else "synced",
+            )
             return
 
+        catalog_sync.record_sync(sku, listing_ref, status="error", error="; ".join(result.errors))
         raise DirectiveTransientError("; ".join(result.errors))
 
 
@@ -136,6 +144,11 @@ def on_availability_changed(sender, instance, listing_ref: str, sku: str, **kwar
     if listing_ref not in _projection_listing_refs():
         return
     _enqueue_project(sku, listing_ref, trigger="availability_changed", extra={})
+
+
+def enqueue_project(sku: str, listing_ref: str, *, trigger: str = "manual_resync") -> None:
+    """Public re-projection enqueue — used by the backstage "sincronizar agora" action."""
+    _enqueue_project(sku, listing_ref, trigger=trigger, extra={})
 
 
 def _enqueue_project(sku: str, listing_ref: str, trigger: str, extra: dict) -> None:

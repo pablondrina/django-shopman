@@ -1,5 +1,6 @@
 """Shopman models — Shop, Channel, RuleConfig, NotificationTemplate, OmotenashiCopy."""
 
+from .catalog_sync import CatalogSyncState, SyncStatus
 from .channel import Channel
 from .omotenashi_copy import OmotenashiCopy
 from .rules import RuleConfig
@@ -20,6 +21,8 @@ __all__ = [
     "Shop",
     "Channel",
     "Showcase",
+    "CatalogSyncState",
+    "SyncStatus",
     "NotificationTemplate",
     "RuleConfig",
     "OmotenashiCopy",

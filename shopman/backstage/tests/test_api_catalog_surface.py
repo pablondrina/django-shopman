@@ -575,3 +575,63 @@ def test_reorder_items_smart_rejected(client, operator, catalog):
         content_type="application/json",
     )
     assert resp.status_code == 400  # coleção por regra não tem ordem manual
+
+
+# ── Arc C: sync-status + resync ───────────────────────────────────────────────
+
+SYNC_STATUS_URL = "/api/v1/backstage/catalog/sync-status/"
+RESYNC_URL = "/api/v1/backstage/catalog/resync/"
+
+
+def test_sync_status_requires_manage_catalog(client, plain_staff, catalog):
+    client.force_login(plain_staff)
+    assert client.get(SYNC_STATUS_URL).status_code == 403
+
+
+def test_sync_status_returns_recorded_states(client, operator, catalog):
+    from shopman.shop.services import catalog_sync
+
+    catalog_sync.record_sync("PAO", "meta", status="synced", external_id="PAO")
+    catalog_sync.record_sync("PAO", "google", status="error", error="boom")
+
+    client.force_login(operator)
+    resp = client.get(SYNC_STATUS_URL)
+    assert resp.status_code == 200
+    data = resp.json()["sync_status"]
+    assert data["PAO"]["meta"]["status"] == "synced"
+    assert data["PAO"]["meta"]["last_synced_at"]
+    assert data["PAO"]["google"]["status"] == "error"
+    assert data["PAO"]["google"]["error"] == "boom"
+
+
+def test_sync_status_filtered_by_platform(client, operator, catalog):
+    from shopman.shop.services import catalog_sync
+
+    catalog_sync.record_sync("PAO", "meta", status="synced")
+    catalog_sync.record_sync("PAO", "google", status="synced")
+
+    client.force_login(operator)
+    data = client.get(SYNC_STATUS_URL, {"platform": "meta"}).json()["sync_status"]
+    assert set(data["PAO"]) == {"meta"}
+
+
+def test_resync_requires_sku(client, operator, catalog):
+    client.force_login(operator)
+    resp = client.post(RESYNC_URL, data={}, content_type="application/json")
+    assert resp.status_code == 400
+
+
+def test_resync_enqueues_directive(client, operator, catalog):
+    from shopman.orderman.models import Directive
+
+    from shopman.shop.directives import CATALOG_PROJECT_SKU
+
+    client.force_login(operator)
+    resp = client.post(
+        RESYNC_URL,
+        data={"sku": "PAO", "platform": "ifood"},
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    assert resp.json()["platforms"] == ["ifood"]
+    assert Directive.objects.filter(topic=CATALOG_PROJECT_SKU, payload__sku="PAO").exists()

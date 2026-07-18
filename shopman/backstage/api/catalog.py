@@ -231,6 +231,37 @@ class CatalogReorderItemsView(_CatalogBase):
         return Response({"ok": True, "count": count})
 
 
+class CatalogSyncStatusView(_CatalogBase):
+    """Estado de sync por produto × plataforma (para o selo de cada célula)."""
+
+    def get(self, request):
+        from shopman.shop.services.catalog_sync import sync_status_map
+
+        platform = (request.query_params.get("platform") or "").strip() or None
+        skus_param = (request.query_params.get("sku") or "").strip()
+        skus = [s for s in (part.strip() for part in skus_param.split(",")) if s] or None
+        return Response({"sync_status": sync_status_map(skus, platform=platform)})
+
+
+class CatalogResyncView(_CatalogBase):
+    """Re-enfileira a projeção de um SKU (uma plataforma ou todas as configuradas)."""
+
+    def post(self, request):
+        sku = (request.data.get("sku") or "").strip()
+        platform = (request.data.get("platform") or "").strip()
+        if not sku:
+            return Response({"detail": "sku é obrigatório."}, status=400)
+
+        from shopman.offerman.conf import get_projection_backend_channels
+
+        from shopman.shop.handlers.catalog_projection import enqueue_project
+
+        targets = [platform] if platform else list(get_projection_backend_channels())
+        for listing_ref in targets:
+            enqueue_project(sku, listing_ref, trigger="manual_resync")
+        return Response({"ok": True, "sku": sku, "platforms": targets})
+
+
 def _as_int(value):
     if value is None or value == "":
         return None

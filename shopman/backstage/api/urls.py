@@ -13,6 +13,8 @@ from .catalog import (
     CatalogProductView,
     CatalogReorderCollectionsView,
     CatalogReorderItemsView,
+    CatalogResyncView,
+    CatalogSyncStatusView,
 )
 from .hub import HubView
 from .kds import (
@@ -136,6 +138,8 @@ urlpatterns = [
     path("catalog/bulk-price/", CatalogBulkPriceView.as_view(), name="api-backstage-catalog-bulk-price"),
     path("catalog/reorder-collections/", CatalogReorderCollectionsView.as_view(), name="api-backstage-catalog-reorder-collections"),
     path("catalog/reorder-items/", CatalogReorderItemsView.as_view(), name="api-backstage-catalog-reorder-items"),
+    path("catalog/sync-status/", CatalogSyncStatusView.as_view(), name="api-backstage-catalog-sync-status"),
+    path("catalog/resync/", CatalogResyncView.as_view(), name="api-backstage-catalog-resync"),
     # Expositores (display: menuboard/feeds)
     path("showcases/", ShowcaseBoardView.as_view(), name="api-backstage-showcases"),
     path("showcases/active/", ShowcaseActiveView.as_view(), name="api-backstage-showcases-active"),
