@@ -8,6 +8,7 @@ manutenção num loop (default: a cada 5 minutos):
   sweep_orphan_holds        — holds indefinidos órfãos (sem sessão viva/data passada)
   cleanup_stale_planning    — quants planejados órfãos
   cleanup_d1                — D-1 vencido vira perda
+  expire_broadcast_posts    — post pendente sem aprovação a tempo caduca
   reconcile_payments        — PIX pago com webhook perdido é resgatado
   sweep_stuck_orders        — fase de lifecycle perdida (crash pós-commit) é re-despachada
   check_directive_health    — failed/backlog/heartbeat da fila viram OperatorAlert (ADR-003)
@@ -39,6 +40,8 @@ MAINTENANCE_COMMANDS = (
     "sweep_orphan_holds",
     "cleanup_stale_planning",
     "cleanup_d1",
+    # Frescor vencido não vira propaganda: post pendente além do prazo caduca.
+    "expire_broadcast_posts",
     "reconcile_payments",
     "sweep_stuck_orders",
     # Por último: as checagens veem o estado PÓS-remediação do ciclo (menos flap).

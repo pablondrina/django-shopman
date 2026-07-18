@@ -30,6 +30,11 @@ from .kds import (
     KDSTicketItemView,
     KDSTicketRecallView,
 )
+from .notifications import (
+    NotificationActionView,
+    NotificationListView,
+    NotificationReadView,
+)
 from .operations import (
     DayClosingView,
     OperatorEligibleView,
@@ -169,6 +174,19 @@ urlpatterns = [
     # Operator alerts
     path("alerts/", AlertListView.as_view(), name="api-backstage-alerts"),
     path("alerts/<int:pk>/ack/", AlertAckView.as_view(), name="api-backstage-alert-ack"),
+    # Notificações PESSOAIS (vs. alerts, que são da loja): o gestor recebe o
+    # pedido de aprovação onde estiver. Push pelo canal SSE ``user-<id>``.
+    path("notifications/", NotificationListView.as_view(), name="api-backstage-notifications"),
+    path(
+        "notifications/<int:pk>/read/",
+        NotificationReadView.as_view(),
+        name="api-backstage-notification-read",
+    ),
+    path(
+        "notifications/<int:pk>/action/",
+        NotificationActionView.as_view(),
+        name="api-backstage-notification-action",
+    ),
     # Production — work order actions
     path("production/plan/", WorkOrderPlanView.as_view(), name="api-backstage-wo-plan"),
     path("production/<int:wo_id>/start/", WorkOrderStartView.as_view(), name="api-backstage-wo-start"),

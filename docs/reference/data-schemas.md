@@ -921,6 +921,7 @@ Contexto operacional de produção mantido fora do core Craftsman.
 |-------|------|-------------|----------|-----------|
 | `committed_order_refs` | `list[string]` | `shop.handlers.production_order_sync` | Backstage produção/pedidos projections | Pedidos que comprometem quantidade do SKU produzido por esta WorkOrder. Espelho operacional de `Order.data.awaiting_wo_refs`; a métrica de produção é a soma de itens, não a contagem de pedidos. |
 | `steps_progress` | `int` | Backstage produção (futuro botão manual) | `build_production_kds` | Override manual do passo atual no KDS de produção, 1-based. |
+| `quality` | `string` | `backstage.services.production.set_quality` (finish do production-nuxt) | `shop.handlers.broadcast`, `BroadcastRule.trigger_filter.quality_min` | Como ficou a fornada: `excelente` \| `bom` \| `regular` (default `bom`). Gravado **antes** do finish, porque é o `production_changed` do finish que alimenta o broadcast. Hierarquia: excelente > bom > regular. |
 | `batch_ref` | `string` | `backstage.services.production` | auditoria/lotes | Lote criado para receita com rastreabilidade. |
 | `batch_quantity` | `string` | `backstage.services.production` | auditoria/lotes | Quantidade acabada associada ao lote. |
 | `expiry_date` | `string` | `backstage.services.production` | auditoria/lotes | ISO date de validade do lote, quando aplicável. |
