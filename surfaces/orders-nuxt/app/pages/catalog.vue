@@ -6,6 +6,8 @@
 // narrow screens. The backend owns availability rules; this renders intent + reconciles.
 import { cellPrice, cellSyncView, cellView, filterRows, rowStatus, surfaceDisplayIcon, surfaceKindLabel, syncBadge, syncErrorCount } from "~/presentation/catalog";
 import { catalogDimensions, filterByDimensions } from "~/presentation/catalogFilters";
+import { keepVisible, reconcile } from "../../../operator-kit/app/presentation/columnPicker";
+import type { HiddenColumns } from "../../../operator-kit/app/types/columns";
 import type { ActiveFilters } from "../../../operator-kit/app/types/filters";
 import type {
   AssistableField,
@@ -30,7 +32,27 @@ const collections = computed(() => matrix.value?.collections ?? []);
 // do feed chama-se ``Showcase`` — daí os nomes internos aqui.
 const surfaceByRef = computed(() => new Map(surfaces.value.map((s) => [s.ref, s])));
 const isCellTransactional = (cell: SurfaceCellProjection) => surfaceByRef.value.get(cell.surface_ref)?.transactional ?? true;
-const firstShowcaseRef = computed(() => surfaces.value.find((s) => !s.transactional)?.ref ?? "");
+
+// ── colunas visíveis (ColumnPicker) ────────────────────────────────────────────
+// A escolha é do operador e vale por estação. Cookie (não localStorage) pelo mesmo
+// motivo do rail: a matriz é renderizada no servidor (`server: true` no useFetch),
+// então o servidor já precisa saber quais colunas desenhar — senão a tela nasce com
+// todas e pisca ao hidratar. Guardamos as OCULTAS: canal/feed novo nasce visível.
+const hiddenColumns = useCookie<HiddenColumns>("catalog-hidden-columns", {
+  default: () => [],
+  sameSite: "lax",
+  maxAge: 60 * 60 * 24 * 365,
+  path: "/",
+});
+// Só as superfícies entram no seletor — a coluna do produto não é declarada, e é por
+// isso que ela não tem como ser ocultada.
+const columnOptions = computed(() => surfaces.value.map((s) => ({ id: s.ref, label: s.name })));
+// Higieniza contra superfície que sumiu do servidor (senão o registro vira lixo).
+const hidden = computed<HiddenColumns>(() => reconcile(columnOptions.value, hiddenColumns.value));
+const visibleSurfaces = computed(() => keepVisible(surfaces.value, hidden.value, (s) => s.ref));
+const visibleCells = (row: CatalogRowProjection) => keepVisible(row.cells, hidden.value, (c) => c.surface_ref);
+// A divisória da banda de feeds acompanha o recorte: cai no primeiro feed VISÍVEL.
+const firstShowcaseRef = computed(() => visibleSurfaces.value.find((s) => !s.transactional)?.ref ?? "");
 const channelsCount = computed(() => surfaces.value.filter((s) => s.transactional).length);
 const showcasesCount = computed(() => surfaces.value.filter((s) => !s.transactional).length);
 const query = ref("");
@@ -300,6 +322,9 @@ useHead({ title: "Catálogo · Gestor" });
       <!-- recorte por dimensões (envio, canal, publicação, venda, estoque, PIM) —
            ao lado da busca; a coleção continua nas pills, que também reordenam. -->
       <FilterBar v-model="filters" :dimensions="dimensions" />
+      <!-- quais canais/feeds aparecem como coluna; a do produto nunca some (não é
+           declarada no seletor). A escolha persiste por estação. -->
+      <ColumnPicker v-if="surfaces.length" v-model="hiddenColumns" :columns="columnOptions" />
       <!-- coleções: arraste os chips para reordenar as seções da vitrine (Collection.sort_order) -->
       <TransitionGroup v-if="collections.length" name="chip" tag="div" class="flex flex-wrap items-center gap-1.5">
         <UiFilterChip key="__all" :active="collectionRef === ''" @click="collectionRef = ''">Todas</UiFilterChip>
@@ -360,8 +385,10 @@ useHead({ title: "Catálogo · Gestor" });
         <thead>
           <tr>
             <!-- Produto: `w-full` faz esta coluna absorver toda a folga da tabela, então
-                 as colunas de superfície ficam no seu tamanho fixo (uniformes). -->
-            <th class="sticky left-0 top-0 z-30 w-full min-w-[260px] border-b border-border bg-card px-4 py-3 text-left">
+                 as colunas de superfície ficam no seu tamanho fixo (uniformes).
+                 `border-r` fecha a coluna fixa: no scroll horizontal é essa linha que
+                 diz onde o painel parado termina e a matriz que corre começa. -->
+            <th class="sticky left-0 top-0 z-30 w-full min-w-[260px] border-b border-r border-border bg-card px-4 py-3 text-left">
               <label class="flex items-center gap-3">
                 <input type="checkbox" :checked="allSelected" class="size-4 rounded border-border accent-foreground" @change="toggleSelectAll" />
                 <span class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Produto</span>
@@ -371,7 +398,7 @@ useHead({ title: "Catálogo · Gestor" });
                  num desktop sem scroll é o NOME CURTO vindo do backend (short_name:
                  "Site", "Meta", "TV1"); o nome completo fica no title. -->
             <th
-              v-for="s in surfaces"
+              v-for="s in visibleSurfaces"
               :key="s.ref"
               class="sticky top-0 z-20 w-[114px] border-b border-border bg-card px-2 py-2 text-left align-top"
               :class="firstShowcaseRef === s.ref ? 'border-l-2 border-l-primary/40' : 'border-l border-l-border'"
@@ -412,7 +439,14 @@ useHead({ title: "Catálogo · Gestor" });
             ]"
           >
             <!-- product -->
-            <td class="sticky left-0 z-10 border-b border-border bg-card px-4 py-2.5 group-hover:bg-muted/40" :class="{ 'bg-muted/40': isSelected(row.sku) }">
+            <!-- Fundo OPACO, sempre: a coluna fica parada enquanto as células passam por
+                 baixo, e tinta translúcida (bg-muted/40) deixaria o conteúdo em trânsito
+                 aparecer através dela. Um único utilitário de fundo por estado — dois na
+                 mesma célula competem na folha de estilo, não na ordem do atributo. -->
+            <td
+              class="sticky left-0 z-10 border-b border-r border-border px-4 py-2.5"
+              :class="isSelected(row.sku) ? 'bg-muted' : 'bg-card group-hover:bg-muted'"
+            >
               <div class="flex items-center gap-3">
                 <!-- handle de arrastar (pointer events): aparece só quando a coleção ativa é reordenável -->
                 <span
@@ -543,7 +577,7 @@ useHead({ title: "Catálogo · Gestor" });
                  coisas que o operador lê de relance, e empilhar não é o jeito de ganhar
                  largura — quem resolve isso é o nome curto da coluna (surface.short_name). -->
             <td
-              v-for="cell in row.cells"
+              v-for="cell in visibleCells(row)"
               :key="cell.surface_ref"
               class="border-b border-border px-1 py-1.5 group-hover:bg-muted/20"
               :class="firstShowcaseRef === cell.surface_ref ? 'border-l-2 border-l-primary/40' : 'border-l border-l-border'"
