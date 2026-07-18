@@ -1,6 +1,8 @@
 # SOCIAL-PIM-IMPLEMENTATION-PLAN — Plano de execução
 
-> **Status:** 📋 Plano (sem implementação). Deriva de [SOCIAL-PIM-SPECS](SOCIAL-PIM-SPECS.md).
+> **Status:** 🚧 Em execução. **Arcs A, B, C, D ✅ no main** (commits 76ad8c39, 09db84a6,
+> 48c6db86, 3a84ed54) — MVP interno completo, sem credencial. Próximo: Arc E (Meta) ou H (matriz).
+> Deriva de [SOCIAL-PIM-SPECS](SOCIAL-PIM-SPECS.md).
 > **Data:** 2026-07-18
 > **Regra de ouro:** cada Arc é **fechado, testável e implementável numa sessão**. **Backend e
 > frontend nunca na mesma Arc.** Valor incremental: a primeira Arc já funciona sozinha.
@@ -18,10 +20,10 @@
 
 | Arc | Título | Camada | Complex. | Bloqueio externo | Depende de |
 |---|---|---|---|---|---|
-| **A** | Campos PIM sociais + admin | Backend (Offerman contrib) | **M** | ❌ nenhum | — |
-| **B** | Enriquecer projeção + ampliar gatilho | Backend (Offerman) | **M** | ❌ nenhum | A |
-| **C** | `CatalogSyncState` + status por plataforma | Backend (orquestrador) | **M** | ❌ nenhum | — (paralela a A/B) |
-| **D** | Regras de publicação | Backend (orquestrador) | **M** | ❌ nenhum | B, C |
+| **A** ✅ | Campos PIM sociais + admin | Backend (Offerman contrib) | **M** | ❌ nenhum | — |
+| **B** ✅ | Enriquecer projeção + ampliar gatilho | Backend (Offerman) | **M** | ❌ nenhum | A |
+| **C** ✅ | `CatalogSyncState` + status por plataforma | Backend (orquestrador) | **M** | ❌ nenhum | — (paralela a A/B) |
+| **D** ✅ | Regras de publicação (form Unfold DEFERIDO p/ pós-adapters) | Backend (orquestrador) | **M** | ❌ nenhum | B, C |
 | **E** | Adapter Meta (IG/FB) | Backend (adapter) | **G** | ⚠️ creds Meta p/ live | A, B, C |
 | **F** | Adapter Google Merchant (push) | Backend (adapter) | **G** | ⚠️ creds Google p/ live | A, B, C |
 | **G** | WhatsApp Catalog (recorte curado) | Backend (adapter+Showcase) | **M** | ⚠️ WABA+BM p/ live | E |
