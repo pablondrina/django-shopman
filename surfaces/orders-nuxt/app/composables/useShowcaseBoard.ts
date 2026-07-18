@@ -1,4 +1,4 @@
-// Expositores (menuboard/feeds) — lê o board + liga/pausa + escolhe coleções.
+// Feeds (menuboard/Google/Meta) — lê o board + liga/pausa + escolhe coleções.
 import type { ShowcaseBoardProjection, ShowcaseBoardResponse } from "~/types/showcase";
 
 export function useShowcaseBoard() {
@@ -22,7 +22,7 @@ export function useShowcaseBoard() {
       await refresh();
       return true;
     } catch (error) {
-      errorMsg.value = httpErrorMessage(error, "Falha ao atualizar o expositor.");
+      errorMsg.value = httpErrorMessage(error, "Falha ao atualizar o feed.");
       useSonner.error(errorMsg.value);
       return false;
     } finally {

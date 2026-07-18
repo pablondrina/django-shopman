@@ -1,5 +1,5 @@
 """
-Mutações dos Expositores (Showcase) para o Gestor — ligar/pausar + escolher coleções.
+Mutações dos Feeds (Showcase) para o Gestor — ligar/pausar + escolher coleções.
 
 Escreve direto no model ``shop.Showcase`` (como as projections do backstage já leem) e
 sinaliza a superfície de display (menuboard) para atualizar em tempo real.
@@ -22,7 +22,7 @@ def set_active(ref: str, is_active: bool) -> None:
 
     sc = Showcase.objects.filter(ref=ref).first()
     if sc is None:
-        raise CatalogError(f"Expositor '{ref}' não encontrado.")
+        raise CatalogError(f"Feed '{ref}' não encontrado.")
     if sc.is_active != is_active:
         sc.is_active = is_active
         sc.save(update_fields=["is_active", "updated_at"])
@@ -30,14 +30,14 @@ def set_active(ref: str, is_active: bool) -> None:
 
 
 def set_collections(ref: str, collection_refs: list[str]) -> None:
-    """Define quais coleções o expositor exibe (a ORDEM é global, via Collection.sort_order)."""
+    """Define quais coleções o feed exibe (a ORDEM é global, via Collection.sort_order)."""
     from shopman.offerman.models import Collection
 
     from shopman.shop.models import Showcase
 
     sc = Showcase.objects.filter(ref=ref).first()
     if sc is None:
-        raise CatalogError(f"Expositor '{ref}' não encontrado.")
+        raise CatalogError(f"Feed '{ref}' não encontrado.")
 
     cleaned = [str(r).strip() for r in collection_refs if str(r).strip()]
     valid = set(Collection.objects.filter(ref__in=cleaned).values_list("ref", flat=True))
@@ -55,7 +55,7 @@ def set_collections(ref: str, collection_refs: list[str]) -> None:
 
 
 def set_item_paused(ref: str, sku: str, *, paused: bool) -> bool:
-    """Pausa/reativa UM item neste expositor (equivalente a pausar num canal).
+    """Pausa/reativa UM item neste feed (equivalente a pausar num canal).
 
     Grava em ``Showcase.options["paused_skus"]`` (JSONField, sem migração). Retorna o
     estado final ``paused``. A pausa global do produto continua gateando por cima.
@@ -67,7 +67,7 @@ def set_item_paused(ref: str, sku: str, *, paused: bool) -> bool:
         raise CatalogError("sku é obrigatório.")
     sc = Showcase.objects.filter(ref=ref).first()
     if sc is None:
-        raise CatalogError(f"Expositor '{ref}' não encontrado.")
+        raise CatalogError(f"Feed '{ref}' não encontrado.")
 
     current = sc.paused_skus()
     if paused and sku not in current:
@@ -86,7 +86,7 @@ def set_item_paused(ref: str, sku: str, *, paused: bool) -> bool:
 
 
 def set_items_paused(ref: str, skus: list[str], *, paused: bool) -> int:
-    """Pausa/reativa em lote vários itens neste expositor. Retorna quantos mudaram."""
+    """Pausa/reativa em lote vários itens neste feed. Retorna quantos mudaram."""
     from shopman.shop.models import Showcase
 
     cleaned = [str(s).strip() for s in skus if str(s).strip()]
@@ -94,7 +94,7 @@ def set_items_paused(ref: str, skus: list[str], *, paused: bool) -> int:
         return 0
     sc = Showcase.objects.filter(ref=ref).first()
     if sc is None:
-        raise CatalogError(f"Expositor '{ref}' não encontrado.")
+        raise CatalogError(f"Feed '{ref}' não encontrado.")
 
     current = sc.paused_skus()
     before = set(current)

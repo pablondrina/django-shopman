@@ -1,8 +1,8 @@
 """
-Showcase (UI: "Expositor") — exibe um conjunto de coleções PARA FORA, sem transacionar.
+Showcase (UI: "Feed") — exibe um conjunto de coleções PARA FORA, sem transacionar.
 
 Separa a exibição/feed da venda: um Canal (Channel) é ponto de venda transacional;
-um Expositor apenas MOSTRA um recorte curado do catálogo num alvo de exibição —
+um Feed apenas MOSTRA um recorte curado do catálogo num alvo de exibição —
 📺 menuboard (TV na loja) ou 🛰 feed (Google/Meta). Compõe N ``Collection`` (por ref),
 que viram as SEÇÕES do menuboard e os segmentos/``custom_label`` do feed. Não polui o
 espaço transacional (não aparece em pedido/POS/regra) e reusa as coleções reais em vez
@@ -31,7 +31,7 @@ class Showcase(models.Model):
     ref = models.SlugField(_("referência"), max_length=64, unique=True)
     name = models.CharField(_("nome"), max_length=128)
     kind = models.CharField(_("tipo"), max_length=20, choices=KIND_CHOICES, default=KIND_MENUBOARD)
-    # Refs das coleções que compõem o expositor (seções/segmentos). Ordem de exibição
+    # Refs das coleções que compõem o feed (seções/segmentos). Ordem de exibição
     # = sort_order de cada coleção. Vazio = nada a mostrar.
     collections = models.JSONField(_("coleções"), default=list, blank=True)
     is_active = models.BooleanField(_("ativo"), default=True)
@@ -43,8 +43,8 @@ class Showcase(models.Model):
 
     class Meta:
         app_label = "shop"
-        verbose_name = _("expositor")
-        verbose_name_plural = _("expositores")
+        verbose_name = _("feed")
+        verbose_name_plural = _("feeds")
         ordering = ("name",)
 
     def __str__(self) -> str:
@@ -59,15 +59,15 @@ class Showcase(models.Model):
         return [str(r).strip() for r in (self.collections or []) if str(r).strip()]
 
     # ── disponibilidade por item ────────────────────────────────────────────────
-    # Um Expositor não transaciona, mas o operador pode PAUSAR um item nele (tirá-lo
+    # Um Feed não transaciona, mas o operador pode PAUSAR um item nele (tirá-lo
     # da TV/feed) do mesmo jeito que pausa num canal — só que aqui não há preço nem
-    # venda. A pausa por-expositor vive em ``options["paused_skus"]`` (JSONField, sem
+    # venda. A pausa por-feed vive em ``options["paused_skus"]`` (JSONField, sem
     # migração). A pausa GLOBAL do produto (Product.is_sellable/is_published) continua
-    # gateando por cima: item globalmente pausado some de todo expositor, esteja ou não
+    # gateando por cima: item globalmente pausado some de todo feed, esteja ou não
     # na lista local de pausados.
 
     def paused_skus(self) -> set[str]:
-        """SKUs pausados NESTE expositor (só a pausa local; a global é do produto)."""
+        """SKUs pausados NESTE feed (só a pausa local; a global é do produto)."""
         return {str(s).strip() for s in (self.options or {}).get("paused_skus", []) if str(s).strip()}
 
     def is_item_paused(self, sku: str) -> bool:

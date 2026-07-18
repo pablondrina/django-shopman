@@ -2799,15 +2799,15 @@ class Command(BaseCommand):
         return channels
 
     def _seed_showcases(self):
-        """Expositores (Showcase): superfícies que EXIBEM o catálogo sem transacionar.
+        """Feeds (Showcase): superfícies que EXIBEM o catálogo sem transacionar.
 
         📺 Menuboards (TVs no salão) + 🛰 feeds (Google/Meta). Cada um compõe coleções
         reais (viram as seções/segmentos). São colunas não-transacionais no Gestor de
         Catálogo: a pausa global do produto cascateia sobre eles e o operador pode pausar
-        um item em UM expositor (options[paused_skus]). Acoplamento frouxo por ref de
+        um item em UM feed (options[paused_skus]). Acoplamento frouxo por ref de
         coleção — não exige coleção-guarda-chuva.
         """
-        self.stdout.write("  📺 Expositores...")
+        self.stdout.write("  📺 Feeds...")
 
         showcases_data = [
             # (ref, name, kind, [collection_refs])
@@ -2849,7 +2849,7 @@ class Command(BaseCommand):
                 },
             )
 
-        self.stdout.write(f"  ✅ {len(showcases_data)} expositores")
+        self.stdout.write(f"  ✅ {len(showcases_data)} feeds")
 
     # ────────────────────────────────────────────────────────────────
     # Pedidos (Orderman)

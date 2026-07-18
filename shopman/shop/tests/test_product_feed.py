@@ -1,4 +1,4 @@
-"""Product feed — Expositor (Showcase) de feed (Google/Meta), RSS 2.0 público."""
+"""Product feed — Feed (Showcase) de feed (Google/Meta), RSS 2.0 público."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ def test_feed_is_valid_google_rss(client, feed):
     assert item.find(f"{G}availability").text == "in_stock"  # google = underscore
     assert item.find(f"{G}brand").text == "Nelson Boulangerie"
     assert item.find(f"{G}identifier_exists").text == "no"
-    assert item.find(f"{G}custom_label_0").text == "vitrine"  # coleção do expositor
+    assert item.find(f"{G}custom_label_0").text == "vitrine"  # coleção do feed
     assert item.find(f"{G}product_type").text == "Vitrine"
 
 
@@ -64,7 +64,7 @@ def test_paused_is_out_of_stock(client, feed):
 
 
 def test_local_pause_is_out_of_stock(client, feed):
-    """Pausa por-expositor (options[paused_skus]) marca out_of_stock só neste feed."""
+    """Pausa por-feed (options[paused_skus]) marca out_of_stock só neste feed."""
     sc = Showcase.objects.get(ref="google")
     sc.options = {"paused_skus": ["BAGUETE"]}
     sc.save(update_fields=["options"])

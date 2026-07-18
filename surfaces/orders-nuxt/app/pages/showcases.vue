@@ -1,6 +1,7 @@
 <script setup lang="ts">
-// Expositores — o lado DISPLAY do cardápio. Um Expositor mostra um recorte de
-// coleções PARA FORA (📺 menuboard na TV, 🛰 feed Google/Meta) sem transacionar.
+// Feeds — o lado DISPLAY do cardápio. Um feed empurra um recorte de coleções
+// PARA FORA (📺 menuboard na TV, 🛰 Google/Meta) sem transacionar. No backend o
+// model chama-se ``Showcase`` — daí os nomes internos aqui.
 // Aqui o operador liga/pausa, escolhe quais coleções cada um exibe e abre/prevê a
 // saída. A ORDEM das coleções é global (reordenável no Catálogo).
 import type { CollectionOptionProjection, ShowcaseProjection } from "~/types/showcase";
@@ -36,7 +37,7 @@ async function applyEdit(sc: ShowcaseProjection) {
   editRef.value = null;
 }
 
-useHead({ title: "Expositores · Gestor" });
+useHead({ title: "Feeds · Gestor" });
 </script>
 
 <template>
@@ -44,18 +45,18 @@ useHead({ title: "Expositores · Gestor" });
     <UiToolbar>
       <div class="flex items-center gap-2">
         <Icon name="lucide:monitor-play" class="size-4 text-muted-foreground" />
-        <h1 class="text-sm font-semibold">Expositores</h1>
-        <span class="text-xs text-muted-foreground">exibem o cardápio para fora (TV, feeds)</span>
+        <h1 class="text-sm font-semibold">Feeds</h1>
+        <span class="text-xs text-muted-foreground">empurram o cardápio para fora (TV, Google, Meta)</span>
       </div>
       <template #end>
         <p class="hidden text-xs text-muted-foreground sm:block">
-          <span class="tabular-nums">{{ showcases.length }}</span> expositor{{ showcases.length === 1 ? "" : "es" }}
+          <span class="tabular-nums">{{ showcases.length }}</span> feed{{ showcases.length === 1 ? "" : "s" }}
         </p>
-        <!-- criar/configurar a fundo (novo expositor, opções) é no Admin -->
+        <!-- criar/configurar a fundo (novo feed, opções) é no Admin -->
         <a
           :href="`${djangoBase}/admin/shop/showcase/`" target="_blank" rel="noopener"
           class="inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground"
-          title="Criar / configurar expositores no Admin"
+          title="Criar / configurar feeds no Admin"
         >
           <Icon name="lucide:settings" class="size-4" />
           <span class="hidden sm:inline">Admin</span>
@@ -91,7 +92,7 @@ useHead({ title: "Expositores · Gestor" });
               class="relative mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-40"
               :class="sc.is_active ? 'bg-success' : 'bg-muted-foreground/30'"
               :disabled="isBusy(sc.ref)"
-              :aria-label="sc.is_active ? 'Pausar expositor' : 'Ativar expositor'"
+              :aria-label="sc.is_active ? 'Pausar feed' : 'Ativar feed'"
               :title="sc.is_active ? 'Ativo — clique para pausar' : 'Pausado — clique para ativar'"
               @click="toggleActive(sc)"
             >
@@ -153,7 +154,7 @@ useHead({ title: "Expositores · Gestor" });
 
       <div v-else class="grid place-items-center rounded-xl border border-dashed border-border py-16 text-center">
         <Icon name="lucide:monitor-off" class="mb-2 size-8 text-muted-foreground/40" />
-        <p class="text-sm text-muted-foreground">Nenhum expositor. Crie um no Admin (menuboard ou feed).</p>
+        <p class="text-sm text-muted-foreground">Nenhum feed. Crie um no Admin (menuboard, Google ou Meta).</p>
       </div>
     </section>
   </main>

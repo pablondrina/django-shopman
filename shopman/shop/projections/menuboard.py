@@ -1,7 +1,7 @@
 """
-Menuboard projection — o 📺 Expositor de tipo ``menuboard`` numa TV.
+Menuboard projection — o 📺 Feed de tipo ``menuboard`` numa TV.
 
-Um Expositor (``shop.Showcase``) compõe N coleções; no menuboard cada coleção é uma
+Um Feed (``shop.Showcase``) compõe N coleções; no menuboard cada coleção é uma
 SEÇÃO (Pães, Doces, Bebidas…). Mostra o estado CANÔNICO do produto (base_price +
 is_published/is_sellable) — pausar o produto tira do quadro. Dado público (é um
 cardápio numa TV) — sem estado de operador, sem override por-superfície.
@@ -42,7 +42,7 @@ class MenuboardError(Exception):
 
 
 def resolve_menuboard(ref: str):
-    """Valida que ``ref`` é um Expositor menuboard ativo e o devolve."""
+    """Valida que ``ref`` é um Feed menuboard ativo e o devolve."""
     from shopman.shop.models import Showcase
 
     sc = Showcase.objects.filter(ref=ref, is_active=True, kind=Showcase.KIND_MENUBOARD).first()
@@ -52,13 +52,13 @@ def resolve_menuboard(ref: str):
 
 
 def build_menuboard(ref: str) -> MenuboardProjection:
-    """Monta o quadro: uma seção por coleção do expositor, na ordem das coleções."""
+    """Monta o quadro: uma seção por coleção do feed, na ordem das coleções."""
     from shopman.offerman.models import Collection
 
     showcase = resolve_menuboard(ref)
-    # Coleções na ordem do expositor; ordenação de exibição = sort_order da coleção.
+    # Coleções na ordem do feed; ordenação de exibição = sort_order da coleção.
     colls = {c.ref: c for c in Collection.objects.filter(ref__in=showcase.collection_refs())}
-    paused = showcase.paused_skus()  # pausa LOCAL do expositor (a global é do produto)
+    paused = showcase.paused_skus()  # pausa LOCAL do feed (a global é do produto)
 
     groups: list[MenuboardGroup] = []
     available_count = 0

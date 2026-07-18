@@ -1,6 +1,6 @@
-"""URLs públicas dos Expositores (shop.Showcase) — menuboard (TV) e feed (Google/Meta).
+"""URLs públicas dos Feeds (shop.Showcase) — menuboard (TV) e plataforma (Google/Meta).
 
-Um Expositor exibe um conjunto de coleções para fora, sem transacionar: menuboard
+Um Feed exibe um conjunto de coleções para fora, sem transacionar: menuboard
 (quadro numa TV, tempo real via SSE) e feed (RSS 2.0 que Google/Meta buscam agendado).
 """
 

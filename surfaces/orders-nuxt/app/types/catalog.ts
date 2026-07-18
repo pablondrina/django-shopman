@@ -6,7 +6,7 @@ export type SurfaceSyncStatus = "ok" | "error" | "never" | "na";
 export type SurfaceKind = "channel" | "display" | "feed";
 
 // Estado de sync por CÉLULA (produto × plataforma) — CatalogSyncState (Arc C).
-// "" = nunca sincronizado / superfície que não projeta (expositor/feed pull).
+// "" = nunca sincronizado / superfície que não projeta (feed de pull).
 export type CellSyncStatus = "synced" | "pending" | "error" | "retracted" | "skipped" | "";
 
 // Atributos PIM sociais da linha (Arc A) — Product.metadata['social'].
@@ -23,19 +23,19 @@ export interface ProductSocial {
 }
 
 // Uma coluna da matriz é uma SUPERFÍCIE: um Canal de venda (transacional) OU um
-// Expositor que só EXIBE (📺 menuboard / 🛰 feed Google/Meta). Expositor não vende:
-// a célula só pausa/reativa o item, sem preço nem publicação. A pausa global do
-// produto gateia canais E expositores.
+// Feed, que só EMPURRA dados para fora (📺 menuboard / 🛰 Google/Meta). Feed não
+// vende: a célula só pausa/reativa o item, sem preço nem publicação. A pausa global
+// do produto gateia canais E feeds. No backend o model chama-se ``Showcase``.
 export interface SurfaceProjection {
   ref: string;
   name: string;
   is_projection_target: boolean;
   sync_status: SurfaceSyncStatus;
   kind: SurfaceKind;
-  transactional: boolean; // canal vende (preço/publicação); expositor só exibe (pausa)
-  icon: string; // dica de ícone p/ expositores (tv/rss); vazio p/ canal
-  is_active: boolean; // expositor ligado/desligado (canal sempre ativo aqui)
-  output_path: string; // saída pública do expositor (abrir/prever); vazio p/ canal
+  transactional: boolean; // canal vende (preço/publicação); feed só exibe (pausa)
+  icon: string; // dica de ícone p/ feeds (tv/rss); vazio p/ canal
+  is_active: boolean; // feed ligado/desligado (canal sempre ativo aqui)
+  output_path: string; // saída pública do feed (abrir/prever); vazio p/ canal
   sync_key: string; // chave no CatalogSyncState.platform (ref p/ canais, kind p/ showcases)
 }
 

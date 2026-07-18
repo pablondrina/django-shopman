@@ -1,4 +1,4 @@
-// TS mirror da projeção de Expositores (shopman/backstage/projections/showcase.py).
+// TS mirror da projeção de Feeds (model Showcase) (shopman/backstage/projections/showcase.py).
 
 export interface ShowcaseCollectionRef {
   ref: string;

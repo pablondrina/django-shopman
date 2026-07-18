@@ -1,4 +1,4 @@
-"""Showcase (Expositor) — model + admin form/links."""
+"""Showcase (Feed) — model + admin form/links."""
 
 from __future__ import annotations
 

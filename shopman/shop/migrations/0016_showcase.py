@@ -24,8 +24,8 @@ class Migration(migrations.Migration):
                 ('updated_at', models.DateTimeField(auto_now=True)),
             ],
             options={
-                'verbose_name': 'expositor',
-                'verbose_name_plural': 'expositores',
+                'verbose_name': 'feed',
+                'verbose_name_plural': 'feeds',
                 'ordering': ('name',),
             },
         ),

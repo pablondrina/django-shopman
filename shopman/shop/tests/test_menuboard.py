@@ -1,4 +1,4 @@
-"""Menuboard — Expositor (Showcase) de tipo menuboard, público e em tempo real."""
+"""Menuboard — Feed (Showcase) de tipo menuboard, público e em tempo real."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ def menuboard(db):
 def test_sections_are_showcase_collections(menuboard):
     board = build_menuboard("tv-balcao")
     assert board.title == "Quadro do Balcão"
-    assert [g.title for g in board.groups] == ["Pães", "Doces"]  # ordem do expositor
+    assert [g.title for g in board.groups] == ["Pães", "Doces"]  # ordem do feed
     assert board.available_count == 2
     pao = next(i for g in board.groups for i in g.items if i.sku == "PAO")
     assert pao.price_q == 800 and pao.available is True and pao.description == "Na manteiga"
@@ -47,7 +47,7 @@ def test_paused_product_drops_from_available(menuboard):
 
 
 def test_local_pause_drops_item_on_this_showcase(menuboard):
-    """Pausa por-expositor (options[paused_skus]) tira o item DESTE quadro."""
+    """Pausa por-feed (options[paused_skus]) tira o item DESTE quadro."""
     sc = Showcase.objects.get(ref="tv-balcao")
     sc.options = {"paused_skus": ["PAO"]}
     sc.save(update_fields=["options"])

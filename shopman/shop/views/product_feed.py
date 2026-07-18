@@ -1,11 +1,11 @@
 """
-Product feed — o 🛰 Expositor de tipo ``google``/``meta`` (feed RSS 2.0 público).
+Product feed — o 🛰 Feed de plataforma (``google``/``meta``), RSS 2.0 público.
 
-Um Expositor (``shop.Showcase``) de feed compõe N coleções; cada coleção vira o
+Um Feed de plataforma (``shop.Showcase``) compõe N coleções; cada coleção vira o
 ``custom_label_0`` do produto (o análogo das smart collections p/ anúncios — Google
 custom_labels, Meta product sets). Pull: Google Merchant e Meta buscam a URL agendado
 (ambos aceitam o XML ``g:``). O único campo que diverge é ``availability`` — Google usa
-underscore, Meta usa espaço; o ``kind`` do Expositor decide.
+underscore, Meta usa espaço; o ``kind`` do Feed decide.
 
 Spec verificada (2026-07-01): support.google.com/merchants/answer/7052112 (Google) +
 facebook.com/business/help/120325381656392 (Meta). Detalhes em
@@ -49,7 +49,7 @@ def _storefront_base(request) -> str:
 
 
 def build_feed_items(ref: str, request) -> list[dict]:
-    """Itens do feed a partir das coleções do Expositor. Formatação = camada de view."""
+    """Itens do feed a partir das coleções do Feed. Formatação = camada de view."""
     from shopman.offerman.models import Collection
 
     showcase = _resolve_feed_showcase(ref)
@@ -58,7 +58,7 @@ def build_feed_items(ref: str, request) -> list[dict]:
     base = _storefront_base(request)
 
     colls = {c.ref: c for c in Collection.objects.filter(ref__in=showcase.collection_refs())}
-    paused = showcase.paused_skus()  # pausa LOCAL do expositor (a global é do produto)
+    paused = showcase.paused_skus()  # pausa LOCAL do feed (a global é do produto)
 
     items: list[dict] = []
     seen: set[str] = set()
@@ -68,7 +68,7 @@ def build_feed_items(ref: str, request) -> list[dict]:
             continue
         for product in coll.product_queryset():
             if product.sku in seen or not product.image_url:
-                # dedupe (1ª coleção do expositor vence o custom_label); item sem
+                # dedupe (1ª coleção do feed vence o custom_label); item sem
                 # imagem é omitido (image_link é obrigatório — seria reprovado).
                 continue
             seen.add(product.sku)
@@ -88,7 +88,7 @@ def build_feed_items(ref: str, request) -> list[dict]:
 
 
 class ProductFeedView(View):
-    """Feed RSS 2.0 público (Google/Meta) de um Expositor de feed."""
+    """Saída RSS 2.0 pública (Google/Meta) de um Feed de plataforma."""
 
     def get(self, request, ref: str):
         try:

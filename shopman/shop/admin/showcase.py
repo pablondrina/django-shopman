@@ -1,4 +1,4 @@
-"""ShowcaseAdmin — Expositor: exibe coleções curadas num alvo (menuboard/feed)."""
+"""ShowcaseAdmin — Feed: exibe coleções curadas num alvo (menuboard/plataforma)."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ class ShowcaseForm(forms.ModelForm):
         required=False,
         widget=UnfoldAdminSelectMultipleWidget,
         help_text=(
-            "Coleções que compõem o expositor — no menuboard viram as seções; no feed, "
+            "Coleções que compõem o feed — no menuboard viram as seções; na plataforma, "
             "os segmentos (custom_label). A ordem segue a ordenação das coleções."
         ),
     )
@@ -64,8 +64,8 @@ class ShowcaseAdmin(ModelAdmin):
         (None, {
             "fields": ("ref", "name", "kind", "collections", "is_active"),
             "description": (
-                "Um Expositor MOSTRA coleções para fora, sem vender: 📺 menuboard (TV) ou "
-                "🛰 feed (Google/Meta). Escolha o tipo e as coleções — os links abaixo apontam "
+                "Um Feed MOSTRA coleções para fora, sem vender: 📺 menuboard (TV) ou "
+                "🛰 feed de plataforma (Google/Meta). Escolha o tipo e as coleções — os links abaixo apontam "
                 "a superfície pronta."
             ),
         }),
@@ -93,7 +93,7 @@ class ShowcaseAdmin(ModelAdmin):
     @admin.display(description="Superfície pronta")
     def surface_links(self, obj):
         if not obj or not obj.pk:
-            return "Salve o expositor para ver os links."
+            return "Salve o feed para ver os links."
         if obj.kind == Showcase.KIND_MENUBOARD:
             return format_html(
                 'Menuboard: <a class="text-primary-600 underline" href="/menuboard/{}/" '

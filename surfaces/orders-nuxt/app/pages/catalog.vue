@@ -22,8 +22,9 @@ const {
 
 const surfaces = computed(() => matrix.value?.surfaces ?? []);
 const collections = computed(() => matrix.value?.collections ?? []);
-// Superfícies = canais (transacionam) + expositores (só exibem). Índice p/ a célula
-// saber o papel da coluna e onde começa a banda de expositores.
+// Superfícies = canais (transacionam) + feeds (só empurram dados). Índice p/ a
+// célula saber o papel da coluna e onde começa a banda de feeds. No backend o model
+// do feed chama-se ``Showcase`` — daí os nomes internos aqui.
 const surfaceByRef = computed(() => new Map(surfaces.value.map((s) => [s.ref, s])));
 const isCellTransactional = (cell: SurfaceCellProjection) => surfaceByRef.value.get(cell.surface_ref)?.transactional ?? true;
 const firstShowcaseRef = computed(() => surfaces.value.find((s) => !s.transactional)?.ref ?? "");
@@ -110,7 +111,7 @@ watch(collectionRef, clearSelection);
 
 const bulkSurface = ref("");
 watchEffect(() => { if (!bulkSurface.value && surfaces.value.length) bulkSurface.value = surfaces.value[0]!.ref; });
-// Expositor só pausa/reativa em lote — sem publicar/reprecificar (não transaciona).
+// Feed só pausa/reativa em lote — sem publicar/reprecificar (não transaciona).
 const bulkSurfaceIsShowcase = computed(() => {
   const s = surfaceByRef.value.get(bulkSurface.value);
   return !!s && !s.transactional;
@@ -168,13 +169,13 @@ function toggleProductPublish(row: CatalogRowProjection) {
 // (des)publicar). Um menu por vez; keyed por sku.
 const menuOpen = ref<string | null>(null);
 
-// host do Django (não o do Gestor) — usado nos deep-links de saída dos expositores.
+// host do Django (não o do Gestor) — usado nos deep-links de saída dos feeds.
 const djangoBase = useRuntimeConfig().public.djangoPublicBaseUrl as string;
 
 // ── cell pause/resume + inline reprice ─────────────────────────────────────────
-// A pausa por célula vale para canal (vende) e expositor (só exibe). No expositor o
-// backend grava em Showcase.options[paused_skus]; aqui é o mesmo gesto.
-const surfaceWord = (cell: SurfaceCellProjection) => (isCellTransactional(cell) ? "canal" : "expositor");
+// A pausa por célula vale para canal (vende) e feed (só exibe). No feed o backend
+// grava em Showcase.options[paused_skus]; aqui é o mesmo gesto.
+const surfaceWord = (cell: SurfaceCellProjection) => (isCellTransactional(cell) ? "canal" : "feed");
 function toggleCell(row: CatalogRowProjection, cell: SurfaceCellProjection) {
   if (!cell.in_listing) return;
   setCell(row.sku, cell.surface_ref, { is_sellable: !cell.is_sellable });
@@ -310,7 +311,7 @@ useHead({ title: "Catálogo · Gestor" });
           <span class="tabular-nums">{{ channelsCount }}</span> {{ channelsCount === 1 ? "canal" : "canais" }}
           <template v-if="showcasesCount">
             <span class="text-muted-foreground/50">·</span>
-            <span class="tabular-nums">{{ showcasesCount }}</span> expositor{{ showcasesCount === 1 ? "" : "es" }}
+            <span class="tabular-nums">{{ showcasesCount }}</span> feed{{ showcasesCount === 1 ? "" : "s" }}
           </template>
         </p>
         <UiIconButton icon="lucide:refresh-cw" label="Atualizar" :spinning="pending" @click="refresh()" />
@@ -328,43 +329,54 @@ useHead({ title: "Catálogo · Gestor" });
         <div class="size-10 animate-pulse rounded-md bg-muted"></div>
         <div class="h-4 w-40 animate-pulse rounded bg-muted"></div>
         <div class="ml-auto flex gap-2">
-          <div v-for="j in 4" :key="j" class="h-8 w-24 animate-pulse rounded-md bg-muted"></div>
+          <div v-for="j in 6" :key="j" class="h-8 w-[76px] animate-pulse rounded-md bg-muted"></div>
         </div>
       </div>
     </div>
 
     <div v-else-if="rows.length" class="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-card shadow-xs">
-      <table class="w-full border-separate border-spacing-0 text-sm">
+      <!-- `table-fixed`: sem ele o conteúdo do cabeçalho (nome longo do canal, rótulo
+           do feed) estica a coluna e a matriz fica desalinhada. Fixo, toda superfície
+           tem a MESMA largura e o nome trunca com o title inteiro. O `min-w` faz a
+           tabela rolar em tela estreita em vez de espremer a coluna do produto. -->
+      <table class="w-full min-w-[1024px] table-fixed border-separate border-spacing-0 text-sm">
         <thead>
           <tr>
-            <th class="sticky left-0 top-0 z-30 border-b border-border bg-card px-4 py-3 text-left">
+            <!-- Produto: `w-full` faz esta coluna absorver toda a folga da tabela, então
+                 as colunas de superfície ficam no seu tamanho fixo (uniformes). -->
+            <th class="sticky left-0 top-0 z-30 w-full min-w-[260px] border-b border-border bg-card px-4 py-3 text-left">
               <label class="flex items-center gap-3">
                 <input type="checkbox" :checked="allSelected" class="size-4 rounded border-border accent-foreground" @change="toggleSelectAll" />
                 <span class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Produto</span>
               </label>
             </th>
+            <!-- Superfícies: largura fixa e uniforme (canais + feeds). 8 colunas cabem
+                 num desktop sem scroll horizontal; o nome trunca com o title inteiro. -->
             <th
               v-for="s in surfaces"
               :key="s.ref"
-              class="sticky top-0 z-20 w-[104px] border-b border-border bg-card px-3 py-2.5 text-left align-top"
+              class="sticky top-0 z-20 w-[100px] border-b border-border bg-card px-2 py-2 text-left align-top"
               :class="firstShowcaseRef === s.ref ? 'border-l-2 border-l-primary/40' : 'border-l border-l-border'"
             >
-              <div class="flex flex-col gap-1" :class="{ 'opacity-45': !s.transactional && !s.is_active }">
-                <span class="flex items-center gap-1.5 font-medium text-foreground" :title="s.transactional ? s.name : `${s.name} — expositor (não vende)`">
+              <div class="flex flex-col gap-0.5" :class="{ 'opacity-45': !s.transactional && !s.is_active }">
+                <span class="flex items-center gap-1 font-medium text-foreground" :title="s.transactional ? s.name : `${s.name} — feed (não vende)`">
                   <Icon :name="surfaceDisplayIcon(s)" class="size-3.5 shrink-0" :class="s.transactional ? 'text-muted-foreground' : 'text-primary/70'" />
-                  <span class="truncate">{{ s.name }}</span>
+                  <span class="truncate text-xs">{{ s.name }}</span>
+                </span>
+                <span class="flex items-center gap-1">
+                  <span
+                    v-if="syncBadge(s.sync_status)" class="truncate text-[11px] font-medium leading-tight"
+                    :class="syncBadge(s.sync_status)!.toneClass" :title="syncBadge(s.sync_status)!.title"
+                  >● {{ syncBadge(s.sync_status)!.label }}</span>
+                  <span v-else-if="!s.transactional" class="truncate text-[11px] font-medium leading-tight text-primary/60">
+                    {{ surfaceKindLabel(s) }}{{ s.is_active ? "" : " · pausado" }}
+                  </span>
                   <a
                     v-if="s.output_path"
                     :href="`${djangoBase}${s.output_path}`" target="_blank" rel="noopener"
-                    class="shrink-0 text-muted-foreground/50 transition hover:text-foreground"
+                    class="ml-auto shrink-0 text-muted-foreground/50 transition hover:text-foreground"
                     :title="`Abrir ${s.name}`" @click.stop
                   ><Icon name="lucide:external-link" class="size-3" /></a>
-                </span>
-                <span v-if="syncBadge(s.sync_status)" class="truncate text-xs font-medium" :class="syncBadge(s.sync_status)!.toneClass">
-                  ● {{ syncBadge(s.sync_status)!.label }}
-                </span>
-                <span v-else-if="!s.transactional" class="truncate text-xs font-medium text-primary/60">
-                  {{ surfaceKindLabel(s) }}{{ s.is_active ? "" : " · pausado" }}
                 </span>
               </div>
             </th>
@@ -434,10 +446,12 @@ useHead({ title: "Catálogo · Gestor" });
                         <Icon name="lucide:triangle-alert" class="size-3" /> {{ rowSyncErrors(row) }}
                       </button>
                     </span>
-                    <span class="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span class="font-mono">{{ row.sku }}</span>
-                      <span class="text-muted-foreground/40">·</span>
-                      <span class="tabular-nums">{{ row.base_price_display }}</span>
+                    <!-- uma linha só: com a coluna em largura fixa, sem `nowrap` o SKU +
+                         preço + coleção quebram e a linha da matriz cresce. -->
+                    <span class="flex items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs text-muted-foreground">
+                      <span class="shrink-0 font-mono">{{ row.sku }}</span>
+                      <span class="shrink-0 text-muted-foreground/40">·</span>
+                      <span class="shrink-0 tabular-nums">{{ row.base_price_display }}</span>
                       <span v-if="row.primary_collection_name" class="truncate rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{{ row.primary_collection_name }}</span>
                     </span>
                   </div>
@@ -506,16 +520,18 @@ useHead({ title: "Catálogo · Gestor" });
                 </UiPopover>
               </div>
             </td>
-            <!-- cells (heatmap). Banda de expositores começa com uma divisória mais forte. -->
+            <!-- cells (heatmap). Banda de feeds começa com uma divisória mais forte.
+                 Toggle e preço EMPILHADOS: a coluna fica estreita e a altura já é
+                 dada pela thumbnail do produto, então não custa linha nenhuma. -->
             <td
               v-for="cell in row.cells"
               :key="cell.surface_ref"
-              class="border-b border-border px-1.5 py-1.5 group-hover:bg-muted/20"
+              class="border-b border-border px-1 py-1.5 group-hover:bg-muted/20"
               :class="firstShowcaseRef === cell.surface_ref ? 'border-l-2 border-l-primary/40' : 'border-l border-l-border'"
             >
               <div
                 v-if="cell.in_listing"
-                class="relative flex h-10 items-center justify-center gap-2 px-1"
+                class="relative flex h-11 flex-col items-center justify-center gap-1"
               >
                 <!-- selo de SYNC (produto × plataforma): canto superior direito, só em
                      superfície que projeta. Acionável (erro/sincronizando/nunca) = botão
@@ -542,7 +558,7 @@ useHead({ title: "Catálogo · Gestor" });
 
                 <!-- ÁREA 1 — toggle: verde=ligado&disponível · cinza=pausado (posição off) OU
                      linha "fora" (esgotado/etc.: mantém a POSIÇÃO ligada, mas dessatura p/ cinza).
-                     Vale para canal (vende) E expositor (só exibe) — a mesma pausa por item. -->
+                     Vale para canal (vende) E feed (só exibe) — a mesma pausa por item. -->
                 <button
                   type="button" role="switch" :aria-checked="cell.is_sellable"
                   class="relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors disabled:opacity-40"
@@ -555,37 +571,31 @@ useHead({ title: "Catálogo · Gestor" });
                   <span class="inline-block size-3 rounded-full bg-white shadow-sm transition-transform" :class="cell.is_sellable ? 'translate-x-3.5' : 'translate-x-0.5'"></span>
                 </button>
 
-                <!-- Expositor não vende: sem divisória nem preço — só a pausa por item acima. -->
+                <!-- Feed não vende: sem preço — só a pausa por item acima. -->
                 <template v-if="isCellTransactional(cell)">
-                <!-- divisória: deixa claro que toggle e preço são controles distintos -->
-                <div class="h-5 w-px shrink-0 bg-border"></div>
-
-                <!-- ÁREA 2 — preço: base = ícone $ apagado; ALTERADO = duas linhas alinhadas à esquerda
-                     (linha 1: R$ + seta ↑/↓ colorida · linha 2: valor). title = valor; clique = popover. -->
+                <!-- ÁREA 2 — preço (abaixo do toggle): base = ícone $ apagado; ALTERADO = seta
+                     ↑/↓ colorida + valor numa linha só. title = valor; clique = popover. -->
                 <UiPopover :open="isEditing(row.sku, cell.surface_ref)" @update:open="(v) => { if (!v) editing = null }">
                   <UiPopoverAnchor as-child>
                     <button
                       type="button"
-                      class="flex items-center rounded px-1 py-0.5 transition hover:bg-muted disabled:opacity-40"
+                      class="flex items-center rounded px-1 py-0.5 leading-none transition hover:bg-muted disabled:opacity-40"
                       :disabled="isBusy(cellKey(row.sku, cell.surface_ref))"
                       :title="priceTitle(row, cell)"
                       :aria-label="`Preço em ${surfaceName(cell.surface_ref)}: ${cell.price_display} — editar`"
                       @click="startEdit(row, cell)"
                     >
-                      <span v-if="cellPrice(row, cell).differs" class="flex flex-col items-start gap-0.5 leading-none">
-                        <span class="flex items-center gap-0.5 text-xs font-medium text-muted-foreground">
-                          R$
-                          <Icon
-                            :name="cellPrice(row, cell).delta === 'up' ? 'lucide:arrow-up' : 'lucide:arrow-down'"
-                            class="size-2.5"
-                            :class="rowStatuses[row.sku]?.off
-                              ? 'text-muted-foreground/60'
-                              : (cellPrice(row, cell).delta === 'up' ? 'text-amber-600 dark:text-amber-400' : 'text-success dark:text-lime-400')"
-                          />
-                        </span>
-                        <span class="text-xs font-semibold tabular-nums" :class="cell.is_sellable ? 'text-foreground' : 'text-muted-foreground line-through'">{{ cell.price_display.replace("R$ ", "") }}</span>
+                      <span v-if="cellPrice(row, cell).differs" class="flex items-center gap-0.5">
+                        <Icon
+                          :name="cellPrice(row, cell).delta === 'up' ? 'lucide:arrow-up' : 'lucide:arrow-down'"
+                          class="size-2.5 shrink-0"
+                          :class="rowStatuses[row.sku]?.off
+                            ? 'text-muted-foreground/60'
+                            : (cellPrice(row, cell).delta === 'up' ? 'text-amber-600 dark:text-amber-400' : 'text-success dark:text-lime-400')"
+                        />
+                        <span class="text-[11px] font-semibold tabular-nums" :class="cell.is_sellable ? 'text-foreground' : 'text-muted-foreground line-through'">{{ cell.price_display.replace("R$ ", "") }}</span>
                       </span>
-                      <Icon v-else name="lucide:circle-dollar-sign" class="size-4 text-muted-foreground/40" />
+                      <Icon v-else name="lucide:circle-dollar-sign" class="size-3.5 text-muted-foreground/40" />
                     </button>
                   </UiPopoverAnchor>
                   <UiPopoverContent align="center" :side-offset="6" class="w-52 p-3">
@@ -604,7 +614,7 @@ useHead({ title: "Catálogo · Gestor" });
                 </UiPopover>
                 </template>
               </div>
-              <div v-else class="grid h-10 place-items-center rounded-md text-xs text-muted-foreground/30">—</div>
+              <div v-else class="grid h-11 place-items-center rounded-md text-xs text-muted-foreground/30">—</div>
             </td>
           </tr>
         </tbody>
@@ -636,7 +646,7 @@ useHead({ title: "Catálogo · Gestor" });
             <optgroup v-if="channelSurfaces.length" label="Canais">
               <option v-for="s in channelSurfaces" :key="s.ref" :value="s.ref">{{ s.name }}</option>
             </optgroup>
-            <optgroup v-if="showcaseSurfaces.length" label="Expositores">
+            <optgroup v-if="showcaseSurfaces.length" label="Feeds">
               <option v-for="s in showcaseSurfaces" :key="s.ref" :value="s.ref">{{ s.name }}</option>
             </optgroup>
           </select>
@@ -645,7 +655,7 @@ useHead({ title: "Catálogo · Gestor" });
         <button :disabled="bulkBusy" class="inline-flex h-9 items-center gap-1.5 rounded-md border border-background/25 px-3 text-sm font-medium transition hover:bg-background/10 disabled:opacity-50" @click="bulk({ is_sellable: false })"><Icon name="lucide:pause" class="size-3.5" /> Pausar</button>
         <button :disabled="bulkBusy" class="inline-flex h-9 items-center gap-1.5 rounded-md border border-background/25 px-3 text-sm font-medium transition hover:bg-background/10 disabled:opacity-50" @click="bulk({ is_sellable: true })"><Icon name="lucide:play" class="size-3.5" /> Reativar</button>
 
-        <!-- Preço e publicação só para canais (transacionam). Expositor só pausa/reativa. -->
+        <!-- Preço e publicação só para canais (transacionam). Feed só pausa/reativa. -->
         <template v-if="!bulkSurfaceIsShowcase">
         <!-- reprecificação em lote: popover ancorado (superfície normal, legível sobre a barra invertida) -->
         <UiPopover :open="priceOpen" @update:open="(v) => (priceOpen = v)">

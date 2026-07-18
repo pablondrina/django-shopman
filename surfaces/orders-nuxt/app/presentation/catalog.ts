@@ -128,7 +128,7 @@ export function surfaceIcon(ref: string): string {
   return SURFACE_ICONS[ref] ?? "lucide:radio-tower";
 }
 
-// Ícone da coluna considerando o tipo: expositor traz a própria dica (tv/rss); canal
+// Ícone da coluna considerando o tipo: feed traz a própria dica (tv/rss); canal
 // resolve por ref. Fonte única do ícone de cabeçalho da matriz.
 const SHOWCASE_ICONS: Record<string, string> = {
   tv: "lucide:tv",
@@ -142,29 +142,31 @@ export function surfaceDisplayIcon(surface: SurfaceProjection): string {
 }
 
 // Rótulo curto do papel da superfície (chip no cabeçalho). Canal não recebe chip
-// (é o caso comum); expositor deixa explícito que EXIBE e não vende.
+// (é o caso comum); feed diz de que tipo é — menuboard (TV) ou feed de plataforma.
 export function surfaceKindLabel(surface: SurfaceProjection): string {
   if (surface.transactional) return "";
-  return surface.kind === "feed" ? "Feed" : "Expositor";
+  return surface.kind === "feed" ? "Feed" : "Menuboard";
 }
 
 // ── surface metadata ─────────────────────────────────────────────────────────
 
-const SYNC: Record<SurfaceSyncStatus, { label: string; toneClass: string } | null> = {
-  ok: { label: "sincronizado", toneClass: "text-emerald-600 dark:text-emerald-400" },
-  error: { label: "erro de sync", toneClass: "text-destructive" },
-  never: { label: "nunca sincronizado", toneClass: "text-amber-600 dark:text-amber-400" },
+// Rótulo CURTO (cabe na coluna estreita da matriz) + `title` com a frase inteira,
+// que é o que o operador lê ao pousar o mouse.
+const SYNC: Record<SurfaceSyncStatus, { label: string; title: string; toneClass: string } | null> = {
+  ok: { label: "em dia", title: "Sincronizado", toneClass: "text-emerald-600 dark:text-emerald-400" },
+  error: { label: "erro", title: "Erro de sincronização", toneClass: "text-destructive" },
+  never: { label: "nunca", title: "Nunca sincronizado", toneClass: "text-amber-600 dark:text-amber-400" },
   na: null, // não é alvo de projeção → sem badge
 };
 
-export function syncBadge(status: SurfaceSyncStatus): { label: string; toneClass: string } | null {
+export function syncBadge(status: SurfaceSyncStatus): { label: string; title: string; toneClass: string } | null {
   return SYNC[status];
 }
 
 // ── sync por célula (produto × plataforma) — Arc H ─────────────────────────────
 // O selo de sync mora na célula: reflete o ÚLTIMO push àquela plataforma, ortogonal
 // à disponibilidade (uma célula pode estar "disponível" mas com push em erro). Só
-// tem sentido em superfície que projeta (canal com adapter); expositor/feed pull não.
+// tem sentido em superfície que projeta (canal com adapter); feed de pull não.
 
 export interface CellSyncView {
   status: CellSyncStatus;
@@ -190,7 +192,7 @@ export function cellSyncView(
   surface: SurfaceProjection | undefined,
   cell: SurfaceCellProjection,
 ): CellSyncView {
-  // Superfície que não projeta (expositor/feed) → sem selo de sync.
+  // Superfície que não projeta (feed de pull) → sem selo de sync.
   const projects = !!surface?.is_projection_target;
   if (!projects) {
     return { status: cell.sync_status, show: false, label: "", dot: "", toneClass: "", actionable: false };

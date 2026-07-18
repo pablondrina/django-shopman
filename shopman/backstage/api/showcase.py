@@ -1,8 +1,8 @@
 """
-Backstage Showcase API — Expositores (menuboard/feeds) no Gestor.
+Backstage Showcase API — Feeds (menuboard/Google/Meta) no Gestor.
 
-Read = board dos expositores + coleções disponíveis; write = ligar/pausar e escolher
-as coleções que cada expositor exibe. Gate: ``shop.manage_catalog``.
+Read = board dos feeds + coleções disponíveis; write = ligar/pausar e escolher
+as coleções que cada feed exibe. Gate: ``shop.manage_catalog``.
 """
 
 from __future__ import annotations

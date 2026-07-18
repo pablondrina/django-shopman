@@ -97,7 +97,7 @@ def _publish_for_sku(sku: str, *, event_type: str, payload: dict) -> None:
             cache.delete(f"availability:{sku}:{ref}")
             send_event(f"stock-{ref}", event_type, payload)
         cache.delete(f"availability:{sku}:default")
-        # Canal global p/ Expositores (menuboard): não são canais, mas refletem o
+        # Canal global p/ Feeds (menuboard): não são canais, mas refletem o
         # estado canônico do produto — qualquer mudança de disponibilidade os atualiza.
         send_event("stock-catalog", event_type, payload)
     except Exception:

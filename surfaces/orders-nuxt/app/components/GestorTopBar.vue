@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Cabeçalho de seção do Gestor — mora no topo do CONTEÚDO (não é o rail). Segura o
 // controle do rail (kit) + a navegação de seção própria do Gestor (Pedidos/Catálogo/
-// Expositores). As funções comuns (Central, operador, tema) vivem no OperatorRail à
+// Feeds). As funções comuns (Central, operador, tema) vivem no OperatorRail à
 // esquerda; a nav de seção fica aqui porque precisa de rótulo legível.
 const route = useRoute();
 const section = computed(() =>
@@ -13,7 +13,7 @@ const section = computed(() =>
 const tabs = [
   { to: "/", key: "orders", label: "Pedidos", icon: "lucide:clipboard-list" },
   { to: "/catalog", key: "catalog", label: "Catálogo", icon: "lucide:book-open" },
-  { to: "/showcases", key: "showcases", label: "Expositores", icon: "lucide:monitor-play" },
+  { to: "/showcases", key: "showcases", label: "Feeds", icon: "lucide:monitor-play" },
 ] as const;
 </script>
 

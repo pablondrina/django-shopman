@@ -40,10 +40,10 @@ describe("useShowcaseBoard", () => {
   });
 
   it("falha acende errorMsg + toast e devolve false", async () => {
-    env.fetchMock.mockRejectedValueOnce({ data: { detail: "Expositor bloqueado" } });
+    env.fetchMock.mockRejectedValueOnce({ data: { detail: "Feed bloqueado" } });
     const s = useShowcaseBoard();
     expect(await s.setActive("m", true)).toBe(false);
-    expect(s.errorMsg.value).toBe("Expositor bloqueado");
-    expect(env.sonner.error).toHaveBeenCalledWith("Expositor bloqueado");
+    expect(s.errorMsg.value).toBe("Feed bloqueado");
+    expect(env.sonner.error).toHaveBeenCalledWith("Feed bloqueado");
   });
 });

@@ -1,8 +1,8 @@
 """
-Projeção dos Expositores (Showcase) para o Gestor — o lado DISPLAY do cardápio.
+Projeção dos Feeds (Showcase) para o Gestor — o lado DISPLAY do cardápio.
 
-Um Expositor exibe um recorte de coleções para fora (📺 menuboard / 🛰 feed) sem
-transacionar. Esta projeção lista os expositores + a saída (URL para abrir/prever) +
+Um Feed exibe um recorte de coleções para fora (📺 menuboard / 🛰 Google/Meta) sem
+transacionar. Esta projeção lista os feeds + a saída (URL para abrir/prever) +
 as coleções disponíveis (para o operador escolher quais cada um mostra). A ordem de
 exibição das coleções é global (``Collection.sort_order``), reordenável no catálogo.
 
@@ -21,7 +21,7 @@ _KIND_META = {
 
 
 def _output_path(showcase) -> str:
-    """Caminho público da saída do expositor (abrir/prever)."""
+    """Caminho público da saída do feed (abrir/prever)."""
     if showcase.kind == "menuboard":
         return f"/menuboard/{showcase.ref}/"
     if showcase.kind == "meta":
@@ -76,7 +76,7 @@ def build_showcase_board() -> ShowcaseBoardProjection:
     showcases: list[ShowcaseProjection] = []
     for sc in Showcase.objects.all().order_by("name"):
         meta = _KIND_META.get(sc.kind, {"label": sc.kind, "icon": "monitor", "capability": "display"})
-        # resolve + ordena as coleções do expositor pela ordem global (sort_order)
+        # resolve + ordena as coleções do feed pela ordem global (sort_order)
         refs = sc.collection_refs()
         resolved = [
             ShowcaseCollectionRef(

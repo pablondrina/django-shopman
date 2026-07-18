@@ -54,7 +54,7 @@ def _all_channel_refs() -> list[str]:
 
 
 def _is_showcase(surface_ref: str) -> bool:
-    """A superfície é um Expositor (display/feed) e não um Canal transacional?"""
+    """A superfície é um Feed (menuboard/plataforma) e não um Canal transacional?"""
     from shopman.shop.models import Showcase
 
     return Showcase.objects.filter(ref=surface_ref).exists()
@@ -71,8 +71,8 @@ def set_cell(
 ):
     """Edita uma célula (produto × superfície). save() dispara o auto-trigger.
 
-    Superfície de EXPOSITOR (display/feed) só aceita pausar/reativar: ``is_sellable``
-    vira a pausa local do item (não há preço nem publicação — expositor não transaciona).
+    Superfície de FEED (menuboard/plataforma) só aceita pausar/reativar: ``is_sellable``
+    vira a pausa local do item (não há preço nem publicação — feed não transaciona).
     """
     if _is_showcase(surface_ref):
         from types import SimpleNamespace
@@ -80,9 +80,9 @@ def set_cell(
         from shopman.backstage.services import showcase as showcase_service
 
         if is_sellable is None:
-            raise CatalogError("Expositor aceita apenas pausar/reativar (is_sellable).")
+            raise CatalogError("Feed aceita apenas pausar/reativar (is_sellable).")
         showcase_service.set_item_paused(surface_ref, sku, paused=not is_sellable)
-        # Duck-type com o que a API lê: expositor está sempre "publicado", sem preço.
+        # Duck-type com o que a API lê: feed está sempre "publicado", sem preço.
         return SimpleNamespace(is_published=True, is_sellable=bool(is_sellable), price_q=None)
 
     from shopman.offerman.models import ListingItem
@@ -162,9 +162,9 @@ def bulk_set(
             for ref in _all_channel_refs()
         )
     if _is_showcase(surface_ref):
-        # Expositor: bulk só pausa/reativa (is_sellable). Sem preço/publicação.
+        # Feed: bulk só pausa/reativa (is_sellable). Sem preço/publicação.
         if is_sellable is None:
-            raise CatalogError("Expositor aceita apenas pausar/reativar (is_sellable).")
+            raise CatalogError("Feed aceita apenas pausar/reativar (is_sellable).")
         from shopman.backstage.services import showcase as showcase_service
 
         return showcase_service.set_items_paused(surface_ref, skus, paused=not is_sellable)

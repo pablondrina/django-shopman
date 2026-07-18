@@ -25,7 +25,7 @@ class ChannelConfig:
     rules         — quais validators/modifiers ativar?
 
     Um Channel é um canal de VENDA (transacional). Exibição/feed (menuboard, Google,
-    Meta) NÃO são canais — vivem em ``shop.Showcase`` (Expositor).
+    Meta) NÃO são canais — vivem em ``shop.Showcase`` (Feed).
     """
 
     # ── 1. Confirmação ──

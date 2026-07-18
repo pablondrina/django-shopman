@@ -1,4 +1,4 @@
-"""Backstage Showcase (Expositores) API — board + ligar/pausar + coleções."""
+"""Backstage Showcase (Feeds) API — board + ligar/pausar + coleções."""
 
 from __future__ import annotations
 
