@@ -97,6 +97,11 @@ export default defineNuxtConfig({
   },
 
   vite: {
-    plugins: [tailwindcss()]
+    plugins: [tailwindcss()],
+    // Dev-only: permite acesso via túnel cloudflared (host-check do Vite 7). Targeted
+    // a *.trycloudflare.com; NÃO commitar — é conveniência de preview local.
+    server: {
+      allowedHosts: [".trycloudflare.com"]
+    }
   }
 })

@@ -1,5 +1,10 @@
 """Shopman admin — Unfold admin for shop, rules, orders, channel."""
 
+from shopman.shop.admin.broadcast import (  # noqa: F401
+    BroadcastPostAdmin,
+    BroadcastRuleAdmin,
+    PostTemplateAdmin,
+)
 from shopman.shop.admin.channel import ChannelAdmin  # noqa: F401
 from shopman.shop.admin.omotenashi import OmotenashiCopyAdmin  # noqa: F401
 from shopman.shop.admin.orders import OrderAdmin  # noqa: F401

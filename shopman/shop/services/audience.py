@@ -122,13 +122,9 @@ def resolve(sku: str, rules: dict | None = None) -> AudienceResult:
 def _favorites(sku: str) -> list[Recipient]:
     """F8 — quem marcou este produto como favorito."""
     try:
-        from shopman.storefront.models import CustomerFavorite
+        from shopman.shop.adapters import audience_sources
 
-        refs = list(
-            CustomerFavorite.objects.filter(sku=sku)
-            .values_list("customer_ref", flat=True)
-            .distinct()
-        )
+        refs = audience_sources.favorite_customer_refs(sku)
     except Exception:
         logger.warning("audience.favorites_failed sku=%s", sku, exc_info=True)
         return []
@@ -143,12 +139,9 @@ def _pending_alerts(sku: str) -> list[Recipient]:
     telefone, sem ``customer_ref``.
     """
     try:
-        from shopman.storefront.models import StockAlertSubscription
+        from shopman.shop.adapters import audience_sources
 
-        rows = list(
-            StockAlertSubscription.objects.filter(sku=sku, notified_at__isnull=True)
-            .values_list("contact_phone", "customer_ref")
-        )
+        rows = audience_sources.pending_alert_contacts(sku)
     except Exception:
         logger.warning("audience.alerts_failed sku=%s", sku, exc_info=True)
         return []

@@ -52,8 +52,10 @@ export function useProductionKds() {
   }
 
   const advanceStep = (pk: number) => post(pk, `/api/v1/backstage/production/${pk}/advance-step/`);
-  const finish = (pk: number, quantity: string, force = false) =>
-    post(pk, `/api/v1/backstage/production/${pk}/finish/`, { quantity, force });
+  // quality classifica a fornada (WorkOrder.meta["quality"]) e alimenta as regras
+  // de broadcast do gestor. Vazio = o backend aplica o default ("bom").
+  const finish = (pk: number, quantity: string, force = false, quality = "") =>
+    post(pk, `/api/v1/backstage/production/${pk}/finish/`, { quantity, force, quality });
   const voidOrder = (pk: number, reason: string) =>
     post(pk, `/api/v1/backstage/production/${pk}/void/`, { reason });
 

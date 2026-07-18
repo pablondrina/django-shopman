@@ -143,15 +143,46 @@ def apply_start(
     )
 
 
+#: Como o operador classifica a fornada ao fechar. Sem isso, "bom".
+QUALITY_CHOICES = ("regular", "bom", "excelente")
+DEFAULT_QUALITY = "bom"
+
+
+def set_quality(work_order, quality: str) -> str:
+    """Gravar a qualidade da fornada em ``WorkOrder.meta`` (sem migração).
+
+    Precisa acontecer ANTES do finish: é o ``production_changed`` do finish que
+    alimenta o broadcast, e a regra pode exigir ``quality_min``. Gravar depois
+    faria a regra ler a qualidade da fornada anterior.
+    """
+    quality = (quality or "").strip().lower() or DEFAULT_QUALITY
+    if quality not in QUALITY_CHOICES:
+        quality = DEFAULT_QUALITY
+    try:
+        meta = dict(getattr(work_order, "meta", None) or {})
+        if meta.get("quality") == quality:
+            return quality
+        meta["quality"] = quality
+        work_order.meta = meta
+        work_order.save(update_fields=["meta", "updated_at"])
+    except Exception:
+        # Classificação é metadado de marketing: nunca pode impedir o operador
+        # de fechar a fornada.
+        logger.warning("production.set_quality_failed wo=%s", getattr(work_order, "pk", None), exc_info=True)
+    return quality
+
+
 def apply_finish(
     *,
     work_order_id,
     quantity,
     actor: str,
     force: bool = False,
+    quality: str = "",
 ):
     """Finish a work order from the operator surface."""
     work_order = _get_work_order(work_order_id)
+    set_quality(work_order, quality)
     missing = check_finish_materials(work_order)
     if missing and not force:
         raise ProductionStockShortError(work_order_ref=work_order.ref, missing=missing)

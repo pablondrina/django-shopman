@@ -15,16 +15,12 @@ from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from shopman.shop.services.fomo import cache_key
 from shopman.storefront.constants import STOREFRONT_CHANNEL_REF
 from shopman.storefront.services import catalog as catalog_service
 from shopman.storefront.services import fomo as fomo_service
 
 CACHE_TTL_SECONDS = 10
-
-
-def cache_key(sku: str, channel_ref: str | None) -> str:
-    """Chave canônica — o emissor SSE apaga exatamente esta."""
-    return f"fomo:{sku}:{channel_ref or 'default'}"
 
 
 @extend_schema_view(

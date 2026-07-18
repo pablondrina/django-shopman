@@ -1,5 +1,13 @@
-"""Shopman models — Shop, Channel, RuleConfig, NotificationTemplate, OmotenashiCopy."""
+"""Shopman models — Shop, Channel, RuleConfig, NotificationTemplate, OmotenashiCopy, Broadcast."""
 
+from .broadcast import (
+    QUALITY_LEVELS,
+    BroadcastPost,
+    BroadcastRule,
+    PostStatus,
+    PostTemplate,
+    Trigger,
+)
 from .catalog_sync import CatalogSyncState, SyncStatus
 from .channel import Channel
 from .omotenashi_copy import OmotenashiCopy
@@ -16,6 +24,7 @@ from .settings_proxies import (
 )
 from .shop import NotificationTemplate, Shop
 from .showcase import Showcase
+from .user_notification import NotificationCategory, UserNotification
 
 __all__ = [
     "Shop",
@@ -34,4 +43,12 @@ __all__ = [
     "ShopPos",
     "ShopProduction",
     "ShopIntegrations",
+    "BroadcastRule",
+    "BroadcastPost",
+    "PostTemplate",
+    "PostStatus",
+    "Trigger",
+    "QUALITY_LEVELS",
+    "UserNotification",
+    "NotificationCategory",
 ]

@@ -87,6 +87,9 @@ MESSAGE_TEMPLATES: dict[str, str] = {
     "production.ready": (
         "Saiu do forno agora: {product_name}! {cta} {action_url}"
     ),
+    # Broadcast: o corpo ja vem pronto do PostTemplate (com as variaveis
+    # resolvidas), entao o template daqui e so o envelope.
+    "broadcast.post": "{body}\n\n{cta} {action_url}",
 }
 
 

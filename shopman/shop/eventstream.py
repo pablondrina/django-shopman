@@ -23,6 +23,8 @@ class ShopmanChannelManager(DefaultChannelManager):
         channel = str(channel or "")
         if channel.startswith("order-"):
             return self._can_read_order_channel(user, channel.removeprefix("order-"))
+        if channel.startswith("user-"):
+            return self._can_read_user_channel(user, channel.removeprefix("user-"))
         if channel.startswith("backstage-"):
             return bool(
                 user
@@ -30,6 +32,13 @@ class ShopmanChannelManager(DefaultChannelManager):
                 and (getattr(user, "is_staff", False) or getattr(user, "is_superuser", False))
             )
         return super().can_read_channel(user, channel)
+
+    @staticmethod
+    def _can_read_user_channel(user, user_id: str) -> bool:
+        """Canal pessoal: só o próprio dono. Nem staff lê a caixa alheia."""
+        if not user_id.isdigit() or not getattr(user, "is_authenticated", False):
+            return False
+        return str(getattr(user, "pk", "")) == user_id
 
     @staticmethod
     def _can_read_order_channel(user, order_ref: str) -> bool:

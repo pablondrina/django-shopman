@@ -32,6 +32,9 @@ ALL_HANDLERS = [
     "shopman.shop.handlers.payment_timeout.PaymentTimeoutHandler",
     # Production
     "shopman.shop.handlers.production_alerts.ProductionLateCheckHandler",
+    # Broadcast (marketing operacional)
+    "shopman.shop.handlers.broadcast.BroadcastPostHandler",
+    "shopman.shop.handlers.broadcast.BroadcastNotifyHandler",
     # Mock PIX (dev/test only; only fires when payment_mock scheduled a directive)
     "shopman.shop.handlers.mock_pix.MockPixConfirmHandler",
     # Fulfillment
@@ -98,6 +101,7 @@ def register_all() -> None:
     _register_catalog_projection_handler()
     _register_catalog_signals()
     _register_ifood_status_callbacks()
+    _register_broadcast()
 
 
 # ── Individual registrations ──
@@ -343,6 +347,21 @@ def _register_ifood_status_callbacks() -> None:
     registry.register_directive_handler(IFoodStatusCallbackHandler())
     order_changed.connect(on_order_status_changed, weak=False)
     logger.info("shopman.handlers: registered iFood status callbacks.")
+
+
+def _register_broadcast() -> None:
+    """Wire broadcast receivers (produção, disponibilidade, produto novo).
+
+    Sempre registrados: sem ``BroadcastRule`` ativa o ``evaluate()`` é um
+    SELECT vazio, e gatear por config deixaria a loja muda até alguém
+    lembrar de religar.
+    """
+    from shopman.shop.handlers import broadcast
+
+    broadcast.connect()
+    registry.register_directive_handler(broadcast.BroadcastPostHandler())
+    registry.register_directive_handler(broadcast.BroadcastNotifyHandler())
+    logger.info("shopman.handlers: connected broadcast receivers.")
 
 
 def _register_catalog_signals() -> None:

@@ -208,6 +208,17 @@ const startQty = ref("");
 const startedRow = ref<ProductionMatrixRowProjection | null>(null);
 const finishRow = ref<ProductionMatrixRowProjection | null>(null);
 const finishQty = ref("");
+
+// Classificação da fornada, gravada em WorkOrder.meta["quality"]. O gestor usa
+// isso para decidir o que vira post ("só publica fornada excelente"); o
+// operador não posta nada, só diz como ficou.
+const QUALITY_OPTIONS = [
+  { value: "excelente", label: "★★★ Excelente" },
+  { value: "bom", label: "★★ Boa" },
+  { value: "regular", label: "★ Regular" },
+] as const;
+const DEFAULT_QUALITY = "bom";
+const finishQuality = ref<string>(DEFAULT_QUALITY);
 const voidReason = ref("");
 const voidConfirming = ref(false);
 const commitmentsRow = ref<ProductionMatrixRowProjection | null>(null);
@@ -360,6 +371,7 @@ function selectFinishTarget(wo: WorkOrderCardProjection) {
 function openFinish(row: ProductionMatrixRowProjection) {
   startedRow.value = null;
   finishRow.value = row;
+  finishQuality.value = DEFAULT_QUALITY;
   const wo0 = row.started_orders[0];
   finishTargetPk.value = wo0?.pk ?? null;
   finishQty.value =
@@ -370,7 +382,12 @@ async function confirmFinish(force = false) {
   const row = finishRow.value;
   const wo = finishTarget.value;
   if (!row || !wo || !finishQty.value.trim()) return;
-  const res = await kds.finish(wo.pk, finishQty.value.trim(), force);
+  const res = await kds.finish(
+    wo.pk,
+    finishQty.value.trim(),
+    force,
+    finishQuality.value,
+  );
   if (res.ok) {
     finishRow.value = null;
     refresh();
@@ -1174,6 +1191,29 @@ const headerCount = computed(() => {
             @click="bump('finish', 1)"
           >
             +
+          </button>
+        </div>
+        <!-- Como ficou a fornada. Não bloqueia: o padrão já é "Boa", e o
+             operador só toca quando quer destacar (ou avisar que caiu). -->
+        <div
+          class="flex gap-1.5"
+          role="group"
+          aria-label="Como ficou a fornada"
+        >
+          <button
+            v-for="option in QUALITY_OPTIONS"
+            :key="option.value"
+            type="button"
+            :aria-pressed="finishQuality === option.value"
+            class="flex-1 rounded-md border px-2 py-2 text-xs font-medium transition"
+            :class="
+              finishQuality === option.value
+                ? 'border-primary bg-primary/5'
+                : 'hover:bg-accent'
+            "
+            @click="finishQuality = option.value"
+          >
+            {{ option.label }}
           </button>
         </div>
         <UiDialogFooter>

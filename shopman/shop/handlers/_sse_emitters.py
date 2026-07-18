@@ -129,7 +129,7 @@ def _publish_fomo(sku: str, *, reason: str) -> None:
     except ImportError:
         return
     try:
-        from shopman.storefront.api.fomo import cache_key
+        from shopman.shop.services.fomo import cache_key
 
         for ref in [*_channels_for_sku(sku), None]:
             cache.delete(cache_key(sku, ref))

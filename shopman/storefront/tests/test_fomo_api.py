@@ -14,7 +14,8 @@ from django.core.cache import cache
 from django.utils import timezone
 from shopman.offerman.models import Product
 
-from shopman.storefront.api.fomo import cache_key
+from shopman.shop.services import fomo as fomo_context
+from shopman.shop.services.fomo import cache_key
 from shopman.storefront.services import fomo as fomo_service
 
 pytestmark = pytest.mark.django_db
@@ -49,7 +50,7 @@ class TestFomoEndpoint:
     def test_low_stock_surfaces_a_badge(self, client):
         _product()
         with patch(
-            "shopman.storefront.services.fomo._availability",
+            "shopman.shop.services.fomo._availability",
             return_value={"available_qty": 2, "d1_qty": 0},
         ):
             response = client.get(f"/api/v1/fomo/{SKU}/")
@@ -60,7 +61,7 @@ class TestFomoEndpoint:
     def test_badge_shape_is_stable(self, client):
         _product()
         with patch(
-            "shopman.storefront.services.fomo._availability",
+            "shopman.shop.services.fomo._availability",
             return_value={"available_qty": 1, "d1_qty": 0},
         ):
             badge = client.get(f"/api/v1/fomo/{SKU}/").json()["badges"][0]
@@ -69,7 +70,7 @@ class TestFomoEndpoint:
     def test_response_is_cached(self, client):
         _product()
         with patch(
-            "shopman.storefront.services.fomo._availability",
+            "shopman.shop.services.fomo._availability",
             return_value={"available_qty": 3, "d1_qty": 0},
         ) as availability:
             client.get(f"/api/v1/fomo/{SKU}/")
@@ -92,7 +93,7 @@ class TestFomoContext:
         from shopman.shop.config import ChannelConfig
 
         config = ChannelConfig.from_dict({"stock": {"excluded_positions": ["ontem"]}})
-        assert fomo_service._d1_qty(SKU, config=config) == 0
+        assert fomo_context.d1_qty(SKU, config=config) == 0
 
     def test_recent_bake_enters_the_context(self):
         finished = timezone.now() - timedelta(minutes=5)
@@ -100,23 +101,23 @@ class TestFomoContext:
             manager.filter.return_value.order_by.return_value.first.return_value = _FakeWorkOrder(
                 finished
             )
-            production = fomo_service._last_finished_bake(SKU)
+            production = fomo_context.last_finished_bake(SKU)
         assert production["finished_at"] == finished
         assert production["quality"] == "excelente"
 
     def test_no_bake_yields_no_production(self):
-        assert fomo_service._last_finished_bake(SKU) is None
+        assert fomo_context.last_finished_bake(SKU) is None
 
     def test_lookup_failure_degrades_quietly(self):
         """FOMO é enfeite: quebrar a leitura não pode derrubar o card."""
         with patch("shopman.craftsman.models.WorkOrder.objects") as manager:
             manager.filter.side_effect = RuntimeError("boom")
-            assert fomo_service._last_finished_bake(SKU) is None
+            assert fomo_context.last_finished_bake(SKU) is None
 
     def test_badges_for_sku_composes_the_whole_chain(self):
         _product()
         with patch(
-            "shopman.storefront.services.fomo._availability",
+            "shopman.shop.services.fomo._availability",
             return_value={"available_qty": 1, "d1_qty": 0},
         ):
             badges = fomo_service.badges_for_sku(SKU)

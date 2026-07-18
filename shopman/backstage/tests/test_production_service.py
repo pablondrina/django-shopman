@@ -194,3 +194,79 @@ def test_apply_finish_records_batch_traceability(monkeypatch):
     assert work_order.meta["batch_quantity"] == "8"
     assert work_order.meta["expiry_date"] == (date.today() + production.timedelta(days=2)).isoformat()
     assert Batch.objects.filter(ref=work_order.meta["batch_ref"], sku="SVC-BATCH").exists()
+
+
+# ── flag de qualidade da fornada ────────────────────────────────────
+
+
+@pytest.mark.django_db
+def test_finish_records_the_quality_flag(recipe):
+    _, wo_ref, _, _ = production.apply_planned(
+        recipe_id=recipe.pk, quantity="10",
+        target_date_value=date.today().isoformat(), actor="production:op",
+    )
+    work_order = WorkOrder.objects.get(ref=wo_ref)
+    production.apply_start(work_order_id=work_order.pk, quantity="10", actor="production:op")
+    production.apply_finish(
+        work_order_id=work_order.pk, quantity="10",
+        actor="production:op", quality="excelente",
+    )
+
+    work_order.refresh_from_db()
+    assert work_order.meta["quality"] == "excelente"
+
+
+@pytest.mark.django_db
+def test_quality_is_written_before_the_finish_signal(recipe):
+    """O broadcast lê a qualidade no production_changed do finish.
+
+    Gravar depois faria a regra ``quality_min`` avaliar a fornada anterior.
+    """
+    seen = {}
+
+    def _spy(sender, product_ref, date, action, work_order, **kwargs):
+        if action == "finished":
+            seen["quality"] = (work_order.meta or {}).get("quality")
+
+    from shopman.craftsman.signals import production_changed
+
+    production_changed.connect(_spy, weak=False)
+    try:
+        _, wo_ref, _, _ = production.apply_planned(
+            recipe_id=recipe.pk, quantity="5",
+            target_date_value=date.today().isoformat(), actor="production:op",
+        )
+        work_order = WorkOrder.objects.get(ref=wo_ref)
+        production.apply_start(work_order_id=work_order.pk, quantity="5", actor="production:op")
+        production.apply_finish(
+            work_order_id=work_order.pk, quantity="5",
+            actor="production:op", quality="excelente",
+        )
+    finally:
+        production_changed.disconnect(_spy)
+
+    assert seen["quality"] == "excelente"
+
+
+@pytest.mark.django_db
+def test_finish_without_quality_defaults_to_bom(recipe):
+    """O operador pode fechar sem pensar; o default não bloqueia nada."""
+    _, wo_ref, _, _ = production.apply_planned(
+        recipe_id=recipe.pk, quantity="4",
+        target_date_value=date.today().isoformat(), actor="production:op",
+    )
+    work_order = WorkOrder.objects.get(ref=wo_ref)
+    production.apply_start(work_order_id=work_order.pk, quantity="4", actor="production:op")
+    production.apply_finish(work_order_id=work_order.pk, quantity="4", actor="production:op")
+
+    work_order.refresh_from_db()
+    assert work_order.meta["quality"] == "bom"
+
+
+@pytest.mark.django_db
+def test_unknown_quality_falls_back_to_the_default(recipe):
+    work_order = WorkOrder.objects.create(
+        recipe=recipe, output_sku=recipe.output_sku,
+        quantity=Decimal("2"), target_date=date.today(),
+    )
+    assert production.set_quality(work_order, "sublime") == "bom"
