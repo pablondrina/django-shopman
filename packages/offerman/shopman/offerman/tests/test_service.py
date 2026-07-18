@@ -379,6 +379,38 @@ class TestCatalogProjection:
         assert items["BAGUETE"].metadata["listing_ref"] == "ifood"
         assert items["HIDDEN"].is_published is False
 
+    def test_get_projection_items_enriches_social_and_gallery(self, db):
+        # Arc B: the projected item carries the product's social-PIM attributes and
+        # the extra image gallery so social adapters (Meta/Google/TikTok) can read them.
+        listing = Listing.objects.create(ref="ifood", name="iFood", priority=10)
+        product = Product.objects.create(
+            sku="ENRICH",
+            name="Pão",
+            base_price_q=500,
+            metadata={
+                "social": {"brand": "Nelson", "gtin": "4006381333931"},
+                "gallery": ["https://img.test/a.jpg", "https://img.test/b.jpg"],
+                "dietary_auto_filled": True,  # internal key — must NOT leak
+            },
+        )
+        ListingItem.objects.create(listing=listing, product=product, price_q=500)
+
+        item = next(iter(CatalogService.get_projection_items("ifood")))
+
+        assert item.metadata["social"] == {"brand": "Nelson", "gtin": "4006381333931"}
+        assert item.metadata["gallery"] == ["https://img.test/a.jpg", "https://img.test/b.jpg"]
+        assert "dietary_auto_filled" not in item.metadata
+
+    def test_get_projection_items_defaults_social_and_gallery(self, db):
+        listing = Listing.objects.create(ref="ifood", name="iFood", priority=10)
+        product = Product.objects.create(sku="PLAIN", name="Pão", base_price_q=500)
+        ListingItem.objects.create(listing=listing, product=product, price_q=500)
+
+        item = next(iter(CatalogService.get_projection_items("ifood")))
+
+        assert item.metadata["social"] == {}
+        assert item.metadata["gallery"] == []
+
     @override_settings(
         OFFERMAN={
             "PROJECTION_BACKENDS": {

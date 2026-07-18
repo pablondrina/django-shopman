@@ -203,23 +203,43 @@ class Product(models.Model):
     def __str__(self):
         return f"{self.sku} - {self.name}"
 
-    # Fields whose change should re-project the product to external channels.
-    _PROJECTABLE_FIELDS = ("name", "short_description", "long_description", "is_published", "is_sellable")
+    # Scalar fields whose change should re-project the product to external channels.
+    # ``image_url`` matters for social/commerce catalogs (Google/Meta reject items
+    # without an image); the social-PIM attributes live under ``metadata['social']``.
+    _PROJECTABLE_FIELDS = (
+        "name", "short_description", "long_description", "is_published", "is_sellable", "image_url",
+    )
+    # ``metadata`` sub-keys whose change re-projects — the social-PIM data and the
+    # image gallery. Comparing only these keys avoids re-syncing on internal churn
+    # (e.g. the dietary auto-fill sentinel). Note: ``keywords`` (taggit M2M) changes
+    # after ``save()`` via the tag manager — not covered here (low social impact).
+    _PROJECTABLE_META_KEYS = ("social", "gallery")
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding
         old = None
         if not is_new:
-            old = Product.objects.filter(pk=self.pk).values(*self._PROJECTABLE_FIELDS).first()
+            old = (
+                Product.objects.filter(pk=self.pk)
+                .values(*self._PROJECTABLE_FIELDS, "metadata")
+                .first()
+            )
         super().save(*args, **kwargs)
         if is_new:
             from shopman.offerman.signals import product_created
 
             product_created.send(sender=self.__class__, instance=self, sku=self.sku)
-        elif old is not None and any(old[f] != getattr(self, f) for f in self._PROJECTABLE_FIELDS):
+        elif old is not None and self._projectable_changed(old):
             from shopman.offerman.signals import product_updated
 
             product_updated.send(sender=self.__class__, instance=self, sku=self.sku)
+
+    def _projectable_changed(self, old: dict) -> bool:
+        if any(old[f] != getattr(self, f) for f in self._PROJECTABLE_FIELDS):
+            return True
+        old_meta = old.get("metadata") or {}
+        new_meta = self.metadata or {}
+        return any(old_meta.get(k) != new_meta.get(k) for k in self._PROJECTABLE_META_KEYS)
 
     def clean(self):
         """Validate ANVISA invariants on ``nutrition_facts``.

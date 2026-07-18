@@ -420,6 +420,10 @@ class CatalogService:
             if primary_item:
                 primary_collection = primary_item.collection.ref
 
+            # Pass the product's social-PIM attributes + extra image gallery through
+            # to the adapters (Meta/Google/TikTok) — targeted keys only, so internal
+            # metadata (dietary sentinels, etc.) does not leak into external payloads.
+            prod_meta = product.metadata if isinstance(product.metadata, dict) else {}
             snapshot[product.sku] = ProjectedItem(
                 sku=product.sku,
                 name=product.name,
@@ -436,6 +440,8 @@ class CatalogService:
                     "listing_name": listing.name,
                     "listing_priority": listing.priority,
                     "min_qty": str(item.min_qty),
+                    "social": prod_meta.get("social") or {},
+                    "gallery": prod_meta.get("gallery") or [],
                 },
             )
 

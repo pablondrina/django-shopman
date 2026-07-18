@@ -263,6 +263,54 @@ class TestProductUpdatedSignal:
         finally:
             product_updated.disconnect(h)
 
+    def test_emitted_on_image_url_change(self, db):
+        # Arc B: image matters for social/commerce catalogs (Google/Meta reject
+        # imageless items), so an image edit must re-project.
+        from shopman.offerman.signals import product_updated
+
+        product = Product.objects.create(sku="PU-IMG", name="X")
+        received = []
+        h = lambda sender, sku, **k: received.append(sku)  # noqa: E731
+        product_updated.connect(h)
+        try:
+            product.image_url = "https://cdn.example/x.jpg"
+            product.save()
+            assert received == ["PU-IMG"]
+        finally:
+            product_updated.disconnect(h)
+
+    def test_emitted_on_social_metadata_change(self, db):
+        # Arc B: the social-PIM fields (brand/gtin/category/hashtags) live under
+        # metadata["social"]; editing any must re-project.
+        from shopman.offerman.signals import product_updated
+
+        product = Product.objects.create(sku="PU-SOC", name="X")
+        received = []
+        h = lambda sender, sku, **k: received.append(sku)  # noqa: E731
+        product_updated.connect(h)
+        try:
+            product.metadata = {"social": {"brand": "Nelson"}}
+            product.save()
+            assert received == ["PU-SOC"]
+        finally:
+            product_updated.disconnect(h)
+
+    def test_not_emitted_on_irrelevant_metadata_change(self, db):
+        # Arc B: touching a non-projectable metadata key (e.g. the dietary
+        # auto-fill sentinel) must NOT trigger a re-sync.
+        from shopman.offerman.signals import product_updated
+
+        product = Product.objects.create(sku="PU-META", name="X", metadata={"social": {"brand": "N"}})
+        received = []
+        h = lambda sender, sku, **k: received.append(sku)  # noqa: E731
+        product_updated.connect(h)
+        try:
+            product.metadata = {"social": {"brand": "N"}, "dietary_auto_filled": True}
+            product.save()
+            assert received == []
+        finally:
+            product_updated.disconnect(h)
+
 
 class TestAvailabilityChangedSignal:
     """availability_changed emitted when a ListingItem is paused/resumed on a channel."""
