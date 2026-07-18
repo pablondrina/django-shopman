@@ -29,6 +29,7 @@ export interface ProductSocial {
 export interface SurfaceProjection {
   ref: string;
   name: string;
+  short_name: string; // rótulo curto do cabeçalho; nunca vazio (cai para `name`)
   is_projection_target: boolean;
   sync_status: SurfaceSyncStatus;
   kind: SurfaceKind;

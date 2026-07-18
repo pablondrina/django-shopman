@@ -36,6 +36,8 @@ class Showcase(models.Model):
     collections = models.JSONField(_("coleções"), default=list, blank=True)
     is_active = models.BooleanField(_("ativo"), default=True)
     # Opções por tipo (layout do menuboard, rótulos do feed, etc.) — extensível sem migração.
+    # Chaves em uso: ``paused_skus`` (pausa local do item) e ``short_name`` (rótulo curto
+    # do cabeçalho na matriz do Catálogo; vazio = usa o ``name``).
     options = models.JSONField(_("opções"), default=dict, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)

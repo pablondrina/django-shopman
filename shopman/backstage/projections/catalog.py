@@ -39,6 +39,10 @@ class SurfaceProjection:
 
     ref: str
     name: str
+    # Rótulo curto do cabeçalho da coluna (a matriz é estreita). Nunca vazio: cai
+    # para `name` quando não há um curto configurado. O `name` completo segue no
+    # tooltip da coluna e em toda lista onde há espaço.
+    short_name: str
     is_projection_target: bool  # tem backend na registry canônica (Frente 1) — ex.: iFood
     sync_status: str  # ok | error | never | na
     kind: str = "channel"  # channel (transacional) | display (menuboard) | feed (Google/Meta)
@@ -235,10 +239,15 @@ def _build_surfaces() -> tuple[list[SurfaceProjection], dict[str, dict]]:
     surfaces: list[SurfaceProjection] = []
     for ch in channels:
         is_target = get_projection_backend(ch.ref) is not None
+        # `short_name` é chave de ChannelConfig, lida direto do override do canal:
+        # é presentação POR canal (não há default de loja que faça sentido), e assim
+        # evitamos um Shop.load() por canal só para resolver a cascata.
+        short = str((ch.config or {}).get("short_name", "")).strip()
         surfaces.append(
             SurfaceProjection(
                 ref=ch.ref,
                 name=ch.name or ch.ref,
+                short_name=short or ch.name or ch.ref,
                 is_projection_target=is_target,
                 sync_status=_surface_sync_status(listings.get(ch.ref), is_target),
                 kind="channel",
@@ -288,10 +297,12 @@ def _build_showcase_surfaces() -> tuple[list[SurfaceProjection], dict[str, dict]
         index[sc.ref] = {"members": members, "paused": sc.paused_skus()}
         # Showcase projection backends are keyed by kind (e.g. "meta", "google").
         is_target = get_projection_backend(sc.kind) is not None
+        short = str((sc.options or {}).get("short_name", "")).strip()
         surfaces.append(
             SurfaceProjection(
                 ref=sc.ref,
                 name=sc.name or sc.ref,
+                short_name=short or sc.name or sc.ref,
                 is_projection_target=is_target,
                 sync_status=_surface_sync_status(None, is_target),
                 sync_key=sc.kind,

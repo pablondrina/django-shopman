@@ -2768,27 +2768,32 @@ class Command(BaseCommand):
             "stock": _remote_stock,
         }
         channels_data = [
-            # (ref, name, config_overrides)
+            # (ref, name, display_order, is_active, config_overrides)
             # Canal = ORIGEM do pedido (por onde entra). Entrega/retirada é fulfillment
             # (ortogonal, por pedido) — não um canal. Por isso não há "Delivery Próprio":
             # um pedido para nossa entrega origina de PDV (telefone), WhatsApp ou Loja online.
             # display_order = ordem canônica das colunas no Gestor: PDV · Loja online · iFood · WhatsApp.
-            ("pdv", "PDV", 1, _pos_config),
-            ("web", "Loja online", 2, _remote_config),
-            ("ifood", "iFood", 3, {
+            # `short_name` (ChannelConfig) = rótulo da coluna estreita no Catálogo; só
+            # quando o nome completo não cabe — "PDV"/"iFood" já são curtos.
+            ("pdv", "PDV", 1, True, _pos_config),
+            ("web", "Loja online", 2, True, {**_remote_config, "short_name": "Site"}),
+            ("ifood", "iFood", 3, True, {
                 **_marketplace_config,
                 "pricing": {"policy": "external"},
                 "editing": {"policy": "locked"},
             }),
-            ("whatsapp", "WhatsApp", 4, _whatsapp_config),
+            # WhatsApp fica INATIVO: não há nada implementado para ele ainda (nem entrada
+            # de pedido, nem sync). Canal inativo some da matriz do Catálogo — ligar aqui
+            # é o gesto único para trazê-lo de volta quando existir implementação.
+            ("whatsapp", "WhatsApp", 4, False, _whatsapp_config),
         ]
 
-        for ref, name, display_order, config_data in channels_data:
+        for ref, name, display_order, is_active, config_data in channels_data:
             ch, _ = Channel.objects.update_or_create(
                 ref=ref,
                 defaults={
                     "name": name,
-                    "is_active": True,
+                    "is_active": is_active,
                     "display_order": display_order,
                     "config": config_data,
                 },
@@ -2809,35 +2814,42 @@ class Command(BaseCommand):
         """
         self.stdout.write("  📺 Feeds...")
 
+        # `short_name` = rótulo da coluna estreita na matriz do Catálogo. O nome
+        # completo continua valendo na página de Feeds e no Admin, onde ele diz QUAL
+        # TV é ("TV do Café" vs "TV do Salão") — informação que "TV1"/"TV2" perdem.
         showcases_data = [
-            # (ref, name, kind, [collection_refs])
+            # (ref, name, short_name, kind, [collection_refs])
             (
                 "tv-salao",
                 "TV do Salão",
+                "TV2",
                 Showcase.KIND_MENUBOARD,
                 ["rusticos", "macios", "folhados", "doces"],
             ),
             (
                 "tv-cafe",
                 "TV do Café",
+                "TV1",
                 Showcase.KIND_MENUBOARD,
                 ["bebidas-quentes", "bebidas-geladas", "doces", "salgados"],
             ),
             (
                 "google-shopping",
                 "Google Shopping",
+                "Google",
                 Showcase.KIND_GOOGLE,
                 ["rusticos", "macios", "folhados", "doces", "salgados"],
             ),
             (
                 "meta-catalog",
                 "Catálogo Meta",
+                "Meta",
                 Showcase.KIND_META,
                 ["rusticos", "macios", "folhados", "doces", "salgados"],
             ),
         ]
 
-        for ref, name, kind, collections in showcases_data:
+        for ref, name, short_name, kind, collections in showcases_data:
             Showcase.objects.update_or_create(
                 ref=ref,
                 defaults={
@@ -2845,7 +2857,7 @@ class Command(BaseCommand):
                     "kind": kind,
                     "collections": collections,
                     "is_active": True,
-                    "options": {},
+                    "options": {"short_name": short_name},
                 },
             )
 

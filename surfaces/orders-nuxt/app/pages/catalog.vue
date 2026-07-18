@@ -350,18 +350,19 @@ useHead({ title: "Catálogo · Gestor" });
                 <span class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Produto</span>
               </label>
             </th>
-            <!-- Superfícies: largura fixa e uniforme (canais + feeds). 8 colunas cabem
-                 num desktop sem scroll horizontal; o nome trunca com o title inteiro. -->
+            <!-- Superfícies: largura fixa e uniforme (canais + feeds). O que faz caberem
+                 num desktop sem scroll é o NOME CURTO vindo do backend (short_name:
+                 "Site", "Meta", "TV1"); o nome completo fica no title. -->
             <th
               v-for="s in surfaces"
               :key="s.ref"
-              class="sticky top-0 z-20 w-[100px] border-b border-border bg-card px-2 py-2 text-left align-top"
+              class="sticky top-0 z-20 w-[114px] border-b border-border bg-card px-2 py-2 text-left align-top"
               :class="firstShowcaseRef === s.ref ? 'border-l-2 border-l-primary/40' : 'border-l border-l-border'"
             >
               <div class="flex flex-col gap-0.5" :class="{ 'opacity-45': !s.transactional && !s.is_active }">
                 <span class="flex items-center gap-1 font-medium text-foreground" :title="s.transactional ? s.name : `${s.name} — feed (não vende)`">
                   <Icon :name="surfaceDisplayIcon(s)" class="size-3.5 shrink-0" :class="s.transactional ? 'text-muted-foreground' : 'text-primary/70'" />
-                  <span class="truncate text-xs">{{ s.name }}</span>
+                  <span class="truncate text-xs">{{ s.short_name }}</span>
                 </span>
                 <span class="flex items-center gap-1">
                   <span
@@ -521,8 +522,9 @@ useHead({ title: "Catálogo · Gestor" });
               </div>
             </td>
             <!-- cells (heatmap). Banda de feeds começa com uma divisória mais forte.
-                 Toggle e preço EMPILHADOS: a coluna fica estreita e a altura já é
-                 dada pela thumbnail do produto, então não custa linha nenhuma. -->
+                 Toggle · preço · selo de sync ficam LADO A LADO numa linha só: são três
+                 coisas que o operador lê de relance, e empilhar não é o jeito de ganhar
+                 largura — quem resolve isso é o nome curto da coluna (surface.short_name). -->
             <td
               v-for="cell in row.cells"
               :key="cell.surface_ref"
@@ -531,31 +533,8 @@ useHead({ title: "Catálogo · Gestor" });
             >
               <div
                 v-if="cell.in_listing"
-                class="relative flex h-11 flex-col items-center justify-center gap-1"
+                class="flex h-10 items-center justify-center gap-1"
               >
-                <!-- selo de SYNC (produto × plataforma): canto superior direito, só em
-                     superfície que projeta. Acionável (erro/sincronizando/nunca) = botão
-                     "reenviar agora"; senão só informa. Ortogonal à pausa/preço abaixo. -->
-                <template v-if="cellSync(cell).show">
-                  <button
-                    v-if="cellSync(cell).actionable"
-                    type="button"
-                    class="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full text-[10px] leading-none transition hover:scale-125 disabled:opacity-40"
-                    :class="cellSync(cell).toneClass"
-                    :disabled="isBusy(cellKey(row.sku, cell.surface_ref))"
-                    :title="`${cellSync(cell).label}${cell.sync_error ? ' · ' + cell.sync_error : ''} — reenviar agora`"
-                    :aria-label="`${cellSync(cell).label} em ${surfaceName(cell.surface_ref)} — reenviar agora`"
-                    @click="resyncCell(row, cell)"
-                  >{{ cellSync(cell).dot }}</button>
-                  <span
-                    v-else
-                    class="absolute -right-0.5 -top-0.5 text-[10px] leading-none"
-                    :class="cellSync(cell).toneClass"
-                    :title="cellSync(cell).label"
-                    :aria-label="`${cellSync(cell).label} em ${surfaceName(cell.surface_ref)}`"
-                  >{{ cellSync(cell).dot }}</span>
-                </template>
-
                 <!-- ÁREA 1 — toggle: verde=ligado&disponível · cinza=pausado (posição off) OU
                      linha "fora" (esgotado/etc.: mantém a POSIÇÃO ligada, mas dessatura p/ cinza).
                      Vale para canal (vende) E feed (só exibe) — a mesma pausa por item. -->
@@ -571,15 +550,18 @@ useHead({ title: "Catálogo · Gestor" });
                   <span class="inline-block size-3 rounded-full bg-white shadow-sm transition-transform" :class="cell.is_sellable ? 'translate-x-3.5' : 'translate-x-0.5'"></span>
                 </button>
 
-                <!-- Feed não vende: sem preço — só a pausa por item acima. -->
+                <!-- Feed não vende: sem divisória nem preço — só a pausa por item. -->
                 <template v-if="isCellTransactional(cell)">
-                <!-- ÁREA 2 — preço (abaixo do toggle): base = ícone $ apagado; ALTERADO = seta
-                     ↑/↓ colorida + valor numa linha só. title = valor; clique = popover. -->
+                <!-- divisória: deixa claro que toggle e preço são controles distintos -->
+                <div class="h-5 w-px shrink-0 bg-border"></div>
+
+                <!-- ÁREA 2 — preço, ao lado do toggle: base = ícone $ apagado; ALTERADO =
+                     seta ↑/↓ colorida + valor. title = valor; clique = popover. -->
                 <UiPopover :open="isEditing(row.sku, cell.surface_ref)" @update:open="(v) => { if (!v) editing = null }">
                   <UiPopoverAnchor as-child>
                     <button
                       type="button"
-                      class="flex items-center rounded px-1 py-0.5 leading-none transition hover:bg-muted disabled:opacity-40"
+                      class="flex items-center rounded px-0.5 py-0.5 leading-none transition hover:bg-muted disabled:opacity-40"
                       :disabled="isBusy(cellKey(row.sku, cell.surface_ref))"
                       :title="priceTitle(row, cell)"
                       :aria-label="`Preço em ${surfaceName(cell.surface_ref)}: ${cell.price_display} — editar`"
@@ -613,8 +595,32 @@ useHead({ title: "Catálogo · Gestor" });
                   </UiPopoverContent>
                 </UiPopover>
                 </template>
+
+                <!-- ÁREA 3 — selo de SYNC (produto × plataforma), inline ao lado do preço,
+                     só em superfície que projeta. Acionável (erro/sincronizando/nunca) =
+                     botão "reenviar agora"; senão só informa. Vem por último para não
+                     empurrar o toggle de lugar nas colunas em que não aparece. -->
+                <template v-if="cellSync(cell).show">
+                  <button
+                    v-if="cellSync(cell).actionable"
+                    type="button"
+                    class="grid size-4 shrink-0 place-items-center rounded-full text-[10px] leading-none transition hover:scale-125 disabled:opacity-40"
+                    :class="cellSync(cell).toneClass"
+                    :disabled="isBusy(cellKey(row.sku, cell.surface_ref))"
+                    :title="`${cellSync(cell).label}${cell.sync_error ? ' · ' + cell.sync_error : ''} — reenviar agora`"
+                    :aria-label="`${cellSync(cell).label} em ${surfaceName(cell.surface_ref)} — reenviar agora`"
+                    @click="resyncCell(row, cell)"
+                  >{{ cellSync(cell).dot }}</button>
+                  <span
+                    v-else
+                    class="shrink-0 text-[10px] leading-none"
+                    :class="cellSync(cell).toneClass"
+                    :title="cellSync(cell).label"
+                    :aria-label="`${cellSync(cell).label} em ${surfaceName(cell.surface_ref)}`"
+                  >{{ cellSync(cell).dot }}</span>
+                </template>
               </div>
-              <div v-else class="grid h-11 place-items-center rounded-md text-xs text-muted-foreground/30">—</div>
+              <div v-else class="grid h-10 place-items-center rounded-md text-xs text-muted-foreground/30">—</div>
             </td>
           </tr>
         </tbody>

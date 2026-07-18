@@ -172,6 +172,10 @@ class ChannelConfig:
     handle_placeholder: str = ""
     # Placeholder sugerido para o campo handle_ref.
     # Ex: "Ex: 42", "Ex: mesa 3".
+    short_name: str = ""
+    # Rótulo CURTO do canal para cabeçalhos estreitos (coluna da matriz do Catálogo).
+    # Vazio = usa o `name` do canal. Ex: "Loja online" → "Site". O nome completo
+    # segue valendo em toda lista/tooltip onde há espaço.
 
     # ── Serialização ──
 
@@ -192,6 +196,7 @@ class ChannelConfig:
             lifecycle=data.get("lifecycle", {}),
             handle_label=data.get("handle_label", cls.handle_label),
             handle_placeholder=data.get("handle_placeholder", cls.handle_placeholder),
+            short_name=data.get("short_name", cls.short_name),
         )
 
     @classmethod

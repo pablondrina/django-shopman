@@ -24,6 +24,7 @@ import type {
 const surface = (over: Partial<SurfaceProjection> = {}): SurfaceProjection => ({
   ref: "ifood",
   name: "iFood",
+  short_name: "iFood",
   is_projection_target: true,
   sync_status: "ok",
   kind: "channel",

@@ -482,6 +482,40 @@ def test_matrix_includes_showcase_column(client, operator, catalog_with_showcase
     assert tv["output_path"] == "/menuboard/tv-salao/"
 
 
+def test_surface_short_name_falls_back_to_name(client, operator, catalog_with_showcase):
+    """Sem rótulo curto configurado, `short_name` repete o `name` (nunca vem vazio)."""
+    client.force_login(operator)
+    surfaces = {s["ref"]: s for s in client.get(MATRIX_URL).json()["matrix"]["surfaces"]}
+    assert surfaces["tv-salao"]["short_name"] == "TV do Salão"
+    assert surfaces["web"]["short_name"] == surfaces["web"]["name"]
+
+
+def test_surface_short_name_from_config_and_options(client, operator, catalog_with_showcase):
+    """O rótulo curto vem do backend: ChannelConfig p/ canal, options p/ feed."""
+    channel = Channel.objects.get(ref="web")
+    channel.config = {**(channel.config or {}), "short_name": "Site"}
+    channel.save(update_fields=["config"])
+    showcase = Showcase.objects.get(ref="tv-salao")
+    showcase.options = {**(showcase.options or {}), "short_name": "TV1"}
+    showcase.save(update_fields=["options"])
+
+    client.force_login(operator)
+    surfaces = {s["ref"]: s for s in client.get(MATRIX_URL).json()["matrix"]["surfaces"]}
+    assert surfaces["web"]["short_name"] == "Site"
+    assert surfaces["web"]["name"] != "Site"  # o nome completo segue intacto
+    assert surfaces["tv-salao"]["short_name"] == "TV1"
+    assert surfaces["tv-salao"]["name"] == "TV do Salão"
+
+
+def test_inactive_channel_leaves_the_matrix(client, operator, catalog_with_showcase):
+    """Canal inativo (ex.: WhatsApp, sem implementação) some das colunas."""
+    Channel.objects.filter(ref="web").update(is_active=False)
+    client.force_login(operator)
+    matrix = client.get(MATRIX_URL).json()["matrix"]
+    assert "web" not in [s["ref"] for s in matrix["surfaces"]]
+    assert all(c["surface_ref"] != "web" for r in matrix["rows"] for c in r["cells"])
+
+
 def test_showcase_cell_membership_and_no_price(client, operator, catalog_with_showcase):
     """Célula de feed: membro (via coleção) disponível, sem preço; não-membro N/A."""
     client.force_login(operator)
@@ -746,7 +780,7 @@ def test_matrix_contract_keys_are_pinned(client, operator, catalog):
 
     surface = matrix["surfaces"][0]
     assert set(surface) == {
-        "ref", "name", "is_projection_target", "sync_status", "kind",
+        "ref", "name", "short_name", "is_projection_target", "sync_status", "kind",
         "transactional", "icon", "is_active", "output_path", "sync_key",
     }
 
