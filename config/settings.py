@@ -1111,6 +1111,13 @@ SHOPMAN_PRODUCTION_BASE_URL = (
     os.environ.get("SHOPMAN_PRODUCTION_BASE_URL") or ""
 ).strip().rstrip("/")
 
+# Base URL pública do Broadcast (gestor de marketing) — app Nuxt dedicado
+# (surfaces/broadcast-nuxt). Vazio ⇒ o tile "Broadcast" some da Central (sem
+# link morto), e o gestor acessa direto pelo subdomínio (broadcast.).
+SHOPMAN_BROADCAST_BASE_URL = (
+    os.environ.get("SHOPMAN_BROADCAST_BASE_URL") or ""
+).strip().rstrip("/")
+
 # Zona de operador (OPERATOR-AUTH-PLAN, Opção A) — login único + sessão Django
 # escopada a um domínio-pai SEPARADO da loja pública. Os apps de operador
 # (gestor./kds./pdv./prod.) moram nesse domínio e proxeiam para o alias de API
@@ -1137,6 +1144,7 @@ SHOPMAN_SURFACE_URLS = {
         "kds": SHOPMAN_KDS_BASE_URL,
         "gestor": SHOPMAN_ORDERS_BASE_URL,
         "production": SHOPMAN_PRODUCTION_BASE_URL,
+        "broadcast": SHOPMAN_BROADCAST_BASE_URL,
         "loja": SHOPMAN_STOREFRONT_BASE_URL,
     }.items()
     if url

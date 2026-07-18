@@ -272,12 +272,15 @@ EXCEPTION_SURFACES: tuple[Surface, ...] = (
             ROOT / "shopman/backstage/projections/kds.py",
             ROOT / "shopman/backstage/projections/catalog.py",
             ROOT / "shopman/backstage/projections/showcase.py",
+            ROOT / "shopman/backstage/projections/broadcast.py",
         ),
         exception_reason=(
-            "Order queue + KDS + catalog-matrix + feed projections feed dedicated "
-            "headless Nuxt operator apps (gestor./kds. via api/v1/backstage/*), not Admin/"
+            "Order queue + KDS + catalog-matrix + feed + broadcast projections feed dedicated "
+            "headless Nuxt operator apps (gestor./kds./broadcast. via api/v1/backstage/*), not Admin/"
             "Unfold pages (OPERATOR-APPS-PLAN Fase 2; CROSS-CHANNEL-CATALOG-HUB-PLAN Frente 3 — "
-            "config de rule/capability fica no Admin/Unfold, a matriz operacional no Gestor)."
+            "config de rule/capability fica no Admin/Unfold, a matriz operacional no Gestor). "
+            "Broadcast (FOMO-BROADCAST-SPECS §6.1): a REVISÃO do post é decisão operacional "
+            "no app dedicado; o CRUD de regra/modelo segue disponível no Admin/Unfold."
         ),
     ),
 )

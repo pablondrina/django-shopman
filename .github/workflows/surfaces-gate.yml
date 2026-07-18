@@ -42,6 +42,7 @@ jobs:
           - orders-nuxt
           - production-nuxt
           - hub-nuxt
+          - broadcast-nuxt
 
     defaults:
       run:

@@ -1,0 +1,230 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+/* Tokens do TEMA OPERADOR (quente) — fonte única no layer compartilhado. */
+@import "../../../../operator-kit/app/assets/css/operator-theme.css";
+
+/* O Tailwind v4 auto-detecta fontes só a partir da raiz do app; o `operator-kit` (Nuxt
+   layer irmão, via `extends`) fica fora dela. Sem este `@source`, classes usadas SÓ nos
+   componentes do kit (OperatorRail/RailItem/RailToggle/OfflineBanner) somem silenciosamente. */
+@source "../../../../operator-kit/app";
+
+@plugin "@tailwindcss/forms" {
+  strategy: "class";
+}
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  /* --font-sans (Instrument Sans) vem do operator-theme.css do kit. */
+  --font-mono: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  --font-display--font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+
+  --animate-shine: shine 3s ease-out infinite;
+  --animate-gradient-flow: gradientFlow 10s ease 0s infinite normal none running;
+  --animate-meteor: meteor 5s linear infinite;
+  --animate-background-position-spin: background-position-spin 3000ms infinite alternate;
+  --animate-grid: grid 15s linear infinite;
+
+  @keyframes grid {
+    0% {
+      transform: translateY(-50%);
+    }
+    100% {
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes shine {
+    0% {
+      background-position: 200% 0;
+    }
+    25%,
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  @keyframes gradientFlow {
+    50% {
+      background-position: 100% 50%;
+    }
+    0%,
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
+  @keyframes meteor {
+    0% {
+      transform: rotate(var(--angle)) translateX(0);
+      opacity: 1;
+    }
+    70% {
+      opacity: 1;
+    }
+    100% {
+      transform: rotate(var(--angle)) translateX(-500px);
+      opacity: 0;
+    }
+  }
+
+  @keyframes background-position-spin {
+    0% {
+      background-position: top center;
+    }
+    100% {
+      background-position: bottom center;
+    }
+  }
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-sidebar-background: var(--sidebar-background);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-input: var(--sidebar-input);
+
+  --color-gradient-lime: var(--gradient-lime);
+  --color-gradient-ocean: var(--gradient-ocean);
+  --color-gradient-wine: var(--gradient-wine);
+  --color-gradient-rust: var(--gradient-rust);
+}
+
+:root {
+  /* Gradient slide show Colors */
+  --gradient-lime: oklch(67.287% 0.1546 116.644);
+  --gradient-ocean: oklch(44.56% 0.10114 242.813);
+  --gradient-wine: oklch(32.332% 0.12034 5.266);
+  --gradient-rust: oklch(55.695% 0.19944 34.155);
+}
+
+
+
+
+
+/* ───────────────────────────────────────────────────────────────────────────
+   ESCALA DE DESIGN — superfícies de operador (POS/Gestor/KDS)
+   Fonte única da padronização fina (Pablo, 2026-06-10). Aplicar estas receitas
+   em TODAS as telas de operador; não introduzir tamanhos/cores/raios avulsos.
+
+   TIPOGRAFIA (6 níveis nomeados)
+     display  total-herói do pagamento      text-7xl/8xl font-bold tabular-nums
+     figure   troco / valor de tender        text-3xl/4xl font-bold tabular-nums
+     title    título de tela/seção           text-lg  font-semibold
+     body     conteúdo / label de botão      text-sm  font-medium   (workhorse)
+     label    rótulo de campo                text-xs  font-medium text-muted-foreground
+     micro    dica / meta                    text-xs  text-muted-foreground
+
+   ESCALA DE CINZA (mapeada aos tokens — não inventar cinzas)
+     forte=text-foreground · médio=text-muted-foreground · borda=border-border
+     superfície=bg-background/bg-card · superfície-2=bg-muted/bg-secondary
+
+   ALTURAS DE CONTROLE (ladder confortável — 3 degraus, alvo de toque ≥44 no md+)
+     sm  h-9  (36px)  chip / botão inline / pílula de filtro
+     md  h-11 (44px)  campo, botão padrão, linha de tender, tile de método
+     lg  h-14 (56px)  CTA primário, tecla de numpad, tile de produto/ação
+     Os componentes ui-thing mapeiam para o ladder (UiButton sm=h-9 / default=h-11
+     / lg=h-14; UiInput=h-11). xs=h-7 é o degrau micro (inline/ícone minúsculo).
+
+   ESPAÇAMENTO
+     gap-1.5  dentro de grupo (numpad, cluster de chips)
+     gap-2    entre irmãos (default)
+     gap-3    entre seções
+     gap-4/6  entre regiões maiores
+     padding de controle md = px-3 ; inset de card = p-3 ; dialog = p-4
+
+   BORDAS — uma só: 1px border-border. border-destructive só em controle
+     destrutivo. Não usar border-muted-foreground.
+
+   SELEÇÃO / ATIVO — padrão ÚNICO: border-primary + bg-primary/5 (contorno fino +
+     tint levíssimo). NÃO usar ring nem fill-sólido para indicar seleção. (ring é
+     reservado a foco de teclado; o token outline-ring já cobre.)
+
+   CANTOS — rounded-md padrão (sóbrio/ERP; botões/cards/inputs/tiles, incl. a base
+     do UiButton/UiInput/UiCard); rounded-full só em pílulas/avatars/badges. Sem
+     rounded-lg/xl/2xl avulsos.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  html {
+    @apply antialiased;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  html {
+    color-scheme: light dark;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  html.light {
+    color-scheme: light;
+  }
+}
+
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

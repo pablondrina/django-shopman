@@ -296,24 +296,69 @@ def _image_url(template, context: dict) -> str:
 # ── Aprovação e despacho ─────────────────────────────────────────────
 
 
-def approve(post_id: int, user) -> BroadcastPost:
-    """Gestor aprova e o post sai. Idempotente para quem clica duas vezes."""
+def approve(post_id: int, user, *, publish_at=None) -> BroadcastPost:
+    """Gestor aprova e o post sai. Idempotente para quem clica duas vezes.
+
+    Com ``publish_at`` no futuro, o post fica APROVADO e agendado: quem
+    despacha é ``dispatch_due`` no ciclo de manutenção. Reagendar um post que
+    ainda não saiu é permitido (só muda a hora); um já despachado, não.
+    """
     try:
         post = BroadcastPost.objects.get(pk=post_id)
     except BroadcastPost.DoesNotExist as exc:
         raise BroadcastError("Post não encontrado.") from exc
 
-    if post.status in (PostStatus.PUBLISHED, PostStatus.PUBLISHING, PostStatus.APPROVED):
+    now = timezone.now()
+    scheduled = publish_at is not None and publish_at > now
+
+    if post.status in (PostStatus.PUBLISHED, PostStatus.PUBLISHING):
         return post
-    if post.status == PostStatus.EXPIRED or post.is_expired():
+    if post.status == PostStatus.APPROVED and not post.publish_at:
+        # Já despachado (aprovação imediata anterior) — nada a refazer.
+        return post
+    if post.status == PostStatus.EXPIRED or post.is_expired(now=now):
         raise BroadcastError("Este post expirou. O momento dele já passou.")
 
     post.status = PostStatus.APPROVED
     post.approved_by = user if getattr(user, "pk", None) else None
-    post.approved_at = timezone.now()
-    post.save(update_fields=["status", "approved_by", "approved_at"])
+    post.approved_at = now
+    post.publish_at = publish_at if scheduled else None
+    post.save(update_fields=["status", "approved_by", "approved_at", "publish_at"])
 
-    dispatch(post)
+    if not scheduled:
+        dispatch(post)
+    return post
+
+
+def update_content(
+    post_id: int, *, body=None, hashtags=None, platforms=None, image_url=None
+) -> BroadcastPost:
+    """Editar o post antes de aprovar. Só o que o gestor de fato mexeu.
+
+    Texto gerado por regra é rascunho, não sentença: o gestor ajusta o tom e as
+    plataformas no próprio card. Depois de sair, não se reescreve o passado.
+    """
+    try:
+        post = BroadcastPost.objects.get(pk=post_id)
+    except BroadcastPost.DoesNotExist as exc:
+        raise BroadcastError("Post não encontrado.") from exc
+
+    if post.status not in (PostStatus.DRAFT, PostStatus.PENDING_REVIEW):
+        raise BroadcastError("Este post não está mais em revisão.")
+
+    content = dict(post.content or {})
+    if body is not None:
+        content["body"] = str(body)
+    if hashtags is not None:
+        content["hashtags"] = [str(tag).strip() for tag in hashtags if str(tag).strip()]
+    if image_url is not None:
+        content["image_url"] = str(image_url)
+
+    post.content = content
+    post.platform_content = _platform_content(post.template, content) if post.template_id else {}
+    if platforms is not None:
+        post.platforms = [str(platform) for platform in platforms]
+    post.save(update_fields=["content", "platform_content", "platforms"])
     return post
 
 
@@ -486,6 +531,29 @@ def push_user_notification(notification) -> None:
 
 
 # ── Manutenção ───────────────────────────────────────────────────────
+
+
+def dispatch_due(*, now=None) -> int:
+    """Despachar os posts agendados cuja hora chegou. Retorna quantos saíram.
+
+    ``publish_at`` volta a NULL no despacho: é a marca de "ainda não saiu", e
+    zerá-la impede que um ciclo seguinte despache o mesmo post de novo.
+    """
+    now = now or timezone.now()
+    due = BroadcastPost.objects.filter(
+        status=PostStatus.APPROVED, publish_at__isnull=False, publish_at__lte=now
+    )
+
+    dispatched = 0
+    for post in due:
+        try:
+            post.publish_at = None
+            post.save(update_fields=["publish_at"])
+            dispatch(post)
+            dispatched += 1
+        except Exception:
+            logger.warning("broadcast.scheduled_dispatch_failed post=%s", post.pk, exc_info=True)
+    return dispatched
 
 
 def expire_stale_posts(*, now=None) -> int:

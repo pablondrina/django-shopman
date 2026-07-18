@@ -50,7 +50,7 @@ def test_hub_superuser_sees_all_tiles(client, db):
     hub = client.get(reverse("api-backstage-hub")).json()["hub"]
 
     refs = [tile["ref"] for tile in hub["tiles"]]
-    assert refs == ["pos", "kds", "gestor", "production", "loja"]
+    assert refs == ["pos", "kds", "gestor", "production", "broadcast", "loja"]
 
     by_ref = {tile["ref"]: tile for tile in hub["tiles"]}
     # Ícone forte por app (DS §6).
@@ -58,6 +58,7 @@ def test_hub_superuser_sees_all_tiles(client, db):
     assert by_ref["kds"]["icon"] == "chef-hat"
     assert by_ref["gestor"]["icon"] == "clipboard-list"
     assert by_ref["production"]["icon"] == "croissant"
+    assert by_ref["broadcast"]["icon"] == "megaphone"
     assert by_ref["loja"]["icon"] == "store"
     # Loja abre a loja do cliente (storefront) em nova aba — fora da zona de operador.
     assert by_ref["loja"]["kind"] == "external"

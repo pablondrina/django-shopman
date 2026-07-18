@@ -5,6 +5,18 @@ from __future__ import annotations
 from django.urls import path
 
 from .alerts import AlertAckView, AlertListView
+from .broadcast import (
+    BroadcastBoardView,
+    BroadcastHistoryView,
+    BroadcastOptionsView,
+    BroadcastPostApproveView,
+    BroadcastPostDetailView,
+    BroadcastPostDiscardView,
+    BroadcastRuleDetailView,
+    BroadcastRuleListView,
+    PostTemplateDetailView,
+    PostTemplateListView,
+)
 from .catalog import (
     CatalogAiAssistView,
     CatalogBulkPriceView,
@@ -187,6 +199,18 @@ urlpatterns = [
         NotificationActionView.as_view(),
         name="api-backstage-notification-action",
     ),
+    # Broadcast — marketing operacional (surfaces/broadcast-nuxt). Gate próprio
+    # (`shop.manage_broadcast`): o gestor de marketing não é o de pedidos.
+    path("broadcast/", BroadcastBoardView.as_view(), name="api-backstage-broadcast"),
+    path("broadcast/history/", BroadcastHistoryView.as_view(), name="api-backstage-broadcast-history"),
+    path("broadcast/options/", BroadcastOptionsView.as_view(), name="api-backstage-broadcast-options"),
+    path("broadcast/rules/", BroadcastRuleListView.as_view(), name="api-backstage-broadcast-rules"),
+    path("broadcast/rules/<int:pk>/", BroadcastRuleDetailView.as_view(), name="api-backstage-broadcast-rule"),
+    path("broadcast/templates/", PostTemplateListView.as_view(), name="api-backstage-broadcast-templates"),
+    path("broadcast/templates/<int:pk>/", PostTemplateDetailView.as_view(), name="api-backstage-broadcast-template"),
+    path("broadcast/posts/<int:pk>/", BroadcastPostDetailView.as_view(), name="api-backstage-broadcast-post"),
+    path("broadcast/posts/<int:pk>/approve/", BroadcastPostApproveView.as_view(), name="api-backstage-broadcast-approve"),
+    path("broadcast/posts/<int:pk>/discard/", BroadcastPostDiscardView.as_view(), name="api-backstage-broadcast-discard"),
     # Production — work order actions
     path("production/plan/", WorkOrderPlanView.as_view(), name="api-backstage-wo-plan"),
     path("production/<int:wo_id>/start/", WorkOrderStartView.as_view(), name="api-backstage-wo-start"),

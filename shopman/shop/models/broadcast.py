@@ -189,6 +189,11 @@ class BroadcastPost(models.Model):
         verbose_name="aprovado por",
     )
     approved_at = models.DateTimeField("aprovado em", null=True, blank=True)
+    publish_at = models.DateTimeField(
+        "publicar em", null=True, blank=True,
+        help_text="Aprovado com hora marcada. Preenchido = ainda não saiu; "
+                  "volta a vazio no despacho.",
+    )
     published_at = models.DateTimeField("publicado em", null=True, blank=True)
     expires_at = models.DateTimeField("expira em", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -200,6 +205,7 @@ class BroadcastPost(models.Model):
         indexes = [
             models.Index(fields=["status", "-created_at"]),
             models.Index(fields=["expires_at"]),
+            models.Index(fields=["publish_at"]),
         ]
 
     def __str__(self) -> str:  # pragma: no cover - admin/debug only

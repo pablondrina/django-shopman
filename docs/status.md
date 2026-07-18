@@ -22,6 +22,7 @@ falando com o Django via BFF Nitro (cookie de sessão cross-subdomínio `.boulan
 | Cozinha (KDS) | `surfaces/kds-nuxt` | :3003 | prep, picking, expedição, painel de retirada |
 | Gestor de pedidos | `surfaces/orders-nuxt` | :3004 | fila, cardápio, showcases |
 | Produção/fornadas | `surfaces/production-nuxt` | :3005 | kiosk Solari (plan/mise-en-place/expedite/board) |
+| Broadcast | `surfaces/broadcast-nuxt` | :3006 | revisão e publicação de posts operacionais (FOMO) |
 | — layer | `surfaces/operator-kit` | — | Nuxt layer compartilhada dos apps de operador (httpError, retry, connectivity, OperatorLock/PIN, telemetria) |
 
 Tempo real é **SSE-first** ([ADR-016](decisions/adr-016-sse-first-realtime.md)) com

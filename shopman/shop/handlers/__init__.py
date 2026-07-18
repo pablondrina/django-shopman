@@ -309,10 +309,7 @@ def _register_catalog_projection_handler() -> None:
     (OFFERMAN["PROJECTION_BACKENDS"]) via get_projection_backend() — the same
     registry the manual sync command reconciles through.
     """
-    from shopman.offerman.conf import (
-        get_projection_backend,
-        get_projection_backend_channels,
-    )
+    from shopman.offerman.conf import get_projection_backend_channels
 
     from shopman.shop.handlers.catalog_projection import CatalogProjectHandler
 

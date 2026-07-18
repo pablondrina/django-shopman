@@ -295,6 +295,7 @@ def test_once_runs_one_cycle_in_order_and_never_sleeps():
         call("cleanup_stale_planning"),
         call("cleanup_d1"),
         call("expire_broadcast_posts"),
+        call("dispatch_scheduled_broadcasts"),
         call("reconcile_payments"),
         call("sweep_stuck_orders"),
         call("check_directive_health"),

@@ -359,3 +359,88 @@ class TestNotifyReviewers:
             resolve.return_value.summary.return_value = {"total": 43}
             broadcast.evaluate("production_finished", _context())
         assert "43 cliente(s)" in UserNotification.objects.get().message
+
+
+# ── Agendamento e edição ─────────────────────────────────────────────
+
+
+class TestScheduledApproval:
+    """Aprovar com hora marcada: o gestor decide agora, o post sai depois."""
+
+    def test_future_publish_at_holds_the_dispatch(self, product, rule):
+        post = broadcast.evaluate("production_finished", _context())[0]
+        approved = broadcast.approve(
+            post.pk, _user(), publish_at=timezone.now() + timedelta(hours=2)
+        )
+        assert approved.status == PostStatus.APPROVED
+        assert approved.publish_at is not None
+        assert Directive.objects.filter(topic=BROADCAST_POST).count() == 0
+
+    def test_past_publish_at_goes_out_now(self, product, rule):
+        post = broadcast.evaluate("production_finished", _context())[0]
+        approved = broadcast.approve(
+            post.pk, _user(), publish_at=timezone.now() - timedelta(minutes=1)
+        )
+        assert approved.publish_at is None
+        assert Directive.objects.filter(topic=BROADCAST_POST).count() == 2
+
+    def test_sweep_dispatches_when_the_hour_arrives(self, product, rule):
+        post = broadcast.evaluate("production_finished", _context())[0]
+        broadcast.approve(post.pk, _user(), publish_at=timezone.now() + timedelta(hours=2))
+
+        assert broadcast.dispatch_due() == 0  # ainda não é hora
+        BroadcastPost.objects.filter(pk=post.pk).update(
+            publish_at=timezone.now() - timedelta(minutes=1)
+        )
+        assert broadcast.dispatch_due() == 1
+
+        post.refresh_from_db()
+        assert post.publish_at is None  # não despacha duas vezes
+        assert broadcast.dispatch_due() == 0
+        assert Directive.objects.filter(topic=BROADCAST_POST).count() == 2
+
+    def test_rescheduling_a_post_that_has_not_gone_out_is_allowed(self, product, rule):
+        post = broadcast.evaluate("production_finished", _context())[0]
+        broadcast.approve(post.pk, _user(), publish_at=timezone.now() + timedelta(hours=2))
+        later = timezone.now() + timedelta(hours=5)
+        assert broadcast.approve(post.pk, _user(), publish_at=later).publish_at == later
+
+    def test_already_dispatched_post_is_not_redispatched(self, product, rule):
+        post = broadcast.evaluate("production_finished", _context())[0]
+        broadcast.approve(post.pk, _user())
+        before = Directive.objects.filter(topic=BROADCAST_POST).count()
+        broadcast.approve(post.pk, _user())
+        assert Directive.objects.filter(topic=BROADCAST_POST).count() == before
+
+
+class TestContentEditing:
+    def test_editing_the_body_reprojects_the_platform_variants(self, product, template, rule):
+        template.platform_variants = {"instagram": {"body": "{{produto}} no forno!"}}
+        template.save()
+        post = broadcast.evaluate("production_finished", _context())[0]
+
+        edited = broadcast.update_content(post.pk, body="Texto do gestor")
+        assert edited.content["body"] == "Texto do gestor"
+        # A variação por plataforma acompanha a edição — senão o Instagram
+        # publicaria o texto antigo.
+        assert edited.platform_content
+
+    def test_hashtags_are_trimmed_and_emptied_out(self, product, rule):
+        post = broadcast.evaluate("production_finished", _context())[0]
+        edited = broadcast.update_content(post.pk, hashtags=[" pao ", "", "fornada"])
+        assert edited.content["hashtags"] == ["pao", "fornada"]
+
+    def test_omitted_keys_are_left_alone(self, product, rule):
+        post = broadcast.evaluate("production_finished", _context())[0]
+        original = post.content["body"]
+        assert broadcast.update_content(post.pk, platforms=["tv"]).content["body"] == original
+
+    def test_published_post_cannot_be_rewritten(self, product, rule):
+        post = broadcast.evaluate("production_finished", _context())[0]
+        broadcast.approve(post.pk, _user())
+        with pytest.raises(broadcast.BroadcastError):
+            broadcast.update_content(post.pk, body="tarde demais")
+
+
+def _user():
+    return User.objects.create_user(f"gestor-{User.objects.count()}", is_staff=True)

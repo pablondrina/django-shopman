@@ -64,13 +64,14 @@ shopman/                Namespace package (PEP 420) — sem __init__.py
     ├── urls.py         montado em /api/v1/backstage/ + SSE /gestor/events/ (os apps são surfaces/*-nuxt)
     └── tests/          POS, KDS, produção, fechamento, contratos de superfície, e2e
 
-surfaces/               6 apps Nuxt 4 (SSR) + 1 layer compartilhada — as superfícies vivas em produção
+surfaces/               7 apps Nuxt 4 (SSR) + 1 layer compartilhada — as superfícies vivas em produção
 ├── storefront-nuxt/   loja do cliente (apex, mobile-first, :3000)          → api.
 ├── hub-nuxt/          Central de Apps do operador (:3001)                  → api./backstage
 ├── pos-nuxt/          PDV (desktop-first, :3002)                           → api./backstage
 ├── kds-nuxt/          cozinha (KDS, :3003)                                 → api./backstage
 ├── orders-nuxt/       gestor de pedidos (:3004)                            → api./backstage
 ├── production-nuxt/   produção/fornadas (kiosk Solari, :3005)              → api./backstage
+├── broadcast-nuxt/    broadcast do gestor de marketing (:3006)             → api./backstage
 └── operator-kit/      Nuxt layer compartilhada dos apps de operador (extends): httpError,
                        retryWithBackoff, useConnectivity, OperatorLock/PIN, telemetria de erro,
                        BFF canônico (server/utils: djangoProxy, eventStream, apiVersion),

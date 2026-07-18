@@ -73,6 +73,16 @@ def can_operate_production(user) -> bool:
     return is_superuser(user) or user.has_perm("backstage.operate_production")
 
 
+def can_manage_broadcast(user) -> bool:
+    """Gate do app Broadcast (marketing operacional).
+
+    Deliberadamente separado de ``can_manage_orders``: quem cuida da fila de
+    pedidos não é necessariamente quem decide o que a padaria publica
+    (FOMO-BROADCAST-SPECS §8).
+    """
+    return is_superuser(user) or user.has_perm("shop.manage_broadcast")
+
+
 def can_view_operator_alerts(user) -> bool:
     return is_staff(user) and (
         is_superuser(user)
