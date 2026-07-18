@@ -825,10 +825,17 @@ def test_product_detail_get_shape(client, operator, catalog):
         "shelf_life_days", "storage_tip", "production_cycle_hours",
         "is_batch_produced", "is_published", "is_sellable", "ingredients_text",
         "image_url", "primary_collection", "primary_collection_name",
+        # rotulagem de compra remota + blocos de JSONField com dono de schema
+        "allergens", "dietary_info", "serves", "approx_dimensions",
+        "allows_next_day_sale", "nutrition_facts", "social", "fiscal",
+        # somente-leitura: sentinels de derivação + escolhas de perfil fiscal
+        "dietary_auto_filled", "nutrition_auto_filled", "fiscal_profiles",
     }
     assert product["sku"] == "BOLO"
     assert product["base_price_q"] == 4500
     assert product["primary_collection"] == "doces"
+    assert set(product["fiscal"]) == {"profile", "ncm", "cest", "unit"}
+    assert {p["key"] for p in product["fiscal_profiles"]} == {"own_production", "resale"}
 
 
 def test_product_detail_get_unknown_sku(client, operator, catalog):
@@ -914,3 +921,122 @@ def test_product_detail_patch_toggles_publication(client, operator, catalog):
     catalog["pao"].refresh_from_db()
     assert catalog["pao"].is_published is False
     assert catalog["pao"].is_sellable is False
+
+
+# ── rotulagem, nutricional, social e fiscal pelo mesmo PATCH ─────────────────
+# São quatro blocos que moram em JSONField com dono de schema próprio. O painel de
+# produto os edita nas abas; aqui garantimos que o merge é parcial de verdade e que
+# a validação de cada dono continua valendo por este caminho.
+
+
+def _patch(client, sku, payload):
+    return client.patch(
+        DETAIL_URL.format(sku=sku), data=payload, content_type="application/json"
+    )
+
+
+def test_product_detail_patch_labelling(client, operator, catalog):
+    client.force_login(operator)
+    resp = _patch(client, "PAO", {
+        "allergens": ["glúten", "  "],
+        "dietary_info": ["100% vegetal"],
+        "serves": "2 a 4 pessoas",
+        "approx_dimensions": "aprox. 24 x 12 cm",
+        "allows_next_day_sale": True,
+    })
+    assert resp.status_code == 200
+    product = resp.json()["product"]
+    assert product["allergens"] == ["glúten"]  # entrada vazia descartada
+    assert product["dietary_info"] == ["100% vegetal"]
+    assert product["serves"] == "2 a 4 pessoas"
+    assert product["allows_next_day_sale"] is True
+
+    catalog["pao"].refresh_from_db()
+    assert catalog["pao"].metadata["allergens"] == ["glúten"]
+
+
+def test_product_detail_patch_labelling_freezes_recipe_derivation(client, operator, catalog):
+    """Editar a rotulagem à mão desliga a derivação a partir da receita.
+
+    Sem isso o próximo save da Recipe sobrescreveria em silêncio o que o operador
+    acabou de digitar (ver ``dietary_from_recipe``).
+    """
+    client.force_login(operator)
+    assert _patch(client, "PAO", {"allergens": ["leite"]}).status_code == 200
+
+    catalog["pao"].refresh_from_db()
+    assert catalog["pao"].metadata["dietary_auto_filled"] is False
+
+
+def test_product_detail_patch_nutrition(client, operator, catalog):
+    client.force_login(operator)
+    resp = _patch(client, "PAO", {
+        "nutrition_facts": {
+            "serving_size_g": 50, "energy_kcal": 130, "carbohydrates_g": 26,
+            "total_fat_g": 1, "trans_fat_g": 0,
+        },
+    })
+    assert resp.status_code == 200
+    facts = resp.json()["product"]["nutrition_facts"]
+    assert facts["serving_size_g"] == 50
+    assert facts["energy_kcal"] == 130
+
+    catalog["pao"].refresh_from_db()
+    # sentinel: passou a ser manual, então a receita não recalcula por cima
+    assert catalog["pao"].nutrition_facts["auto_filled"] is False
+
+
+def test_product_detail_patch_nutrition_enforces_anvisa(client, operator, catalog):
+    """Gordura trans acima da total é barrada pelo ``Product.clean()``."""
+    client.force_login(operator)
+    resp = _patch(client, "PAO", {
+        "nutrition_facts": {"serving_size_g": 50, "total_fat_g": 1, "trans_fat_g": 5},
+    })
+    assert resp.status_code == 400
+
+
+def test_product_detail_patch_social_is_partial(client, operator, catalog):
+    """Mandar só a legenda não apaga a marca gravada antes."""
+    client.force_login(operator)
+    assert _patch(client, "PAO", {"social": {"brand": "Nelson"}}).status_code == 200
+    resp = _patch(client, "PAO", {"social": {"social_caption": "Fresquinho todo dia"}})
+    assert resp.status_code == 200
+    social = resp.json()["product"]["social"]
+    assert social["brand"] == "Nelson"
+    assert social["social_caption"] == "Fresquinho todo dia"
+
+
+def test_product_detail_patch_social_rejects_bad_gtin(client, operator, catalog):
+    client.force_login(operator)
+    resp = _patch(client, "PAO", {"social": {"gtin": "123"}})
+    assert resp.status_code == 400
+
+
+def test_product_detail_patch_fiscal(client, operator, catalog):
+    client.force_login(operator)
+    resp = _patch(client, "PAO", {"fiscal": {"profile": "own_production", "ncm": "19059090"}})
+    assert resp.status_code == 200
+    assert resp.json()["product"]["fiscal"]["ncm"] == "19059090"
+
+    catalog["pao"].refresh_from_db()
+    assert catalog["pao"].metadata["fiscal"]["ncm"] == "19059090"
+
+
+def test_product_detail_patch_fiscal_rejects_short_ncm(client, operator, catalog):
+    client.force_login(operator)
+    assert _patch(client, "PAO", {"fiscal": {"ncm": "123"}}).status_code == 400
+
+
+def test_product_detail_patch_fiscal_rejects_cest_on_own_production(client, operator, catalog):
+    """CEST não se aplica a fabricação própria — o perfil decide, não o operador."""
+    client.force_login(operator)
+    resp = _patch(client, "PAO", {
+        "fiscal": {"profile": "own_production", "ncm": "19059090", "cest": "1234567"},
+    })
+    assert resp.status_code == 400
+
+
+def test_product_detail_patch_fiscal_requires_cest_on_resale(client, operator, catalog):
+    client.force_login(operator)
+    resp = _patch(client, "PAO", {"fiscal": {"profile": "resale", "ncm": "19059090"}})
+    assert resp.status_code == 400

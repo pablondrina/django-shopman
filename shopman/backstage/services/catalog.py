@@ -16,6 +16,8 @@ Superfície = Channel; célula = ListingItem da listing de mesmo ref.
 
 from __future__ import annotations
 
+from dataclasses import asdict
+
 from shopman.backstage.services.exceptions import CatalogError
 
 
@@ -297,11 +299,18 @@ def bulk_price_collection(
 
 
 # ── detalhe do produto (edição completa no Gestor) ─────────────────────────────
-# O painel de produto da matriz edita os campos escalares de Product sem passar
-# pelo Admin. Escreve com ``save()`` (nunca ``update()``) para preservar o gatilho
-# de re-projeção (``Product._PROJECTABLE_FIELDS``) e valida com ``full_clean()``.
-# Fora do escopo desta fase: nutrition_facts (form ANVISA dedicado), componentes de
-# bundle, pertencimento a coleções e listings — seguem no Admin.
+# O painel de produto da matriz edita UM produto inteiro sem passar pelo Admin:
+# campos escalares, tabela nutricional, rotulagem (alérgenos/restrições), atributos
+# sociais e classificação fiscal. Escreve com ``save()`` (nunca ``update()``) para
+# preservar o gatilho de re-projeção (``Product._PROJECTABLE_FIELDS``) e valida com
+# ``full_clean()``. Fora do escopo: componentes de bundle, pertencimento a coleções
+# e listings — seguem no Admin.
+#
+# Os três blocos que moram em JSONField têm dono de schema próprio, e é o dono que
+# valida e serializa (nunca escrevemos as sub-chaves na mão):
+#   - nutrition_facts → offerman.nutrition.NutritionFacts (invariantes ANVISA)
+#   - metadata['social'] → offerman.contrib.social.schema
+#   - metadata['fiscal'] → fiscalman.classification
 
 # Campos escalares editáveis, agrupados por tipo para o merge parcial.
 _DETAIL_TEXT_FIELDS = (
@@ -318,6 +327,11 @@ _DETAIL_INT_FIELDS = ("base_price_q",)
 _DETAIL_NULLABLE_INT_FIELDS = ("unit_weight_g", "shelf_life_days", "production_cycle_hours")
 _DETAIL_BOOL_FIELDS = ("is_published", "is_sellable", "is_batch_produced")
 
+# Rotulagem de compra remota: o cliente não pega o produto na mão, então alérgenos,
+# restrições, porção e medidas precisam estar escritos. Vivem em ``metadata``.
+_DETAIL_META_LIST_FIELDS = ("allergens", "dietary_info")
+_DETAIL_META_TEXT_FIELDS = ("serves", "approx_dimensions")
+
 
 def _get_product(sku: str):
     from shopman.offerman.models import Product
@@ -328,9 +342,46 @@ def _get_product(sku: str):
     return product
 
 
+def _nutrition_payload(product) -> dict:
+    """Tabela nutricional como dict simples (chaves da dataclass, sem None)."""
+    from dataclasses import asdict
+
+    from shopman.offerman.nutrition import NutritionFacts
+
+    facts = NutritionFacts.from_dict(product.nutrition_facts or {})
+    return asdict(facts) if facts is not None else asdict(NutritionFacts())
+
+
+def _fiscal_payload(product) -> dict:
+    from dataclasses import asdict
+
+    from shopman.fiscalman.classification import from_metadata
+
+    return asdict(from_metadata(product.metadata))
+
+
+def _fiscal_profile_choices() -> list[dict]:
+    """Perfis fiscais disponíveis — a dataclass é a fonte, não uma lista no Nuxt."""
+    from shopman.fiscalman.classification import FISCAL_PROFILES
+
+    return [
+        {"key": p.key, "name": p.name, "requires_cest": p.requires_cest}
+        for p in FISCAL_PROFILES.values()
+    ]
+
+
+def _social_attrs_payload(product) -> dict:
+    from dataclasses import asdict
+
+    from shopman.offerman.contrib.social.schema import get_social_attributes
+
+    return asdict(get_social_attributes(product))
+
+
 def _detail_payload(product) -> dict:
     """Projection do detalhe: campos editáveis + contexto somente-leitura."""
     primary = next((ci for ci in product.collection_items.all() if ci.is_primary), None)
+    metadata = product.metadata or {}
     return {
         "sku": product.sku,
         "name": product.name,
@@ -349,8 +400,22 @@ def _detail_payload(product) -> dict:
         "is_sellable": product.is_sellable,
         "ingredients_text": product.ingredients_text,
         "image_url": product.image_url,
+        # rotulagem de compra remota (metadata)
+        "allergens": list(metadata.get("allergens") or []),
+        "dietary_info": list(metadata.get("dietary_info") or []),
+        "serves": str(metadata.get("serves") or ""),
+        "approx_dimensions": str(metadata.get("approx_dimensions") or ""),
+        "allows_next_day_sale": bool(metadata.get("allows_next_day_sale", False)),
+        "nutrition_facts": _nutrition_payload(product),
+        "social": _social_attrs_payload(product),
+        "fiscal": _fiscal_payload(product),
         "primary_collection": primary.collection.ref if primary else "",
         "primary_collection_name": primary.collection.name if primary else "",
+        # somente-leitura: o painel avisa que o dado veio da receita e que editar
+        # à mão congela a derivação (ver ``dietary_from_recipe``).
+        "dietary_auto_filled": bool(metadata.get("dietary_auto_filled", True)),
+        "nutrition_auto_filled": bool((product.nutrition_facts or {}).get("auto_filled", False)),
+        "fiscal_profiles": _fiscal_profile_choices(),
     }
 
 
@@ -368,12 +433,148 @@ def _as_nullable_int(value, label: str) -> int | None:
         raise CatalogError(f"{label} deve ser um número inteiro.") from exc
 
 
+def _as_str_list(value, label: str) -> list[str]:
+    if not isinstance(value, list):
+        raise CatalogError(f"{label} deve ser uma lista.")
+    return [str(item).strip() for item in value if str(item).strip()]
+
+
+def _apply_nutrition(product, raw) -> None:
+    """Grava a tabela nutricional. As invariantes ANVISA são do ``Product.clean()``."""
+    from dataclasses import fields as dataclass_fields
+
+    from shopman.offerman.nutrition import NutritionFacts
+
+    if not isinstance(raw, dict):
+        raise CatalogError("nutrition_facts deve ser um objeto.")
+
+    # A dataclass é a fonte dos nutrientes aceitos; ``auto_filled`` é sentinel
+    # interno e nunca vem do operador.
+    accepted = {f.name: f.type for f in dataclass_fields(NutritionFacts) if f.name != "auto_filled"}
+
+    collected: dict = {}
+    for key in accepted:
+        if key not in raw:
+            continue
+        value = raw.get(key)
+        if value in (None, ""):
+            continue
+        try:
+            collected[key] = int(value) if "int" in str(accepted[key]) else float(value)
+        except (TypeError, ValueError) as exc:
+            raise CatalogError(f"{key} deve ser um número.") from exc
+
+    # Editar à mão desliga a derivação a partir da receita — senão o próximo save
+    # da Recipe sobrescreveria em silêncio o que o operador acabou de digitar.
+    if collected:
+        collected["auto_filled"] = False
+    product.nutrition_facts = collected
+
+
+def _apply_labelling(product, data: dict) -> None:
+    """Alérgenos, restrições, porção e medidas — tudo em ``metadata``."""
+    metadata = dict(product.metadata or {})
+    original = dict(product.metadata or {})
+
+    for field in _DETAIL_META_LIST_FIELDS:
+        if field in data:
+            values = _as_str_list(data.get(field), field)
+            if values:
+                metadata[field] = values
+            else:
+                metadata.pop(field, None)
+    for field in _DETAIL_META_TEXT_FIELDS:
+        if field in data:
+            value = str(data.get(field) or "").strip()
+            if value:
+                metadata[field] = value
+            else:
+                metadata.pop(field, None)
+    if "allows_next_day_sale" in data:
+        metadata["allows_next_day_sale"] = bool(data.get("allows_next_day_sale"))
+
+    # Mesmo sentinel do form do Admin: só congela a derivação quando a rotulagem
+    # dietética REALMENTE mudou, para um save qualquer não travar a receita.
+    touched_dietary = "allergens" in data or "dietary_info" in data
+    if touched_dietary:
+        changed = (metadata.get("allergens") or []) != (original.get("allergens") or []) or (
+            metadata.get("dietary_info") or []
+        ) != (original.get("dietary_info") or [])
+        if changed and (metadata.get("allergens") or metadata.get("dietary_info")):
+            metadata["dietary_auto_filled"] = False
+
+    product.metadata = metadata
+
+
+def _apply_social(product, raw) -> None:
+    from shopman.offerman.contrib.social.schema import (
+        ProductSocialAttributes,
+        get_social_attributes,
+        set_social_attributes,
+    )
+
+    if not isinstance(raw, dict):
+        raise CatalogError("social deve ser um objeto.")
+
+    current = get_social_attributes(product)
+    merged = {**asdict(current), **raw}
+    attrs = ProductSocialAttributes(
+        brand=str(merged.get("brand") or "").strip(),
+        gtin=str(merged.get("gtin") or "").strip(),
+        mpn=str(merged.get("mpn") or "").strip(),
+        condition=str(merged.get("condition") or "new"),
+        google_product_category=str(merged.get("google_product_category") or "").strip(),
+        tiktok_category_id=str(merged.get("tiktok_category_id") or "").strip(),
+        hashtags=merged.get("hashtags") or [],
+        social_caption=str(merged.get("social_caption") or "").strip(),
+    )
+    problems = attrs.errors()
+    if problems:
+        raise CatalogError(problems[0])
+    product.metadata = set_social_attributes(product.metadata, attrs)
+
+
+def _apply_fiscal(product, raw) -> None:
+    from shopman.fiscalman.classification import (
+        ProductFiscalClassification,
+        from_metadata,
+        to_metadata_fiscal,
+    )
+
+    if not isinstance(raw, dict):
+        raise CatalogError("fiscal deve ser um objeto.")
+
+    current = from_metadata(product.metadata)
+    merged = {**asdict(current), **raw}
+    classification = ProductFiscalClassification(
+        profile=str(merged.get("profile") or "").strip(),
+        ncm=str(merged.get("ncm") or "").strip(),
+        cest=str(merged.get("cest") or "").strip(),
+        unit=str(merged.get("unit") or "UN").strip() or "UN",
+    )
+
+    metadata = dict(product.metadata or {})
+    # Classificação vazia = produto ainda não fiscalizado; só validamos quando há
+    # algo preenchido (mesma regra do form do Admin — o NFC-e é que cobra depois).
+    if not classification.ncm and not classification.cest:
+        metadata.pop("fiscal", None)
+        product.metadata = metadata
+        return
+
+    problems = classification.errors()
+    if problems:
+        raise CatalogError(problems[0])
+    metadata["fiscal"] = to_metadata_fiscal(classification)
+    product.metadata = metadata
+
+
 def update_product_detail(sku: str, data: dict, *, actor: str = "") -> dict:
-    """Merge parcial dos campos escalares do produto (chave ausente = sem mudança).
+    """Merge parcial dos campos do produto (chave ausente = sem mudança).
 
     Valida com ``full_clean()`` (inclui as invariantes ANVISA de nutrition_facts) e
     persiste com ``save()``, que emite ``product_updated`` quando um campo projetável
-    muda — o auto-trigger re-projeta nas plataformas alvo.
+    muda — o auto-trigger re-projeta nas plataformas alvo. Os blocos em JSONField
+    (nutricional, social, fiscal) são validados pelo dono do schema antes disso.
     """
     from django.core.exceptions import ValidationError
 
@@ -394,6 +595,16 @@ def update_product_detail(sku: str, data: dict, *, actor: str = "") -> dict:
     for field in _DETAIL_BOOL_FIELDS:
         if field in data:
             setattr(product, field, bool(data.get(field)))
+
+    if "nutrition_facts" in data:
+        _apply_nutrition(product, data.get("nutrition_facts"))
+    # Rotulagem e blocos de metadata em sequência: cada um lê o metadata já
+    # atualizado pelo anterior, então não há escrita perdida.
+    _apply_labelling(product, data)
+    if "social" in data:
+        _apply_social(product, data.get("social"))
+    if "fiscal" in data:
+        _apply_fiscal(product, data.get("fiscal"))
 
     try:
         product.full_clean()

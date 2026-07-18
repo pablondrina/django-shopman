@@ -92,10 +92,42 @@ export interface CatalogMatrixResponse {
   matrix: CatalogMatrixProjection;
 }
 
-// Detalhe de UM produto — campos escalares editáveis pelo painel de produto
+// Tabela nutricional (ANVISA) — espelha a dataclass `offerman.nutrition.NutritionFacts`.
+// `auto_filled` é sentinel interno (derivação a partir da receita) e não é editável
+// aqui: o backend o zera sozinho quando o operador digita.
+export interface NutritionFacts {
+  serving_size_g: number;
+  servings_per_container: number;
+  energy_kcal: number | null;
+  carbohydrates_g: number | null;
+  sugars_g: number | null;
+  proteins_g: number | null;
+  total_fat_g: number | null;
+  saturated_fat_g: number | null;
+  trans_fat_g: number | null;
+  fiber_g: number | null;
+  sodium_mg: number | null;
+}
+
+// Classificação fiscal do produto — espelha `fiscalman.classification`.
+// O que NÃO é por produto (CFOP, CSOSN, origem, PIS/COFINS) vem do perfil.
+export interface ProductFiscal {
+  profile: string;
+  ncm: string;
+  cest: string;
+  unit: string;
+}
+
+export interface FiscalProfileChoice {
+  key: string;
+  name: string;
+  requires_cest: boolean;
+}
+
+// Detalhe de UM produto — tudo que o painel de produto edita
 // (GET/PATCH /api/v1/backstage/catalog/product/<sku>/). Espelha
 // `backstage.services.catalog._detail_payload`. Fora daqui (segue no Admin):
-// tabela nutricional, componentes de bundle, coleções e listings.
+// componentes de bundle, coleções e listings.
 export interface ProductDetailProjection {
   readonly sku: string;
   name: string;
@@ -114,12 +146,44 @@ export interface ProductDetailProjection {
   is_sellable: boolean;
   ingredients_text: string;
   image_url: string;
+  // rotulagem de compra remota (Product.metadata) — o cliente não pega o produto
+  // na mão, então alérgenos e restrições precisam estar escritos.
+  allergens: string[];
+  dietary_info: string[];
+  serves: string;
+  approx_dimensions: string;
+  allows_next_day_sale: boolean;
+  nutrition_facts: NutritionFacts;
+  social: ProductSocial;
+  fiscal: ProductFiscal;
   readonly primary_collection: string;
   readonly primary_collection_name: string;
+  // somente-leitura: dado veio da receita; editar à mão congela a derivação.
+  readonly dietary_auto_filled: boolean;
+  readonly nutrition_auto_filled: boolean;
+  readonly fiscal_profiles: FiscalProfileChoice[];
 }
 
-// Merge parcial: só as chaves presentes são gravadas.
-export type ProductDetailPatch = Partial<Omit<ProductDetailProjection, "sku" | "primary_collection" | "primary_collection_name">>;
+// Merge parcial: só as chaves presentes são gravadas. `social` e `fiscal` também
+// fazem merge por dentro (mandar só `brand` não apaga a categoria).
+export type ProductDetailPatch = Partial<
+  Omit<
+    ProductDetailProjection,
+    | "sku"
+    | "primary_collection"
+    | "primary_collection_name"
+    | "dietary_auto_filled"
+    | "nutrition_auto_filled"
+    | "fiscal_profiles"
+    | "social"
+    | "fiscal"
+    | "nutrition_facts"
+  >
+> & {
+  social?: Partial<Omit<ProductSocial, "has_data">>;
+  fiscal?: Partial<ProductFiscal>;
+  nutrition_facts?: Partial<NutritionFacts>;
+};
 
 export interface ProductDetailResponse {
   product: ProductDetailProjection;

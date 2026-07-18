@@ -20,8 +20,8 @@ import type {
 
 const collectionRef = ref("");
 const {
-  matrix, pending, error, refresh, isBusy, cellKey, productKey, socialKey, detailKey, setCell, setProduct, bulkSet, bulkPrice,
-  resync, saveSocial, fetchProductDetail, saveProductDetail, reorderCollections, reorderItems, bulkBusy,
+  matrix, pending, error, refresh, isBusy, cellKey, productKey, detailKey, setCell, setProduct, bulkSet, bulkPrice,
+  resync, fetchProductDetail, saveProductDetail, reorderCollections, reorderItems, bulkBusy,
   aiAssist, aiAssistKey,
 } = useCatalogMatrix(collectionRef);
 
@@ -256,29 +256,17 @@ function resyncRow(row: CatalogRowProjection) {
   menuOpen.value = null;
 }
 
-// painel PIM (dados sociais do produto) — abre pelo menu ⋯ da linha, salva via API.
-const pimSku = ref<string | null>(null);
-const pimRow = computed(() => rows.value.find((r) => r.sku === pimSku.value) ?? null);
-function openPim(row: CatalogRowProjection) {
-  pimSku.value = row.sku;
-  menuOpen.value = null;
-}
-function closePim() {
-  pimSku.value = null;
-}
-async function savePim(patch: Record<string, unknown>) {
-  if (!pimSku.value) return;
-  const ok = await saveSocial(pimSku.value, patch);
-  if (ok) closePim();
-}
-
 // painel de produto (edição completa) — abre pelo menu ⋯ da linha. A matriz não
-// carrega os campos longos: buscamos o detalhe sob demanda ao abrir.
+// carrega os campos longos: buscamos o detalhe sob demanda ao abrir. Os dados
+// sociais (PIM) são uma ABA daqui: o produto é um só, e antes eram dois painéis
+// que salvavam pedaços diferentes do mesmo registro.
 const detailSku = ref<string | null>(null);
 const detail = ref<ProductDetailProjection | null>(null);
 const detailLoading = ref(false);
-async function openDetail(row: CatalogRowProjection) {
+const detailTab = ref("geral");
+async function openDetail(row: CatalogRowProjection, tab = "geral") {
   menuOpen.value = null;
+  detailTab.value = tab;
   detailSku.value = row.sku;
   detail.value = null;
   detailLoading.value = true;
@@ -298,9 +286,8 @@ async function saveDetail(patch: ProductDetailPatch) {
   if (ok) closeDetail();
 }
 
-// assist de IA — os painéis são presentacionais, então a página injeta a chamada
-// e o predicado de ocupado. O SKU vem do painel que estiver aberto: o de produto
-// e o PIM nunca abrem juntos (ambos saem do menu ⋯ da linha).
+// assist de IA — o painel é presentacional, então a página injeta a chamada e o
+// predicado de ocupado.
 function assistFor(sku: Ref<string | null>) {
   return {
     assist: (field: AssistableField, currentValue: string) =>
@@ -309,7 +296,6 @@ function assistFor(sku: Ref<string | null>) {
   };
 }
 const detailAssist = assistFor(detailSku);
-const pimAssist = assistFor(pimSku);
 
 useHead({ title: "Catálogo · Gestor" });
 </script>
@@ -550,7 +536,7 @@ useHead({ title: "Catálogo · Gestor" });
                     <button
                       type="button"
                       class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm transition hover:bg-accent"
-                      @click="openPim(row)"
+                      @click="openDetail(row, 'social')"
                     >
                       <Icon name="lucide:sparkles" class="size-4 text-muted-foreground" />
                       Dados para redes sociais
@@ -762,7 +748,8 @@ useHead({ title: "Catálogo · Gestor" });
       </div>
     </Transition>
 
-    <!-- painel de produto (edição completa) — slide-over à direita -->
+    <!-- painel de produto (edição completa, incluindo dados sociais e fiscais) —
+         slide-over à direita -->
     <CatalogProductPanel
       :open="detailSku !== null"
       :sku="detailSku"
@@ -771,19 +758,9 @@ useHead({ title: "Catálogo · Gestor" });
       :busy="detailSku !== null && isBusy(detailKey(detailSku))"
       :assist="detailAssist.assist"
       :assist-busy="detailAssist.assistBusy"
+      :initial-tab="detailTab"
       @update:open="(v) => { if (!v) closeDetail(); }"
       @save="saveDetail"
-    />
-
-    <!-- painel PIM (dados sociais do produto) — slide-over à direita -->
-    <CatalogPimPanel
-      :open="pimSku !== null"
-      :row="pimRow"
-      :busy="pimSku !== null && isBusy(socialKey(pimSku))"
-      :assist="pimAssist.assist"
-      :assist-busy="pimAssist.assistBusy"
-      @update:open="(v) => { if (!v) closePim(); }"
-      @save="savePim"
     />
 
     <!-- lightbox: foto ampliada (clique em qualquer lugar fecha) -->
