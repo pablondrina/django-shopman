@@ -53,10 +53,21 @@ class CatalogProjectHandler:
         # published + sellable) or retract it (paused, unpublished, or dropped
         # from the listing). Reading state at handle time makes the directive
         # idempotent to the final state, so rapid pause→resume converges.
-        from shopman.shop.services import catalog_sync
+        from shopman.shop.services import catalog_sync, social_publish_rules
 
         item = _get_projected_item(sku, listing_ref)
         retracting = not (item is not None and item.is_published and item.is_sellable)
+
+        # Publish rules gate an UPSERT (not a retract): don't push an item the
+        # platform would reject (imageless) or that has no stock yet (→ pending,
+        # re-projected when availability_changed fires).
+        if not retracting:
+            gate = social_publish_rules.projection_gate(item, listing_ref)
+            if gate is not None:
+                status, reason = gate
+                catalog_sync.record_sync(sku, listing_ref, status=status, error=reason)
+                return
+
         try:
             if not retracting:
                 result = self.backend.project([item], channel=listing_ref)
@@ -110,7 +121,16 @@ def _projection_listing_refs() -> list[str]:
 
 
 def on_product_created(sender, instance, sku: str, **kwargs) -> None:
+    from shopman.shop.services import catalog_sync, social_publish_rules
+
     for listing_ref in _projection_listing_refs():
+        if not social_publish_rules.should_auto_publish_new(listing_ref):
+            # Publish rule opted out of auto-entry — record it, wait for a manual
+            # publish/resync. (Manual resync bypasses this guard.)
+            catalog_sync.record_sync(
+                sku, listing_ref, status="skipped", error="regra: não publicar ao criar",
+            )
+            continue
         _enqueue_project(sku, listing_ref, trigger="product_created", extra={})
 
 
