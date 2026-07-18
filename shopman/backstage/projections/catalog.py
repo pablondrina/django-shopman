@@ -59,6 +59,12 @@ class SurfaceCellProjection:
     available: bool  # produto-level AND listing-level
     price_q: int | None
     price_display: str
+    # Estado de sync por (produto × plataforma) — CatalogSyncState (Arc C). Só faz
+    # sentido em superfície que é alvo de projeção (canal com backend na registry);
+    # vazio quando nunca houve push ou a superfície não projeta (expositor/feed pull).
+    sync_status: str = ""  # synced | pending | error | retracted | skipped | "" (nunca)
+    sync_error: str = ""  # última mensagem de erro (quando status=error)
+    synced_at: str = ""  # ISO do último push OK (synced/retracted)
 
 
 @dataclass(frozen=True)
@@ -84,6 +90,11 @@ class CatalogRowProjection:
     replenish_qty: int  # vindo por produção (planejado + em produção) — "fornada"
     keywords: tuple[str, ...]
     cells: tuple[SurfaceCellProjection, ...]  # alinhado à ordem de ``surfaces``
+    # PIM social (Arc A) — atributos de catálogo social em Product.metadata['social'],
+    # lidos por get_social_attributes. Alimentam o painel PIM e sinalizam prontidão de
+    # feed (Google/Meta/TikTok exigem brand + categoria). Ver ``_social_view``.
+    social: dict
+    pim_complete: bool  # tem o essencial p/ publicar em feed (brand + categoria Google)
 
 
 @dataclass(frozen=True)
@@ -154,6 +165,38 @@ def _stock_for(skus: list[str]) -> tuple[dict[str, dict | None], int, dict[str, 
     availability = catalog_context.availability_for_skus(skus, channel_ref=rep.ref)
     planned = catalog_context.planned_supply_for_skus(skus)
     return availability, threshold, planned
+
+
+def _social_view(product) -> tuple[dict, bool]:
+    """Atributos PIM sociais da linha + prontidão de feed.
+
+    ``pim_complete`` = tem o mínimo p/ um feed comercial (Google/Meta/TikTok): marca
+    e categoria Google. GTIN/condição são refinamentos, não bloqueiam o sinal verde.
+    """
+    from shopman.offerman.contrib.social.schema import get_social_attributes
+
+    attrs = get_social_attributes(product)
+    view = {
+        "brand": attrs.brand,
+        "gtin": attrs.gtin,
+        "mpn": attrs.mpn,
+        "condition": attrs.condition,
+        "google_product_category": attrs.google_product_category,
+        "tiktok_category_id": attrs.tiktok_category_id,
+        "hashtags": list(attrs.hashtags),
+        "social_caption": attrs.social_caption,
+        "has_data": attrs.has_data,
+    }
+    complete = bool(attrs.brand and attrs.google_product_category)
+    return view, complete
+
+
+def _cell_sync(sync_map: dict, sku: str, surface_ref: str) -> tuple[str, str, str]:
+    """(status, error, synced_at) do CatalogSyncState p/ (sku, surface_ref) — ou vazios."""
+    rec = sync_map.get(sku, {}).get(surface_ref)
+    if not rec:
+        return "", "", ""
+    return rec.get("status") or "", rec.get("error") or "", rec.get("last_synced_at") or ""
 
 
 def _surface_sync_status(listing, is_projection_target: bool) -> str:
@@ -279,7 +322,13 @@ def build_catalog_matrix(collection_ref: str = "") -> CatalogMatrixProjection:
         products = products.filter(pk__in=coll.product_queryset().values("pk")) if coll else products.none()
 
     products = list(products)
-    stock_by_sku, low_stock_threshold, planned_by_sku = _stock_for([p.sku for p in products])
+    skus = [p.sku for p in products]
+    stock_by_sku, low_stock_threshold, planned_by_sku = _stock_for(skus)
+
+    # Estado de sync por (produto × plataforma) — uma consulta p/ toda a matriz (Arc C).
+    from shopman.shop.services.catalog_sync import sync_status_map
+
+    sync_map = sync_status_map(skus)
 
     rows: list[CatalogRowProjection] = []
     for product in products:
@@ -294,6 +343,7 @@ def build_catalog_matrix(collection_ref: str = "") -> CatalogMatrixProjection:
         for surface in surfaces:
             # Expositor (display/feed): célula = pertence ao expositor (via coleções) e
             # pausa local; sem preço/publicação. A pausa global do produto gateia por cima.
+            sync_status, sync_error, synced_at = _cell_sync(sync_map, product.sku, surface.ref)
             if surface.ref in showcase_index:
                 sc = showcase_index[surface.ref]
                 in_showcase = product.sku in sc["members"]
@@ -312,6 +362,9 @@ def build_catalog_matrix(collection_ref: str = "") -> CatalogMatrixProjection:
                         ),
                         price_q=None,
                         price_display="",
+                        sync_status=sync_status,
+                        sync_error=sync_error,
+                        synced_at=synced_at,
                     )
                 )
                 continue
@@ -327,6 +380,9 @@ def build_catalog_matrix(collection_ref: str = "") -> CatalogMatrixProjection:
                         available=False,
                         price_q=None,
                         price_display="",
+                        sync_status=sync_status,
+                        sync_error=sync_error,
+                        synced_at=synced_at,
                     )
                 )
                 continue
@@ -342,12 +398,16 @@ def build_catalog_matrix(collection_ref: str = "") -> CatalogMatrixProjection:
                     available=available,
                     price_q=item.price_q,
                     price_display=_money(item.price_q),
+                    sync_status=sync_status,
+                    sync_error=sync_error,
+                    synced_at=synced_at,
                 )
             )
 
         stock = _stock_view(
             stock_by_sku.get(product.sku), low_stock_threshold, planned_by_sku.get(product.sku, 0)
         )
+        social_view, pim_complete = _social_view(product)
         rows.append(
             CatalogRowProjection(
                 sku=product.sku,
@@ -367,6 +427,8 @@ def build_catalog_matrix(collection_ref: str = "") -> CatalogMatrixProjection:
                 replenish_qty=stock["replenish_qty"],
                 keywords=tuple(product.keywords.names()),
                 cells=tuple(cells),
+                social=social_view,
+                pim_complete=pim_complete,
             )
         )
 

@@ -635,3 +635,136 @@ def test_resync_enqueues_directive(client, operator, catalog):
     assert resp.status_code == 200
     assert resp.json()["platforms"] == ["ifood"]
     assert Directive.objects.filter(topic=CATALOG_PROJECT_SKU, payload__sku="PAO").exists()
+
+
+# ── Arc H: sync por célula + PIM na linha + escrita PIM ───────────────────────
+
+SOCIAL_URL = "/api/v1/backstage/catalog/social/"
+
+
+def test_matrix_cell_carries_sync_status(client, operator, catalog):
+    """O estado de sync por (produto × plataforma) entra na célula da matriz."""
+    from shopman.shop.services import catalog_sync
+
+    catalog_sync.record_sync("PAO", "ifood", status="synced", external_id="EXT-1")
+    client.force_login(operator)
+    matrix = client.get(MATRIX_URL).json()["matrix"]
+    rows = {r["sku"]: r for r in matrix["rows"]}
+    cells = {c["surface_ref"]: c for c in rows["PAO"]["cells"]}
+    assert cells["ifood"]["sync_status"] == "synced"
+    assert cells["ifood"]["synced_at"]  # ISO carimbado
+    # sem registro → vazio (nunca sincronizado / superfície que não projeta)
+    assert cells["web"]["sync_status"] == ""
+
+
+def test_matrix_row_carries_social_pim(client, operator, catalog):
+    """Atributos PIM sociais (brand/categoria) chegam na linha + flag de prontidão."""
+    from shopman.offerman.contrib.social.schema import (
+        ProductSocialAttributes,
+        set_social_attributes,
+    )
+
+    pao = catalog["pao"]
+    pao.metadata = set_social_attributes(
+        pao.metadata,
+        ProductSocialAttributes(brand="Nelson", google_product_category="Food"),
+    )
+    pao.save(update_fields=["metadata"])
+
+    client.force_login(operator)
+    matrix = client.get(MATRIX_URL).json()["matrix"]
+    rows = {r["sku"]: r for r in matrix["rows"]}
+    assert rows["PAO"]["social"]["brand"] == "Nelson"
+    assert rows["PAO"]["pim_complete"] is True
+    # BOLO sem PIM → incompleto
+    assert rows["BOLO"]["pim_complete"] is False
+
+
+def test_social_write_requires_manage_catalog(client, plain_staff, catalog):
+    client.force_login(plain_staff)
+    resp = client.post(SOCIAL_URL, data={"sku": "PAO"}, content_type="application/json")
+    assert resp.status_code == 403
+
+
+def test_social_write_persists_and_validates(client, operator, catalog):
+    client.force_login(operator)
+    # grava marca + categoria
+    resp = client.post(
+        SOCIAL_URL,
+        data={"sku": "PAO", "brand": "Nelson", "google_product_category": "Food"},
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    assert resp.json()["social"]["brand"] == "Nelson"
+
+    catalog["pao"].refresh_from_db()
+    assert catalog["pao"].metadata["social"]["brand"] == "Nelson"
+
+    # merge parcial: enviar só hashtags mantém a marca
+    resp = client.post(
+        SOCIAL_URL,
+        data={"sku": "PAO", "hashtags": ["pão", "artesanal"]},
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    assert resp.json()["social"]["brand"] == "Nelson"
+    assert resp.json()["social"]["hashtags"] == ["pão", "artesanal"]
+
+    # GTIN inválido → 400 com mensagem
+    resp = client.post(
+        SOCIAL_URL,
+        data={"sku": "PAO", "gtin": "123"},
+        content_type="application/json",
+    )
+    assert resp.status_code == 400
+    assert "GTIN" in resp.json()["detail"]
+
+
+def test_social_read_roundtrips(client, operator, catalog):
+    client.force_login(operator)
+    client.post(
+        SOCIAL_URL,
+        data={"sku": "BOLO", "brand": "Nelson", "condition": "new"},
+        content_type="application/json",
+    )
+    resp = client.get(SOCIAL_URL, {"sku": "BOLO"})
+    assert resp.status_code == 200
+    assert resp.json()["social"]["brand"] == "Nelson"
+
+
+def test_matrix_contract_keys_are_pinned(client, operator, catalog):
+    """Contrato de superfície: as chaves da matriz batem com o mirror TS (types/catalog.ts).
+
+    Guardrail — adicionar/remover um campo da projection é mudança consciente: quebra
+    aqui e força atualizar o tipo TS em lockstep. (Arc H acrescentou sync por célula +
+    PIM na linha.)
+    """
+    client.force_login(operator)
+    matrix = client.get(MATRIX_URL).json()["matrix"]
+
+    assert set(matrix) == {"surfaces", "rows", "collections"}
+
+    surface = matrix["surfaces"][0]
+    assert set(surface) == {
+        "ref", "name", "is_projection_target", "sync_status", "kind",
+        "transactional", "icon", "is_active", "output_path",
+    }
+
+    row = matrix["rows"][0]
+    assert set(row) == {
+        "sku", "name", "image_url", "primary_collection", "primary_collection_name",
+        "is_published", "is_sellable", "base_price_q", "base_price_display", "edit_url",
+        "stock_tracked", "stock_qty", "sold_out", "low_stock", "replenish_qty",
+        "keywords", "cells", "social", "pim_complete",
+    }
+
+    cell = row["cells"][0]
+    assert set(cell) == {
+        "surface_ref", "in_listing", "is_published", "is_sellable", "available",
+        "price_q", "price_display", "sync_status", "sync_error", "synced_at",
+    }
+
+    assert set(row["social"]) == {
+        "brand", "gtin", "mpn", "condition", "google_product_category",
+        "tiktok_category_id", "hashtags", "social_caption", "has_data",
+    }

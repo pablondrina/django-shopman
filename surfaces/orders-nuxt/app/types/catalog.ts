@@ -5,6 +5,23 @@
 export type SurfaceSyncStatus = "ok" | "error" | "never" | "na";
 export type SurfaceKind = "channel" | "display" | "feed";
 
+// Estado de sync por CÉLULA (produto × plataforma) — CatalogSyncState (Arc C).
+// "" = nunca sincronizado / superfície que não projeta (expositor/feed pull).
+export type CellSyncStatus = "synced" | "pending" | "error" | "retracted" | "skipped" | "";
+
+// Atributos PIM sociais da linha (Arc A) — Product.metadata['social'].
+export interface ProductSocial {
+  brand: string;
+  gtin: string;
+  mpn: string;
+  condition: string;
+  google_product_category: string;
+  tiktok_category_id: string;
+  hashtags: string[];
+  social_caption: string;
+  has_data: boolean;
+}
+
 // Uma coluna da matriz é uma SUPERFÍCIE: um Canal de venda (transacional) OU um
 // Expositor que só EXIBE (📺 menuboard / 🛰 feed Google/Meta). Expositor não vende:
 // a célula só pausa/reativa o item, sem preço nem publicação. A pausa global do
@@ -29,6 +46,9 @@ export interface SurfaceCellProjection {
   available: boolean;
   price_q: number | null;
   price_display: string;
+  sync_status: CellSyncStatus; // estado do último push p/ esta plataforma
+  sync_error: string; // mensagem do erro (quando sync_status="error")
+  synced_at: string; // ISO do último push OK (vazio = nunca)
 }
 
 export interface CatalogRowProjection {
@@ -49,6 +69,8 @@ export interface CatalogRowProjection {
   replenish_qty: number;
   keywords: string[];
   cells: SurfaceCellProjection[];
+  social: ProductSocial; // atributos PIM sociais (Arc A)
+  pim_complete: boolean; // tem o essencial p/ feed (brand + categoria Google)
 }
 
 export interface CollectionProjection {

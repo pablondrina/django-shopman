@@ -14,6 +14,7 @@ from .catalog import (
     CatalogReorderCollectionsView,
     CatalogReorderItemsView,
     CatalogResyncView,
+    CatalogSocialView,
     CatalogSyncStatusView,
 )
 from .hub import HubView
@@ -140,6 +141,7 @@ urlpatterns = [
     path("catalog/reorder-items/", CatalogReorderItemsView.as_view(), name="api-backstage-catalog-reorder-items"),
     path("catalog/sync-status/", CatalogSyncStatusView.as_view(), name="api-backstage-catalog-sync-status"),
     path("catalog/resync/", CatalogResyncView.as_view(), name="api-backstage-catalog-resync"),
+    path("catalog/social/", CatalogSocialView.as_view(), name="api-backstage-catalog-social"),
     # Expositores (display: menuboard/feeds)
     path("showcases/", ShowcaseBoardView.as_view(), name="api-backstage-showcases"),
     path("showcases/active/", ShowcaseActiveView.as_view(), name="api-backstage-showcases-active"),

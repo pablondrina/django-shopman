@@ -3,13 +3,16 @@
 //   - poll every 60s as a light fallback (catalog changes less often than orders);
 //   - cell + bulk mutations POST through the django proxy (CSRF handled there),
 //     then reconcile via refresh (the backend owns the availability rules).
-import type { CatalogMatrixProjection, CatalogMatrixResponse } from "~/types/catalog";
+import type { CatalogMatrixProjection, CatalogMatrixResponse, ProductSocial } from "~/types/catalog";
 
 export interface CellPatch {
   is_published?: boolean;
   is_sellable?: boolean;
   price_q?: number;
 }
+
+// Escrita PIM: um subconjunto dos campos sociais (merge parcial no backend).
+export type SocialPatch = Partial<Omit<ProductSocial, "has_data">>;
 
 export function useCatalogMatrix(collectionRef?: Ref<string>) {
   const path = "/api/v1/backstage/catalog/";
@@ -148,6 +151,62 @@ export function useCatalogMatrix(collectionRef?: Ref<string>) {
     }
   }
 
+  // ── sync por plataforma (Arc H) ────────────────────────────────────────────
+  // Re-enfileira a projeção de um SKU numa plataforma (ou em todas, sem platform).
+  // Otimista no selo? Não — o push é async (Directive); marca a célula como ocupada
+  // e refaz o fetch canônico, que já traz o estado atualizado quando o worker roda.
+  async function resync(sku: string, platform?: string): Promise<boolean> {
+    const key = platform ? cellKey(sku, platform) : productKey(sku);
+    if (busy.value.has(key)) return false;
+    clearError();
+    busy.value = new Set(busy.value).add(key);
+    try {
+      await $fetch("/api/v1/backstage/catalog/resync/", {
+        method: "POST",
+        body: platform ? { sku, platform } : { sku },
+      });
+      useSonner.success(platform ? "Reenvio agendado." : "Reenvio agendado em todas as plataformas.");
+      await refresh();
+      return true;
+    } catch (error) {
+      errorMsg.value = httpErrorMessage(error, "Falha ao reenviar. Tente de novo.");
+      useSonner.error(errorMsg.value);
+      return false;
+    } finally {
+      const next = new Set(busy.value);
+      next.delete(key);
+      busy.value = next;
+    }
+  }
+
+  // ── PIM social (Arc H) ─────────────────────────────────────────────────────
+  // Salva atributos sociais (merge parcial); o backend valida (GTIN/categoria) e
+  // re-projeta via o gatilho de Product.save. Retorna false com toast na validação.
+  const socialKey = (sku: string) => `social@${sku}`;
+  async function saveSocial(sku: string, patch: SocialPatch): Promise<boolean> {
+    const key = socialKey(sku);
+    if (busy.value.has(key)) return false;
+    clearError();
+    busy.value = new Set(busy.value).add(key);
+    try {
+      await $fetch("/api/v1/backstage/catalog/social/", {
+        method: "POST",
+        body: { sku, ...patch },
+      });
+      useSonner.success("Dados do produto salvos.");
+      await refresh();
+      return true;
+    } catch (error) {
+      errorMsg.value = httpErrorMessage(error, "Falha ao salvar. Confira os campos.");
+      useSonner.error(errorMsg.value);
+      return false;
+    } finally {
+      const next = new Set(busy.value);
+      next.delete(key);
+      busy.value = next;
+    }
+  }
+
   // ── reordenação (curadoria) ────────────────────────────────────────────────
   async function reorderCollections(orderedRefs: string[]): Promise<boolean> {
     clearError();
@@ -183,7 +242,7 @@ export function useCatalogMatrix(collectionRef?: Ref<string>) {
   }
 
   return {
-    matrix, pending, error, refresh, isBusy, cellKey, productKey, errorMsg, clearError,
-    setCell, setProduct, bulkSet, bulkPrice, reorderCollections, reorderItems, bulkBusy,
+    matrix, pending, error, refresh, isBusy, cellKey, productKey, socialKey, errorMsg, clearError,
+    setCell, setProduct, bulkSet, bulkPrice, resync, saveSocial, reorderCollections, reorderItems, bulkBusy,
   };
 }

@@ -4,13 +4,14 @@
 // inline reprice per cell; the collection axis (chips) scopes the view; selection +
 // a floating bulk bar act on the active recorte. Desktop-first, horizontal scroll on
 // narrow screens. The backend owns availability rules; this renders intent + reconciles.
-import { cellPrice, cellView, filterRows, rowStatus, surfaceDisplayIcon, surfaceKindLabel, syncBadge } from "~/presentation/catalog";
+import { cellPrice, cellSyncView, cellView, filterBySync, filterRows, rowStatus, surfaceDisplayIcon, surfaceKindLabel, syncBadge, syncErrorCount, SYNC_FILTERS } from "~/presentation/catalog";
+import type { SyncFilter } from "~/presentation/catalog";
 import type { CatalogRowProjection, CollectionProjection, SurfaceCellProjection } from "~/types/catalog";
 
 const collectionRef = ref("");
 const {
-  matrix, pending, error, refresh, isBusy, cellKey, productKey, setCell, setProduct, bulkSet, bulkPrice,
-  reorderCollections, reorderItems, bulkBusy,
+  matrix, pending, error, refresh, isBusy, cellKey, productKey, socialKey, setCell, setProduct, bulkSet, bulkPrice,
+  resync, saveSocial, reorderCollections, reorderItems, bulkBusy,
 } = useCatalogMatrix(collectionRef);
 
 const surfaces = computed(() => matrix.value?.surfaces ?? []);
@@ -23,9 +24,16 @@ const firstShowcaseRef = computed(() => surfaces.value.find((s) => !s.transactio
 const channelsCount = computed(() => surfaces.value.filter((s) => s.transactional).length);
 const showcasesCount = computed(() => surfaces.value.filter((s) => !s.transactional).length);
 const query = ref("");
-const rows = computed<CatalogRowProjection[]>(() => filterRows(matrix.value?.rows ?? [], query.value));
+// recorte por estado de sync (saúde de publicação por plataforma) — Arc H. Aplicado
+// depois da busca textual; opera sobre as superfícies-alvo de projeção.
+const syncFilter = ref<SyncFilter>("all");
+const rows = computed<CatalogRowProjection[]>(() =>
+  filterBySync(filterRows(matrix.value?.rows ?? [], query.value), surfaces.value, syncFilter.value),
+);
 // status por linha (esmaecer/foto P&B/selo) computado uma vez por refresh.
 const rowStatuses = computed(() => Object.fromEntries(rows.value.map((r) => [r.sku, rowStatus(r)])));
+// há alguma superfície que projeta? (iFood/Meta/…) — gateia a UI de sync/PIM.
+const hasProjectionTargets = computed(() => surfaces.value.some((s) => s.is_projection_target));
 const activeCollection = computed(() => collections.value.find((c) => c.ref === collectionRef.value) ?? null);
 const loading = computed(() => pending.value && !matrix.value);
 
@@ -195,6 +203,34 @@ function priceTitle(row: CatalogRowProjection, cell: SurfaceCellProjection): str
     : cell.price_display;
 }
 
+// ── sync por célula + PIM (Arc H) ──────────────────────────────────────────────
+// Selo de sync por (produto × plataforma): resolve a superfície p/ saber se projeta.
+const cellSync = (cell: SurfaceCellProjection) => cellSyncView(surfaceByRef.value.get(cell.surface_ref), cell);
+const rowSyncErrors = (row: CatalogRowProjection) => syncErrorCount(row, surfaces.value);
+function resyncCell(row: CatalogRowProjection, cell: SurfaceCellProjection) {
+  resync(row.sku, cell.surface_ref);
+}
+function resyncRow(row: CatalogRowProjection) {
+  resync(row.sku);
+  menuOpen.value = null;
+}
+
+// painel PIM (dados sociais do produto) — abre pelo menu ⋯ da linha, salva via API.
+const pimSku = ref<string | null>(null);
+const pimRow = computed(() => rows.value.find((r) => r.sku === pimSku.value) ?? null);
+function openPim(row: CatalogRowProjection) {
+  pimSku.value = row.sku;
+  menuOpen.value = null;
+}
+function closePim() {
+  pimSku.value = null;
+}
+async function savePim(patch: Record<string, unknown>) {
+  if (!pimSku.value) return;
+  const ok = await saveSocial(pimSku.value, patch);
+  if (ok) closePim();
+}
+
 useHead({ title: "Catálogo · Gestor" });
 </script>
 
@@ -223,6 +259,18 @@ useHead({ title: "Catálogo · Gestor" });
           {{ c.name }}
         </UiFilterChip>
       </TransitionGroup>
+
+      <!-- recorte por estado de sync (só quando há plataforma que projeta: iFood/Meta/…) -->
+      <div v-if="hasProjectionTargets" class="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-0.5">
+        <button
+          v-for="f in SYNC_FILTERS"
+          :key="f.key"
+          type="button"
+          class="rounded-md px-2 py-1 text-xs font-medium transition"
+          :class="syncFilter === f.key ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'"
+          @click="syncFilter = f.key"
+        >{{ f.label }}</button>
+      </div>
 
       <template #end>
         <p class="hidden text-xs text-muted-foreground sm:block">
@@ -343,6 +391,17 @@ useHead({ title: "Catálogo · Gestor" });
                       <span v-if="row.sold_out && row.replenish_qty" class="shrink-0 text-xs font-normal text-muted-foreground">repõe {{ row.replenish_qty }} na fornada</span>
                       <!-- estoque baixo (produto ainda ativo): aviso discreto -->
                       <span v-else-if="!rowStatuses[row.sku]?.off && row.low_stock" class="shrink-0 rounded-full bg-warning/15 px-1.5 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">resta {{ row.stock_qty }}</span>
+                      <!-- sync com erro em N plataforma(s): salta à vista + atalho p/ reenviar tudo -->
+                      <button
+                        v-if="rowSyncErrors(row)"
+                        type="button"
+                        class="inline-flex shrink-0 items-center gap-1 rounded-full bg-destructive/10 px-1.5 py-0.5 text-xs font-medium text-destructive transition hover:bg-destructive/20 disabled:opacity-50"
+                        :disabled="isBusy(productKey(row.sku))"
+                        :title="`Erro de sync em ${rowSyncErrors(row)} plataforma(s) — reenviar tudo`"
+                        @click.stop="resyncRow(row)"
+                      >
+                        <Icon name="lucide:triangle-alert" class="size-3" /> {{ rowSyncErrors(row) }}
+                      </button>
                     </span>
                     <span class="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <span class="font-mono">{{ row.sku }}</span>
@@ -389,6 +448,30 @@ useHead({ title: "Catálogo · Gestor" });
                       <Icon :name="row.is_published ? 'lucide:eye-off' : 'lucide:eye'" class="size-4 text-muted-foreground" />
                       {{ row.is_published ? "Despublicar do catálogo" : "Publicar no catálogo" }}
                     </button>
+                    <!-- PIM + sync (só quando há plataforma que projeta) -->
+                    <template v-if="hasProjectionTargets">
+                    <div class="my-1 h-px bg-border"></div>
+                    <button
+                      type="button"
+                      class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm transition hover:bg-accent"
+                      @click="openPim(row)"
+                    >
+                      <Icon name="lucide:sparkles" class="size-4 text-muted-foreground" />
+                      Dados para redes sociais
+                      <span
+                        v-if="!row.pim_complete"
+                        class="ml-auto rounded-full bg-warning/15 px-1.5 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400"
+                      >incompleto</span>
+                    </button>
+                    <button
+                      type="button" :disabled="isBusy(productKey(row.sku))"
+                      class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm transition hover:bg-accent disabled:opacity-50"
+                      @click="resyncRow(row)"
+                    >
+                      <Icon name="lucide:refresh-cw" class="size-4 text-muted-foreground" />
+                      Reenviar às plataformas
+                    </button>
+                    </template>
                   </UiPopoverContent>
                 </UiPopover>
               </div>
@@ -402,8 +485,31 @@ useHead({ title: "Catálogo · Gestor" });
             >
               <div
                 v-if="cell.in_listing"
-                class="flex h-10 items-center justify-center gap-2 px-1"
+                class="relative flex h-10 items-center justify-center gap-2 px-1"
               >
+                <!-- selo de SYNC (produto × plataforma): canto superior direito, só em
+                     superfície que projeta. Acionável (erro/sincronizando/nunca) = botão
+                     "reenviar agora"; senão só informa. Ortogonal à pausa/preço abaixo. -->
+                <template v-if="cellSync(cell).show">
+                  <button
+                    v-if="cellSync(cell).actionable"
+                    type="button"
+                    class="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full text-[10px] leading-none transition hover:scale-125 disabled:opacity-40"
+                    :class="cellSync(cell).toneClass"
+                    :disabled="isBusy(cellKey(row.sku, cell.surface_ref))"
+                    :title="`${cellSync(cell).label}${cell.sync_error ? ' · ' + cell.sync_error : ''} — reenviar agora`"
+                    :aria-label="`${cellSync(cell).label} em ${surfaceName(cell.surface_ref)} — reenviar agora`"
+                    @click="resyncCell(row, cell)"
+                  >{{ cellSync(cell).dot }}</button>
+                  <span
+                    v-else
+                    class="absolute -right-0.5 -top-0.5 text-[10px] leading-none"
+                    :class="cellSync(cell).toneClass"
+                    :title="cellSync(cell).label"
+                    :aria-label="`${cellSync(cell).label} em ${surfaceName(cell.surface_ref)}`"
+                  >{{ cellSync(cell).dot }}</span>
+                </template>
+
                 <!-- ÁREA 1 — toggle: verde=ligado&disponível · cinza=pausado (posição off) OU
                      linha "fora" (esgotado/etc.: mantém a POSIÇÃO ligada, mas dessatura p/ cinza).
                      Vale para canal (vende) E expositor (só exibe) — a mesma pausa por item. -->
@@ -554,6 +660,15 @@ useHead({ title: "Catálogo · Gestor" });
         <button class="grid size-9 place-items-center rounded-md text-background/70 transition hover:bg-background/10 hover:text-background" title="Limpar seleção" @click="clearSelection"><Icon name="lucide:x" class="size-4" /></button>
       </div>
     </Transition>
+
+    <!-- painel PIM (dados sociais do produto) — slide-over à direita -->
+    <CatalogPimPanel
+      :open="pimSku !== null"
+      :row="pimRow"
+      :busy="pimSku !== null && isBusy(socialKey(pimSku))"
+      @update:open="(v) => { if (!v) closePim(); }"
+      @save="savePim"
+    />
 
     <!-- lightbox: foto ampliada (clique em qualquer lugar fecha) -->
     <Transition

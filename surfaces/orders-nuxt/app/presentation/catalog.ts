@@ -4,6 +4,7 @@
 // something: green = available, amber = paused, muted = absent/unpublished).
 import type {
   CatalogRowProjection,
+  CellSyncStatus,
   SurfaceCellProjection,
   SurfaceProjection,
   SurfaceSyncStatus,
@@ -158,4 +159,121 @@ const SYNC: Record<SurfaceSyncStatus, { label: string; toneClass: string } | nul
 
 export function syncBadge(status: SurfaceSyncStatus): { label: string; toneClass: string } | null {
   return SYNC[status];
+}
+
+// ── sync por célula (produto × plataforma) — Arc H ─────────────────────────────
+// O selo de sync mora na célula: reflete o ÚLTIMO push àquela plataforma, ortogonal
+// à disponibilidade (uma célula pode estar "disponível" mas com push em erro). Só
+// tem sentido em superfície que projeta (canal com adapter); expositor/feed pull não.
+
+export interface CellSyncView {
+  status: CellSyncStatus;
+  show: boolean; // renderiza o selo? (esconde em superfície que não projeta)
+  label: string; // rótulo curto p/ tooltip/leitor de tela
+  dot: string; // glifo do selo (●/○/…)
+  toneClass: string; // cor do selo
+  actionable: boolean; // oferece "sincronizar agora"? (error/pending/nunca em alvo)
+}
+
+const CELL_SYNC: Record<
+  Exclude<CellSyncStatus, "">,
+  { label: string; dot: string; toneClass: string }
+> = {
+  synced: { label: "Sincronizado", dot: "●", toneClass: "text-emerald-600 dark:text-emerald-400" },
+  pending: { label: "Sincronizando", dot: "◐", toneClass: "text-amber-600 dark:text-amber-400" },
+  error: { label: "Erro de sync", dot: "▲", toneClass: "text-destructive" },
+  retracted: { label: "Retirado", dot: "○", toneClass: "text-muted-foreground" },
+  skipped: { label: "Ignorado", dot: "○", toneClass: "text-muted-foreground/70" },
+};
+
+export function cellSyncView(
+  surface: SurfaceProjection | undefined,
+  cell: SurfaceCellProjection,
+): CellSyncView {
+  // Superfície que não projeta (expositor/feed) → sem selo de sync.
+  const projects = !!surface?.is_projection_target;
+  if (!projects) {
+    return { status: cell.sync_status, show: false, label: "", dot: "", toneClass: "", actionable: false };
+  }
+  const status = cell.sync_status;
+  if (status === "") {
+    // alvo de projeção que nunca sincronizou → estado "nunca", acionável.
+    return {
+      status,
+      show: cell.in_listing,
+      label: "Nunca sincronizado",
+      dot: "○",
+      toneClass: "text-muted-foreground/60",
+      actionable: cell.in_listing,
+    };
+  }
+  const meta = CELL_SYNC[status];
+  return {
+    status,
+    show: true,
+    label: meta.label,
+    dot: meta.dot,
+    toneClass: meta.toneClass,
+    actionable: status === "error" || status === "pending",
+  };
+}
+
+// ── filtro por estado de sync (recorte da matriz por saúde de publicação) ──────
+export type SyncFilter = "all" | "synced" | "pending" | "error" | "unpublished";
+
+export const SYNC_FILTERS: { key: SyncFilter; label: string }[] = [
+  { key: "all", label: "Todos" },
+  { key: "synced", label: "Sincronizados" },
+  { key: "pending", label: "Sincronizando" },
+  { key: "error", label: "Com erro" },
+  { key: "unpublished", label: "Fora do ar" },
+];
+
+// Uma linha casa o recorte quando ALGUMA célula (só de superfície que projeta) bate
+// o estado. "unpublished" = fora do ar em qualquer lugar (despublicado/pausado/sem
+// estoque) — reusa a mesma verdade do selo de linha, sem depender de sync.
+export function filterBySync(
+  rows: CatalogRowProjection[],
+  surfaces: SurfaceProjection[],
+  filter: SyncFilter,
+): CatalogRowProjection[] {
+  if (filter === "all") return rows;
+  if (filter === "unpublished") return rows.filter((r) => rowStatus(r).off);
+  const targets = new Set(surfaces.filter((s) => s.is_projection_target).map((s) => s.ref));
+  return rows.filter((r) =>
+    r.cells.some((c) => targets.has(c.surface_ref) && c.in_listing && c.sync_status === filter),
+  );
+}
+
+// Conta as células em erro de uma linha (badge de atenção na coluna do produto).
+export function syncErrorCount(row: CatalogRowProjection, surfaces: SurfaceProjection[]): number {
+  const targets = new Set(surfaces.filter((s) => s.is_projection_target).map((s) => s.ref));
+  return row.cells.filter((c) => targets.has(c.surface_ref) && c.sync_status === "error").length;
+}
+
+// ── PIM social (resumo da linha) — Arc H ───────────────────────────────────────
+// O painel PIM edita os campos; este resumo é o que a linha mostra de relance: os
+// campos essenciais preenchidos e o que falta p/ um feed comercial (Google/Meta).
+
+export interface PimSummary {
+  complete: boolean;
+  brand: string;
+  category: string;
+  filled: number; // campos essenciais preenchidos (0..3: brand, categoria, gtin)
+  missing: string[]; // rótulos do que falta p/ prontidão de feed
+}
+
+export function pimSummary(row: CatalogRowProjection): PimSummary {
+  const s = row.social;
+  const missing: string[] = [];
+  if (!s.brand) missing.push("marca");
+  if (!s.google_product_category) missing.push("categoria");
+  const filled = [s.brand, s.google_product_category, s.gtin].filter(Boolean).length;
+  return {
+    complete: row.pim_complete,
+    brand: s.brand,
+    category: s.google_product_category,
+    filled,
+    missing,
+  };
 }
