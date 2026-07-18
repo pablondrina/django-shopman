@@ -207,6 +207,8 @@ INSTALLED_APPS = [
     "shopman.refs.contrib.admin_unfold",
     "shopman.offerman.contrib.admin_unfold",
     "shopman.fiscalman.contrib.offerman",
+    # Social PIM tab — must run AFTER fiscalman so both tabs stack on ProductAdmin.
+    "shopman.offerman.contrib.social",
     "shopman.stockman.contrib.admin_unfold",
     "shopman.craftsman.contrib.admin_unfold",
     "shopman.payman.contrib.admin_unfold",
