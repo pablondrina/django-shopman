@@ -46,6 +46,7 @@ class SurfaceProjection:
     icon: str = ""  # dica de ícone p/ expositores (tv/rss)
     is_active: bool = True  # expositor ligado/desligado (canal sempre ativo aqui)
     output_path: str = ""  # saída pública do expositor (abrir/prever); vazio p/ canal
+    sync_key: str = ""  # chave no CatalogSyncState.platform (ref p/ canais, kind p/ showcases)
 
 
 @dataclass(frozen=True)
@@ -242,6 +243,7 @@ def _build_surfaces() -> tuple[list[SurfaceProjection], dict[str, dict]]:
                 sync_status=_surface_sync_status(listings.get(ch.ref), is_target),
                 kind="channel",
                 transactional=True,
+                sync_key=ch.ref,
             )
         )
     return surfaces, cells_index
@@ -261,6 +263,7 @@ def _build_showcase_surfaces() -> tuple[list[SurfaceProjection], dict[str, dict]
     ``members`` = SKUs presentes no expositor (união dos produtos das suas coleções).
     ``paused`` = pausa LOCAL do item no expositor (a global é do produto, gate por cima).
     """
+    from shopman.offerman.conf import get_projection_backend
     from shopman.offerman.models import Collection
 
     from shopman.shop.models import Showcase
@@ -283,12 +286,15 @@ def _build_showcase_surfaces() -> tuple[list[SurfaceProjection], dict[str, dict]
         for r in sc.collection_refs():
             members |= members_by_coll.get(r, set())
         index[sc.ref] = {"members": members, "paused": sc.paused_skus()}
+        # Showcase projection backends are keyed by kind (e.g. "meta", "google").
+        is_target = get_projection_backend(sc.kind) is not None
         surfaces.append(
             SurfaceProjection(
                 ref=sc.ref,
                 name=sc.name or sc.ref,
-                is_projection_target=False,
-                sync_status="na",
+                is_projection_target=is_target,
+                sync_status=_surface_sync_status(None, is_target),
+                sync_key=sc.kind,
                 kind=meta["capability"],
                 transactional=False,
                 icon=meta["icon"],
@@ -343,7 +349,7 @@ def build_catalog_matrix(collection_ref: str = "") -> CatalogMatrixProjection:
         for surface in surfaces:
             # Expositor (display/feed): célula = pertence ao expositor (via coleções) e
             # pausa local; sem preço/publicação. A pausa global do produto gateia por cima.
-            sync_status, sync_error, synced_at = _cell_sync(sync_map, product.sku, surface.ref)
+            sync_status, sync_error, synced_at = _cell_sync(sync_map, product.sku, surface.sync_key or surface.ref)
             if surface.ref in showcase_index:
                 sc = showcase_index[surface.ref]
                 in_showcase = product.sku in sc["members"]

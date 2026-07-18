@@ -312,12 +312,17 @@ def _register_catalog_projection_handler() -> None:
 
     from shopman.shop.handlers.catalog_projection import CatalogProjectHandler
 
-    for listing_ref in get_projection_backend_channels():
-        backend = get_projection_backend(listing_ref)
-        if backend is None:
-            continue
-        registry.register_directive_handler(CatalogProjectHandler(backend=backend))
-        logger.info("shopman.handlers: registered CatalogProjectHandler for %s", listing_ref)
+    channels = get_projection_backend_channels()
+    if not channels:
+        return
+    # Single handler dispatches to all backends (topic is unique per registry);
+    # the handler reads listing_ref from the directive payload and resolves the
+    # backend at handle-time via get_projection_backend().
+    registry.register_directive_handler(CatalogProjectHandler(backend=None))
+    logger.info(
+        "shopman.handlers: registered CatalogProjectHandler for %s",
+        ", ".join(channels),
+    )
 
 
 def _register_ifood_status_callbacks() -> None:

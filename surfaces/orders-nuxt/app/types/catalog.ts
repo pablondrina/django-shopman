@@ -36,6 +36,7 @@ export interface SurfaceProjection {
   icon: string; // dica de ícone p/ expositores (tv/rss); vazio p/ canal
   is_active: boolean; // expositor ligado/desligado (canal sempre ativo aqui)
   output_path: string; // saída pública do expositor (abrir/prever); vazio p/ canal
+  sync_key: string; // chave no CatalogSyncState.platform (ref p/ canais, kind p/ showcases)
 }
 
 export interface SurfaceCellProjection {

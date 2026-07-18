@@ -36,15 +36,29 @@ logger = logging.getLogger(__name__)
 class CatalogProjectHandler:
     topic = CATALOG_PROJECT_SKU
 
-    def __init__(self, backend) -> None:
-        self.backend = backend
+    def __init__(self, backend=None) -> None:
+        # backend kept for backward compat; at runtime we resolve per listing_ref.
+        self._fallback_backend = backend
+
+    def _resolve_backend(self, listing_ref: str):
+        from shopman.offerman.conf import get_projection_backend
+
+        backend = get_projection_backend(listing_ref)
+        if backend is None and self._fallback_backend is not None:
+            return self._fallback_backend
+        return backend
 
     def handle(self, *, message: Directive, ctx: dict) -> None:
         payload = message.payload
         sku = payload["sku"]
         listing_ref = payload.get("listing_ref", "ifood")
 
-        if not _ifood_channel_active(listing_ref):
+        backend = self._resolve_backend(listing_ref)
+        if backend is None:
+            logger.warning("catalog_projection: no backend for listing_ref=%s, skipping", listing_ref)
+            return
+
+        if not _channel_or_showcase_active(listing_ref):
             return
 
         from shopman.shop.adapters.catalog_projection_ifood import IFoodRateLimitError
@@ -70,9 +84,9 @@ class CatalogProjectHandler:
 
         try:
             if not retracting:
-                result = self.backend.project([item], channel=listing_ref)
+                result = backend.project([item], channel=listing_ref)
             else:
-                result = self.backend.retract([sku], channel=listing_ref)
+                result = backend.retract([sku], channel=listing_ref)
         except IFoodRateLimitError as exc:
             # Rate limit: defer with Retry-After from API response.
             catalog_sync.record_sync(sku, listing_ref, status="pending", error="rate limited")
@@ -98,9 +112,15 @@ class CatalogProjectHandler:
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
-def _ifood_channel_active(listing_ref: str) -> bool:
-    from shopman.shop.models import Channel
-    return Channel.objects.filter(ref=listing_ref, is_active=True).exists()
+def _channel_or_showcase_active(listing_ref: str) -> bool:
+    from shopman.shop.models import Channel, Showcase
+
+    if Channel.objects.filter(ref=listing_ref, is_active=True).exists():
+        return True
+    # Showcase projection backends are keyed by kind (e.g. "meta"), not ref.
+    if Showcase.objects.filter(kind=listing_ref, is_active=True).exists():
+        return True
+    return False
 
 
 def _get_projected_item(sku: str, listing_ref: str) -> ProjectedItem | None:

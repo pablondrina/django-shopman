@@ -747,7 +747,7 @@ def test_matrix_contract_keys_are_pinned(client, operator, catalog):
     surface = matrix["surfaces"][0]
     assert set(surface) == {
         "ref", "name", "is_projection_target", "sync_status", "kind",
-        "transactional", "icon", "is_active", "output_path",
+        "transactional", "icon", "is_active", "output_path", "sync_key",
     }
 
     row = matrix["rows"][0]
