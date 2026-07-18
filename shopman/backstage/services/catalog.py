@@ -296,6 +296,132 @@ def bulk_price_collection(
     return bulk_price(skus, surface_ref, op=op, value=value, actor=actor)
 
 
+# ── detalhe do produto (edição completa no Gestor) ─────────────────────────────
+# O painel de produto da matriz edita os campos escalares de Product sem passar
+# pelo Admin. Escreve com ``save()`` (nunca ``update()``) para preservar o gatilho
+# de re-projeção (``Product._PROJECTABLE_FIELDS``) e valida com ``full_clean()``.
+# Fora do escopo desta fase: nutrition_facts (form ANVISA dedicado), componentes de
+# bundle, pertencimento a coleções e listings — seguem no Admin.
+
+# Campos escalares editáveis, agrupados por tipo para o merge parcial.
+_DETAIL_TEXT_FIELDS = (
+    "name",
+    "short_description",
+    "long_description",
+    "unit",
+    "storage_tip",
+    "ingredients_text",
+    "image_url",
+    "availability_policy",
+)
+_DETAIL_INT_FIELDS = ("base_price_q",)
+_DETAIL_NULLABLE_INT_FIELDS = ("unit_weight_g", "shelf_life_days", "production_cycle_hours")
+_DETAIL_BOOL_FIELDS = ("is_published", "is_sellable", "is_batch_produced")
+
+
+def _get_product(sku: str):
+    from shopman.offerman.models import Product
+
+    product = Product.objects.filter(sku=sku).first()
+    if product is None:
+        raise CatalogError(f"Produto '{sku}' não encontrado.")
+    return product
+
+
+def _detail_payload(product) -> dict:
+    """Projection do detalhe: campos editáveis + contexto somente-leitura."""
+    primary = next((ci for ci in product.collection_items.all() if ci.is_primary), None)
+    return {
+        "sku": product.sku,
+        "name": product.name,
+        "short_description": product.short_description,
+        "long_description": product.long_description,
+        "keywords": sorted(product.keywords.names()),
+        "base_price_q": product.base_price_q,
+        "unit": product.unit,
+        "unit_weight_g": product.unit_weight_g,
+        "availability_policy": product.availability_policy,
+        "shelf_life_days": product.shelf_life_days,
+        "storage_tip": product.storage_tip,
+        "production_cycle_hours": product.production_cycle_hours,
+        "is_batch_produced": product.is_batch_produced,
+        "is_published": product.is_published,
+        "is_sellable": product.is_sellable,
+        "ingredients_text": product.ingredients_text,
+        "image_url": product.image_url,
+        "primary_collection": primary.collection.ref if primary else "",
+        "primary_collection_name": primary.collection.name if primary else "",
+    }
+
+
+def get_product_detail(sku: str) -> dict:
+    """Todos os campos editáveis de um produto (para o painel do Gestor)."""
+    return _detail_payload(_get_product(sku))
+
+
+def _as_nullable_int(value, label: str) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise CatalogError(f"{label} deve ser um número inteiro.") from exc
+
+
+def update_product_detail(sku: str, data: dict, *, actor: str = "") -> dict:
+    """Merge parcial dos campos escalares do produto (chave ausente = sem mudança).
+
+    Valida com ``full_clean()`` (inclui as invariantes ANVISA de nutrition_facts) e
+    persiste com ``save()``, que emite ``product_updated`` quando um campo projetável
+    muda — o auto-trigger re-projeta nas plataformas alvo.
+    """
+    from django.core.exceptions import ValidationError
+
+    product = _get_product(sku)
+
+    for field in _DETAIL_TEXT_FIELDS:
+        if field in data:
+            setattr(product, field, str(data.get(field) or "").strip())
+    for field in _DETAIL_INT_FIELDS:
+        if field in data:
+            value = _as_nullable_int(data.get(field), field)
+            if value is None:
+                raise CatalogError(f"{field} é obrigatório.")
+            setattr(product, field, value)
+    for field in _DETAIL_NULLABLE_INT_FIELDS:
+        if field in data:
+            setattr(product, field, _as_nullable_int(data.get(field), field))
+    for field in _DETAIL_BOOL_FIELDS:
+        if field in data:
+            setattr(product, field, bool(data.get(field)))
+
+    try:
+        product.full_clean()
+    except ValidationError as exc:
+        raise CatalogError(_first_validation_message(exc)) from exc
+
+    product.save()
+
+    if "keywords" in data:
+        raw = data.get("keywords") or []
+        if not isinstance(raw, list):
+            raise CatalogError("keywords deve ser uma lista.")
+        product.keywords.set([str(k).strip() for k in raw if str(k).strip()])
+
+    product.refresh_from_db()
+    return _detail_payload(product)
+
+
+def _first_validation_message(exc) -> str:
+    """Primeira mensagem legível de um ValidationError de campo (para o toast)."""
+    messages = getattr(exc, "message_dict", None)
+    if messages:
+        for field, msgs in messages.items():
+            if msgs:
+                return f"{field}: {msgs[0]}"
+    return "; ".join(exc.messages) if exc.messages else "Dados inválidos."
+
+
 # ── reordenação (curadoria da vitrine) ─────────────────────────────────────────
 # A ordem do cardápio vive em Collection.sort_order (seções) e CollectionItem.sort_order
 # (produtos dentro da coleção). Storefront, menuboard e feeds usam essa ordem.

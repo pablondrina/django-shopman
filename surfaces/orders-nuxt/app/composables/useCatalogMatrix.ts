@@ -3,7 +3,14 @@
 //   - poll every 60s as a light fallback (catalog changes less often than orders);
 //   - cell + bulk mutations POST through the django proxy (CSRF handled there),
 //     then reconcile via refresh (the backend owns the availability rules).
-import type { CatalogMatrixProjection, CatalogMatrixResponse, ProductSocial } from "~/types/catalog";
+import type {
+  CatalogMatrixProjection,
+  CatalogMatrixResponse,
+  ProductDetailPatch,
+  ProductDetailProjection,
+  ProductDetailResponse,
+  ProductSocial,
+} from "~/types/catalog";
 
 export interface CellPatch {
   is_published?: boolean;
@@ -207,6 +214,48 @@ export function useCatalogMatrix(collectionRef?: Ref<string>) {
     }
   }
 
+  // ── detalhe do produto (painel de edição) ──────────────────────────────────
+  // Busca sob demanda (só quando o painel abre — a matriz não carrega os campos
+  // longos) e grava por merge parcial. O PATCH re-projeta no backend; refazemos o
+  // fetch canônico da matriz para refletir nome/preço/publicação na linha.
+  const detailKey = (sku: string) => `detail@${sku}`;
+
+  async function fetchProductDetail(sku: string): Promise<ProductDetailProjection | null> {
+    clearError();
+    try {
+      const res = await $fetch<ProductDetailResponse>(`/api/v1/backstage/catalog/product/${encodeURIComponent(sku)}/`);
+      return res?.product ?? null;
+    } catch (error) {
+      errorMsg.value = httpErrorMessage(error, "Falha ao carregar o produto.");
+      useSonner.error(errorMsg.value);
+      return null;
+    }
+  }
+
+  async function saveProductDetail(sku: string, patch: ProductDetailPatch): Promise<boolean> {
+    const key = detailKey(sku);
+    if (busy.value.has(key)) return false;
+    clearError();
+    busy.value = new Set(busy.value).add(key);
+    try {
+      await $fetch(`/api/v1/backstage/catalog/product/${encodeURIComponent(sku)}/`, {
+        method: "PATCH",
+        body: patch,
+      });
+      useSonner.success("Produto salvo.");
+      await refresh();
+      return true;
+    } catch (error) {
+      errorMsg.value = httpErrorMessage(error, "Falha ao salvar. Confira os campos.");
+      useSonner.error(errorMsg.value);
+      return false;
+    } finally {
+      const next = new Set(busy.value);
+      next.delete(key);
+      busy.value = next;
+    }
+  }
+
   // ── reordenação (curadoria) ────────────────────────────────────────────────
   async function reorderCollections(orderedRefs: string[]): Promise<boolean> {
     clearError();
@@ -242,7 +291,8 @@ export function useCatalogMatrix(collectionRef?: Ref<string>) {
   }
 
   return {
-    matrix, pending, error, refresh, isBusy, cellKey, productKey, socialKey, errorMsg, clearError,
-    setCell, setProduct, bulkSet, bulkPrice, resync, saveSocial, reorderCollections, reorderItems, bulkBusy,
+    matrix, pending, error, refresh, isBusy, cellKey, productKey, socialKey, detailKey, errorMsg, clearError,
+    setCell, setProduct, bulkSet, bulkPrice, resync, saveSocial, fetchProductDetail, saveProductDetail,
+    reorderCollections, reorderItems, bulkBusy,
   };
 }

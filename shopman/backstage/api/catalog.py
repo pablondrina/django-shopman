@@ -114,6 +114,30 @@ class CatalogProductView(_CatalogBase):
         )
 
 
+class CatalogProductDetailView(_CatalogBase):
+    """Lê/edita os campos escalares de UM produto (painel de produto do Gestor).
+
+    GET devolve todos os campos editáveis + contexto somente-leitura (SKU, coleção
+    primária). PATCH faz merge parcial: chave ausente no corpo mantém o valor atual.
+    A escrita passa por ``full_clean`` + ``save`` no facade (preserva a re-projeção).
+    """
+
+    def get(self, request, sku: str):
+        try:
+            return Response({"product": catalog_service.get_product_detail(sku)})
+        except CatalogError as exc:
+            return Response({"detail": str(exc)}, status=404)
+
+    def patch(self, request, sku: str):
+        try:
+            product = catalog_service.update_product_detail(
+                sku, request.data, actor=_actor(request)
+            )
+        except CatalogError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        return Response({"ok": True, "product": product})
+
+
 class CatalogBulkView(_CatalogBase):
     """Bulk pausa/publica scoped a superfície + (coleção | seleção de skus)."""
 

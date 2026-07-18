@@ -6,12 +6,18 @@
 // narrow screens. The backend owns availability rules; this renders intent + reconciles.
 import { cellPrice, cellSyncView, cellView, filterBySync, filterRows, rowStatus, surfaceDisplayIcon, surfaceKindLabel, syncBadge, syncErrorCount, SYNC_FILTERS } from "~/presentation/catalog";
 import type { SyncFilter } from "~/presentation/catalog";
-import type { CatalogRowProjection, CollectionProjection, SurfaceCellProjection } from "~/types/catalog";
+import type {
+  CatalogRowProjection,
+  CollectionProjection,
+  ProductDetailPatch,
+  ProductDetailProjection,
+  SurfaceCellProjection,
+} from "~/types/catalog";
 
 const collectionRef = ref("");
 const {
-  matrix, pending, error, refresh, isBusy, cellKey, productKey, socialKey, setCell, setProduct, bulkSet, bulkPrice,
-  resync, saveSocial, reorderCollections, reorderItems, bulkBusy,
+  matrix, pending, error, refresh, isBusy, cellKey, productKey, socialKey, detailKey, setCell, setProduct, bulkSet, bulkPrice,
+  resync, saveSocial, fetchProductDetail, saveProductDetail, reorderCollections, reorderItems, bulkBusy,
 } = useCatalogMatrix(collectionRef);
 
 const surfaces = computed(() => matrix.value?.surfaces ?? []);
@@ -162,9 +168,8 @@ function toggleProductPublish(row: CatalogRowProjection) {
 // (des)publicar). Um menu por vez; keyed por sku.
 const menuOpen = ref<string | null>(null);
 
-// deep-link para a edição do produto no Admin (host do Django, não o do Gestor).
+// host do Django (não o do Gestor) — usado nos deep-links de saída dos expositores.
 const djangoBase = useRuntimeConfig().public.djangoPublicBaseUrl as string;
-const editHref = (row: CatalogRowProjection) => (row.edit_url ? `${djangoBase}${row.edit_url}` : "");
 
 // ── cell pause/resume + inline reprice ─────────────────────────────────────────
 // A pausa por célula vale para canal (vende) e expositor (só exibe). No expositor o
@@ -229,6 +234,32 @@ async function savePim(patch: Record<string, unknown>) {
   if (!pimSku.value) return;
   const ok = await saveSocial(pimSku.value, patch);
   if (ok) closePim();
+}
+
+// painel de produto (edição completa) — abre pelo menu ⋯ da linha. A matriz não
+// carrega os campos longos: buscamos o detalhe sob demanda ao abrir.
+const detailSku = ref<string | null>(null);
+const detail = ref<ProductDetailProjection | null>(null);
+const detailLoading = ref(false);
+async function openDetail(row: CatalogRowProjection) {
+  menuOpen.value = null;
+  detailSku.value = row.sku;
+  detail.value = null;
+  detailLoading.value = true;
+  try {
+    detail.value = await fetchProductDetail(row.sku);
+  } finally {
+    detailLoading.value = false;
+  }
+}
+function closeDetail() {
+  detailSku.value = null;
+  detail.value = null;
+}
+async function saveDetail(patch: ProductDetailPatch) {
+  if (!detailSku.value) return;
+  const ok = await saveProductDetail(detailSku.value, patch);
+  if (ok) closeDetail();
 }
 
 useHead({ title: "Catálogo · Gestor" });
@@ -424,14 +455,13 @@ useHead({ title: "Catálogo · Gestor" });
                     </button>
                   </UiPopoverTrigger>
                   <UiPopoverContent align="end" :side-offset="4" class="w-56 p-1">
-                    <a
-                      v-if="editHref(row)" :href="editHref(row)" target="_blank" rel="noopener"
-                      class="flex items-center gap-2 rounded px-3 py-2 text-sm transition hover:bg-accent"
-                      @click="menuOpen = null"
+                    <button
+                      type="button"
+                      class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm transition hover:bg-accent"
+                      @click="openDetail(row)"
                     >
                       <Icon name="lucide:pencil" class="size-4 text-muted-foreground" /> Editar detalhes
-                      <Icon name="lucide:external-link" class="ml-auto size-3.5 text-muted-foreground/60" />
-                    </a>
+                    </button>
                     <button
                       type="button" :disabled="isBusy(productKey(row.sku))"
                       class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm transition hover:bg-accent disabled:opacity-50"
@@ -660,6 +690,17 @@ useHead({ title: "Catálogo · Gestor" });
         <button class="grid size-9 place-items-center rounded-md text-background/70 transition hover:bg-background/10 hover:text-background" title="Limpar seleção" @click="clearSelection"><Icon name="lucide:x" class="size-4" /></button>
       </div>
     </Transition>
+
+    <!-- painel de produto (edição completa) — slide-over à direita -->
+    <CatalogProductPanel
+      :open="detailSku !== null"
+      :sku="detailSku"
+      :detail="detail"
+      :loading="detailLoading"
+      :busy="detailSku !== null && isBusy(detailKey(detailSku))"
+      @update:open="(v) => { if (!v) closeDetail(); }"
+      @save="saveDetail"
+    />
 
     <!-- painel PIM (dados sociais do produto) — slide-over à direita -->
     <CatalogPimPanel

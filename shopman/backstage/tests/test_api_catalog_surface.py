@@ -768,3 +768,115 @@ def test_matrix_contract_keys_are_pinned(client, operator, catalog):
         "brand", "gtin", "mpn", "condition", "google_product_category",
         "tiktok_category_id", "hashtags", "social_caption", "has_data",
     }
+
+
+# ── detalhe do produto (painel de edição do Gestor) ──────────────────────────
+
+DETAIL_URL = "/api/v1/backstage/catalog/product/{sku}/"
+
+
+def test_product_detail_requires_manage_catalog(client, plain_staff, catalog):
+    client.force_login(plain_staff)
+    assert client.get(DETAIL_URL.format(sku="PAO")).status_code == 403
+
+
+def test_product_detail_get_shape(client, operator, catalog):
+    client.force_login(operator)
+    resp = client.get(DETAIL_URL.format(sku="BOLO"))
+    assert resp.status_code == 200
+    product = resp.json()["product"]
+    assert set(product) == {
+        "sku", "name", "short_description", "long_description", "keywords",
+        "base_price_q", "unit", "unit_weight_g", "availability_policy",
+        "shelf_life_days", "storage_tip", "production_cycle_hours",
+        "is_batch_produced", "is_published", "is_sellable", "ingredients_text",
+        "image_url", "primary_collection", "primary_collection_name",
+    }
+    assert product["sku"] == "BOLO"
+    assert product["base_price_q"] == 4500
+    assert product["primary_collection"] == "doces"
+
+
+def test_product_detail_get_unknown_sku(client, operator, catalog):
+    client.force_login(operator)
+    assert client.get(DETAIL_URL.format(sku="NADA")).status_code == 404
+
+
+def test_product_detail_patch_updates_fields(client, operator, catalog):
+    client.force_login(operator)
+    resp = client.patch(
+        DETAIL_URL.format(sku="PAO"),
+        data={
+            "name": "Pão francês",
+            "short_description": "Crocante por fora",
+            "base_price_q": 700,
+            "unit_weight_g": 150,
+            "shelf_life_days": 1,
+            "ingredients_text": "Farinha de trigo, água, sal.",
+            "keywords": ["padaria", "pão"],
+        },
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    product = resp.json()["product"]
+    assert product["name"] == "Pão francês"
+    assert product["base_price_q"] == 700
+    assert product["unit_weight_g"] == 150
+    assert sorted(product["keywords"]) == ["padaria", "pão"]
+
+    catalog["pao"].refresh_from_db()
+    assert catalog["pao"].name == "Pão francês"
+    assert catalog["pao"].ingredients_text == "Farinha de trigo, água, sal."
+
+
+def test_product_detail_patch_is_partial(client, operator, catalog):
+    """Enviar só `name` não zera os demais campos (merge parcial)."""
+    pao = catalog["pao"]
+    pao.short_description = "Descrição atual"
+    pao.storage_tip = "Guarde em saco de pano"
+    pao.save()
+
+    client.force_login(operator)
+    resp = client.patch(
+        DETAIL_URL.format(sku="PAO"), data={"name": "Só o nome"}, content_type="application/json"
+    )
+    assert resp.status_code == 200
+    product = resp.json()["product"]
+    assert product["name"] == "Só o nome"
+    assert product["short_description"] == "Descrição atual"
+    assert product["storage_tip"] == "Guarde em saco de pano"
+    assert product["base_price_q"] == 500
+    assert product["keywords"] == ["padaria"]  # taggit intocado
+
+
+def test_product_detail_patch_rejects_negative_price(client, operator, catalog):
+    client.force_login(operator)
+    resp = client.patch(
+        DETAIL_URL.format(sku="PAO"), data={"base_price_q": -1}, content_type="application/json"
+    )
+    assert resp.status_code == 400
+    catalog["pao"].refresh_from_db()
+    assert catalog["pao"].base_price_q == 500
+
+
+def test_product_detail_patch_rejects_invalid_policy(client, operator, catalog):
+    client.force_login(operator)
+    resp = client.patch(
+        DETAIL_URL.format(sku="PAO"),
+        data={"availability_policy": "inventada"},
+        content_type="application/json",
+    )
+    assert resp.status_code == 400
+
+
+def test_product_detail_patch_toggles_publication(client, operator, catalog):
+    client.force_login(operator)
+    resp = client.patch(
+        DETAIL_URL.format(sku="PAO"),
+        data={"is_published": False, "is_sellable": False},
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    catalog["pao"].refresh_from_db()
+    assert catalog["pao"].is_published is False
+    assert catalog["pao"].is_sellable is False

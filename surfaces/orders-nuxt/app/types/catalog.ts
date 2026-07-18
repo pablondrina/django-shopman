@@ -90,3 +90,36 @@ export interface CatalogMatrixProjection {
 export interface CatalogMatrixResponse {
   matrix: CatalogMatrixProjection;
 }
+
+// Detalhe de UM produto — campos escalares editáveis pelo painel de produto
+// (GET/PATCH /api/v1/backstage/catalog/product/<sku>/). Espelha
+// `backstage.services.catalog._detail_payload`. Fora daqui (segue no Admin):
+// tabela nutricional, componentes de bundle, coleções e listings.
+export interface ProductDetailProjection {
+  readonly sku: string;
+  name: string;
+  short_description: string;
+  long_description: string;
+  keywords: string[];
+  base_price_q: number;
+  unit: string;
+  unit_weight_g: number | null;
+  availability_policy: string;
+  shelf_life_days: number | null;
+  storage_tip: string;
+  production_cycle_hours: number | null;
+  is_batch_produced: boolean;
+  is_published: boolean;
+  is_sellable: boolean;
+  ingredients_text: string;
+  image_url: string;
+  readonly primary_collection: string;
+  readonly primary_collection_name: string;
+}
+
+// Merge parcial: só as chaves presentes são gravadas.
+export type ProductDetailPatch = Partial<Omit<ProductDetailProjection, "sku" | "primary_collection" | "primary_collection_name">>;
+
+export interface ProductDetailResponse {
+  product: ProductDetailProjection;
+}
