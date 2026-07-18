@@ -540,6 +540,26 @@ SHOPMAN_IFOOD = {
     ).strip(),
 }
 
+# ── Meta (Instagram + Facebook Commerce Catalog) ───────────────────
+# Push do catálogo p/ o Meta Commerce Catalog (IG Shopping + FB Shop; WhatsApp
+# curado na Arc G) via Graph items_batch. Credencial = System User access token de
+# longa duração do Business Manager (o token JÁ é a credencial; sem troca em runtime).
+# Inerte sem access_token/catalog_id — o adapter roda em dry-run/mock. Ligado só
+# quando META_CATALOG_PROJECTION=1 (registro abaixo), off by default.
+SHOPMAN_META = {
+    "catalog_id": os.environ.get("META_CATALOG_ID", "").strip(),
+    "access_token": os.environ.get("META_ACCESS_TOKEN", "").strip(),
+    "api_version": os.environ.get("META_API_VERSION", "v21.0").strip(),
+    "api_base": os.environ.get("META_API_BASE", "https://graph.facebook.com"),
+    "currency": os.environ.get("META_CURRENCY", "BRL").strip(),
+    # Base pública da loja p/ montar o `link` de cada item (Meta exige link no create).
+    "store_url": os.environ.get("META_STORE_URL", "").strip(),
+    # Marca padrão quando o produto não tem `brand` no PIM.
+    "default_brand": os.environ.get("META_DEFAULT_BRAND", "").strip(),
+    "batch_size": int(os.environ.get("META_BATCH_SIZE", "5000")),
+    "timeout": int(os.environ.get("META_TIMEOUT", "30")),
+}
+
 # ── Machine (courier — despacho de entregadores) ───────────────────
 # API da central de entregas (TaOn roda sobre a Machine/Gaudium). O adapter só
 # liga quando SHOPMAN_COURIER_ADAPTER aponta para courier_machine E o canal
@@ -577,6 +597,12 @@ _CATALOG_PROJECTION_BACKENDS: dict[str, str] = {}
 if os.environ.get("IFOOD_CATALOG_PROJECTION", "").strip().lower() in ("1", "true", "yes"):
     _CATALOG_PROJECTION_BACKENDS["ifood"] = (
         "shopman.shop.adapters.catalog_projection_ifood.IFoodCatalogProjection"
+    )
+# Meta (IG/FB) — projeção do catálogo social, off by default. Keyed pelo listing_ref
+# "meta" (Showcase/Listing Meta). Requer SHOPMAN_META (token + catalog_id) p/ ir live.
+if os.environ.get("META_CATALOG_PROJECTION", "").strip().lower() in ("1", "true", "yes"):
+    _CATALOG_PROJECTION_BACKENDS["meta"] = (
+        "shopman.shop.adapters.catalog_projection_meta.MetaCatalogProjection"
     )
 
 # ── SMS (Comtele — OTP por SMS) ─────────────────────────────────────
