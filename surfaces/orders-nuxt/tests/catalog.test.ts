@@ -6,7 +6,6 @@ import {
   cellState,
   cellSyncView,
   cellView,
-  filterBySync,
   filterRows,
   pimSummary,
   rowStatus,
@@ -272,40 +271,6 @@ describe("cellSyncView (selo de sync por célula)", () => {
 
   it("superfície ausente (undefined) = sem selo", () => {
     expect(cellSyncView(undefined, cell()).show).toBe(false);
-  });
-});
-
-describe("filterBySync (recorte por saúde de publicação)", () => {
-  const surfaces = [
-    surface({ ref: "ifood", is_projection_target: true }),
-    surface({ ref: "web", is_projection_target: false, transactional: true }),
-  ];
-  const rows = [
-    row({ sku: "A", cells: [cell({ surface_ref: "ifood", sync_status: "synced" })] }),
-    row({ sku: "B", cells: [cell({ surface_ref: "ifood", sync_status: "error" })] }),
-    row({ sku: "C", cells: [cell({ surface_ref: "ifood", sync_status: "pending" })] }),
-    // fora do ar (despublicado) — casa "unpublished", ignora o sync
-    row({ sku: "D", is_published: false, cells: [cell({ surface_ref: "ifood", sync_status: "" })] }),
-  ];
-
-  it("all devolve tudo", () => {
-    expect(filterBySync(rows, surfaces, "all").map((r) => r.sku)).toEqual(["A", "B", "C", "D"]);
-  });
-  it("error só linhas com célula em erro (superfície-alvo)", () => {
-    expect(filterBySync(rows, surfaces, "error").map((r) => r.sku)).toEqual(["B"]);
-  });
-  it("synced só as sincronizadas", () => {
-    expect(filterBySync(rows, surfaces, "synced").map((r) => r.sku)).toEqual(["A"]);
-  });
-  it("pending só as em andamento", () => {
-    expect(filterBySync(rows, surfaces, "pending").map((r) => r.sku)).toEqual(["C"]);
-  });
-  it("unpublished usa o status da linha, não o sync", () => {
-    expect(filterBySync(rows, surfaces, "unpublished").map((r) => r.sku)).toEqual(["D"]);
-  });
-  it("ignora sync de superfície que não projeta", () => {
-    const rowsWeb = [row({ sku: "X", cells: [cell({ surface_ref: "web", sync_status: "error" })] })];
-    expect(filterBySync(rowsWeb, surfaces, "error")).toEqual([]);
   });
 });
 

@@ -4,8 +4,9 @@
 // inline reprice per cell; the collection axis (chips) scopes the view; selection +
 // a floating bulk bar act on the active recorte. Desktop-first, horizontal scroll on
 // narrow screens. The backend owns availability rules; this renders intent + reconciles.
-import { cellPrice, cellSyncView, cellView, filterBySync, filterRows, rowStatus, surfaceDisplayIcon, surfaceKindLabel, syncBadge, syncErrorCount, SYNC_FILTERS } from "~/presentation/catalog";
-import type { SyncFilter } from "~/presentation/catalog";
+import { cellPrice, cellSyncView, cellView, filterRows, rowStatus, surfaceDisplayIcon, surfaceKindLabel, syncBadge, syncErrorCount } from "~/presentation/catalog";
+import { catalogDimensions, filterByDimensions } from "~/presentation/catalogFilters";
+import type { ActiveFilters } from "../../../operator-kit/app/types/filters";
 import type {
   AssistableField,
   CatalogRowProjection,
@@ -33,11 +34,16 @@ const firstShowcaseRef = computed(() => surfaces.value.find((s) => !s.transactio
 const channelsCount = computed(() => surfaces.value.filter((s) => s.transactional).length);
 const showcasesCount = computed(() => surfaces.value.filter((s) => !s.transactional).length);
 const query = ref("");
-// recorte por estado de sync (saúde de publicação por plataforma) — Arc H. Aplicado
-// depois da busca textual; opera sobre as superfícies-alvo de projeção.
-const syncFilter = ref<SyncFilter>("all");
-const rows = computed<CatalogRowProjection[]>(() =>
-  filterBySync(filterRows(matrix.value?.rows ?? [], query.value), surfaces.value, syncFilter.value),
+// Recorte por dimensões (envio, canal, publicação, venda, estoque, PIM). A coleção
+// fica FORA: é o eixo primário, mora nas pills (que também reordenam) e recorta no
+// servidor. Aqui é tudo client-side — a matriz já veio inteira.
+const filters = ref<ActiveFilters>({});
+const searched = computed<CatalogRowProjection[]>(() => filterRows(matrix.value?.rows ?? [], query.value));
+// As contagens das opções são lidas sobre o resultado da BUSCA (antes dos filtros),
+// senão marcar uma opção zeraria as contagens das outras.
+const dimensions = computed(() => catalogDimensions(surfaces.value, searched.value));
+const rows = computed<CatalogRowProjection[]>(
+  () => filterByDimensions(searched.value, surfaces.value, filters.value),
 );
 // status por linha (esmaecer/foto P&B/selo) computado uma vez por refresh.
 const rowStatuses = computed(() => Object.fromEntries(rows.value.map((r) => [r.sku, rowStatus(r)])));
@@ -76,8 +82,13 @@ const {
 );
 
 // ── reordenar produtos (handle na linha) — só numa coleção MANUAL, sem busca ────
+// Arrastar só faz sentido sobre a coleção INTEIRA: com busca ou filtro ativo a lista
+// é um recorte, e a ordem gravada sairia errada.
 const canReorderRows = computed(
-  () => collectionRef.value !== "" && !activeCollection.value?.is_smart && query.value.trim() === "",
+  () => collectionRef.value !== ""
+    && !activeCollection.value?.is_smart
+    && query.value.trim() === ""
+    && Object.keys(filters.value).length === 0,
 );
 const rowOverride = ref<string[] | null>(null);
 const orderedRows = computed(
@@ -286,6 +297,9 @@ useHead({ title: "Catálogo · Gestor" });
     <!-- work toolbar: search · collection chips · counts/refresh -->
     <UiToolbar>
       <UiSearchInput v-model="query" placeholder="Buscar produto ou SKU…" aria-label="Buscar produto ou SKU" />
+      <!-- recorte por dimensões (envio, canal, publicação, venda, estoque, PIM) —
+           ao lado da busca; a coleção continua nas pills, que também reordenam. -->
+      <FilterBar v-model="filters" :dimensions="dimensions" />
       <!-- coleções: arraste os chips para reordenar as seções da vitrine (Collection.sort_order) -->
       <TransitionGroup v-if="collections.length" name="chip" tag="div" class="flex flex-wrap items-center gap-1.5">
         <UiFilterChip key="__all" :active="collectionRef === ''" @click="collectionRef = ''">Todas</UiFilterChip>
@@ -306,18 +320,6 @@ useHead({ title: "Catálogo · Gestor" });
           {{ c.name }}
         </UiFilterChip>
       </TransitionGroup>
-
-      <!-- recorte por estado de sync (só quando há plataforma que projeta: iFood/Meta/…) -->
-      <div v-if="hasProjectionTargets" class="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-0.5">
-        <button
-          v-for="f in SYNC_FILTERS"
-          :key="f.key"
-          type="button"
-          class="rounded-md px-2 py-1 text-xs font-medium transition"
-          :class="syncFilter === f.key ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'"
-          @click="syncFilter = f.key"
-        >{{ f.label }}</button>
-      </div>
 
       <template #end>
         <p class="hidden text-xs text-muted-foreground sm:block">
@@ -644,7 +646,11 @@ useHead({ title: "Catálogo · Gestor" });
 
       <div v-else-if="!pending" class="grid place-items-center rounded-xl border border-dashed border-border py-16 text-center">
         <Icon name="lucide:package-search" class="mb-2 size-8 text-muted-foreground/40" />
-        <p class="text-sm text-muted-foreground">Nenhum produto {{ activeCollection ? `na coleção ${activeCollection.name}` : "no catálogo" }}.</p>
+        <p v-if="Object.keys(filters).length || query.trim()" class="text-sm text-muted-foreground">
+          Nenhum produto com esses filtros.
+          <button v-if="Object.keys(filters).length" class="underline" @click="filters = {}">Limpar filtros</button>
+        </p>
+        <p v-else class="text-sm text-muted-foreground">Nenhum produto {{ activeCollection ? `na coleção ${activeCollection.name}` : "no catálogo" }}.</p>
       </div>
     </section>
 

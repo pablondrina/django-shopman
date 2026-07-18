@@ -220,33 +220,6 @@ export function cellSyncView(
   };
 }
 
-// ── filtro por estado de sync (recorte da matriz por saúde de publicação) ──────
-export type SyncFilter = "all" | "synced" | "pending" | "error" | "unpublished";
-
-export const SYNC_FILTERS: { key: SyncFilter; label: string }[] = [
-  { key: "all", label: "Todos" },
-  { key: "synced", label: "Sincronizados" },
-  { key: "pending", label: "Sincronizando" },
-  { key: "error", label: "Com erro" },
-  { key: "unpublished", label: "Fora do ar" },
-];
-
-// Uma linha casa o recorte quando ALGUMA célula (só de superfície que projeta) bate
-// o estado. "unpublished" = fora do ar em qualquer lugar (despublicado/pausado/sem
-// estoque) — reusa a mesma verdade do selo de linha, sem depender de sync.
-export function filterBySync(
-  rows: CatalogRowProjection[],
-  surfaces: SurfaceProjection[],
-  filter: SyncFilter,
-): CatalogRowProjection[] {
-  if (filter === "all") return rows;
-  if (filter === "unpublished") return rows.filter((r) => rowStatus(r).off);
-  const targets = new Set(surfaces.filter((s) => s.is_projection_target).map((s) => s.ref));
-  return rows.filter((r) =>
-    r.cells.some((c) => targets.has(c.surface_ref) && c.in_listing && c.sync_status === filter),
-  );
-}
-
 // Conta as células em erro de uma linha (badge de atenção na coluna do produto).
 export function syncErrorCount(row: CatalogRowProjection, surfaces: SurfaceProjection[]): number {
   const targets = new Set(surfaces.filter((s) => s.is_projection_target).map((s) => s.ref));
