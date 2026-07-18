@@ -153,9 +153,9 @@ describe("filterByDimensions", () => {
     expect(skus({ [FILTER_SURFACE]: ["web"] })).toEqual(["D"]);
   });
 
-  it("publicado e à venda são booleanos de verdade (false filtra)", () => {
-    expect(skus({ [FILTER_PUBLISHED]: false })).toEqual(["B"]);
-    expect(skus({ [FILTER_SELLABLE]: false })).toEqual(["D"]);
+  it("publicado e à venda recortam pelo lado escolhido (\"false\" filtra)", () => {
+    expect(skus({ [FILTER_PUBLISHED]: ["false"] })).toEqual(["B"]);
+    expect(skus({ [FILTER_SELLABLE]: ["false"] })).toEqual(["D"]);
   });
 
   it("estoque recorta pelo balde da linha", () => {
@@ -163,15 +163,16 @@ describe("filterByDimensions", () => {
   });
 
   it("dados sociais completos", () => {
-    expect(skus({ [FILTER_PIM]: true })).toEqual(["C"]);
+    expect(skus({ [FILTER_PIM]: ["true"] })).toEqual(["C"]);
   });
 
   it("entre dimensões é E", () => {
-    expect(skus({ [FILTER_STOCK]: ["out"], [FILTER_PUBLISHED]: false })).toEqual([]);
-    expect(skus({ [FILTER_STOCK]: ["out"], [FILTER_PIM]: true })).toEqual(["C"]);
+    expect(skus({ [FILTER_STOCK]: ["out"], [FILTER_PUBLISHED]: ["false"] })).toEqual([]);
+    expect(skus({ [FILTER_STOCK]: ["out"], [FILTER_PIM]: ["true"] })).toEqual(["C"]);
   });
 
   it("lista vazia numa dimensão não recorta nada", () => {
     expect(skus({ [FILTER_SYNC]: [] })).toEqual(["A", "B", "C", "D"]);
+    expect(skus({ [FILTER_PUBLISHED]: [] })).toEqual(["A", "B", "C", "D"]);
   });
 });

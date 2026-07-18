@@ -122,8 +122,9 @@ export function catalogDimensions(
 
 // ── aplicação ──────────────────────────────────────────────────────────────────
 
-function asList(value: unknown): string[] {
-  return Array.isArray(value) ? (value as string[]) : [];
+/** Dimensão boolean guarda ["true"] / ["false"]; ausente ou vazia = sem recorte. */
+function asBool(value: string[] | undefined): boolean | undefined {
+  return value?.length ? value[0] === "true" : undefined;
 }
 
 export function matchesFilters(
@@ -131,18 +132,23 @@ export function matchesFilters(
   targets: Set<string>,
   filters: ActiveFilters,
 ): boolean {
-  const sync = asList(filters[FILTER_SYNC]);
+  const sync = filters[FILTER_SYNC] ?? [];
   if (sync.length && !matchesSync(row, targets, sync)) return false;
 
-  const surfaceRefs = asList(filters[FILTER_SURFACE]);
+  const surfaceRefs = filters[FILTER_SURFACE] ?? [];
   if (surfaceRefs.length && !row.cells.some((c) => c.in_listing && surfaceRefs.includes(c.surface_ref))) return false;
 
-  const stock = asList(filters[FILTER_STOCK]);
+  const stock = filters[FILTER_STOCK] ?? [];
   if (stock.length && !stock.includes(stockBucket(row))) return false;
 
-  if (typeof filters[FILTER_PUBLISHED] === "boolean" && row.is_published !== filters[FILTER_PUBLISHED]) return false;
-  if (typeof filters[FILTER_SELLABLE] === "boolean" && row.is_sellable !== filters[FILTER_SELLABLE]) return false;
-  if (typeof filters[FILTER_PIM] === "boolean" && row.pim_complete !== filters[FILTER_PIM]) return false;
+  const published = asBool(filters[FILTER_PUBLISHED]);
+  if (published !== undefined && row.is_published !== published) return false;
+
+  const sellable = asBool(filters[FILTER_SELLABLE]);
+  if (sellable !== undefined && row.is_sellable !== sellable) return false;
+
+  const pimComplete = asBool(filters[FILTER_PIM]);
+  if (pimComplete !== undefined && row.pim_complete !== pimComplete) return false;
 
   return true;
 }

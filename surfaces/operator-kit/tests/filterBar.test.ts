@@ -54,7 +54,7 @@ describe("isActive", () => {
   });
 
   it("boolean false ESTÁ ativo (filtrar por 'não' é um recorte)", () => {
-    expect(isActive({ is_published: false }, "is_published")).toBe(true);
+    expect(isActive({ is_published: ["false"] }, "is_published")).toBe(true);
   });
 });
 
@@ -76,27 +76,27 @@ describe("toggleOption (multi-select)", () => {
 
 describe("toggleOption (single-select e boolean)", () => {
   it("single-select troca o valor", () => {
-    expect(toggleOption({ kind: "channel" }, single, "feed")).toEqual({ kind: "feed" });
+    expect(toggleOption({ kind: ["channel"] }, single, "feed")).toEqual({ kind: ["feed"] });
   });
 
   it("reclicar o valor escolhido limpa a dimensão", () => {
-    expect(toggleOption({ kind: "feed" }, single, "feed")).toEqual({});
+    expect(toggleOption({ kind: ["feed"] }, single, "feed")).toEqual({});
   });
 
-  it("boolean guarda booleano de verdade, não a string", () => {
-    expect(toggleOption({}, bool, "false")).toEqual({ is_published: false });
-    expect(toggleOption({}, bool, "true")).toEqual({ is_published: true });
+  it("boolean guarda lista de um elemento, como as demais dimensões", () => {
+    expect(toggleOption({}, bool, "false")).toEqual({ is_published: ["false"] });
+    expect(toggleOption({}, bool, "true")).toEqual({ is_published: ["true"] });
   });
 
   it("boolean: reclicar o mesmo lado limpa", () => {
-    expect(toggleOption({ is_published: false }, bool, "false")).toEqual({});
+    expect(toggleOption({ is_published: ["false"] }, bool, "false")).toEqual({});
   });
 });
 
 describe("isSelected", () => {
   it("boolean compara pelo lado, não pela verdade", () => {
-    expect(isSelected({ is_published: false }, bool, "false")).toBe(true);
-    expect(isSelected({ is_published: false }, bool, "true")).toBe(false);
+    expect(isSelected({ is_published: ["false"] }, bool, "false")).toBe(true);
+    expect(isSelected({ is_published: ["false"] }, bool, "true")).toBe(false);
   });
 
   it("multi-select olha a lista", () => {
@@ -111,23 +111,23 @@ describe("chipLabel", () => {
   });
 
   it("boolean lê sim/não", () => {
-    expect(chipLabel(bool, { is_published: false })).toBe("Publicado: Não");
+    expect(chipLabel(bool, { is_published: ["false"] })).toBe("Publicado: Não");
   });
 
   it("single-select traduz o valor", () => {
-    expect(chipLabel(single, { kind: "feed" })).toBe("Tipo: Feed");
+    expect(chipLabel(single, { kind: ["feed"] })).toBe("Tipo: Feed");
   });
 });
 
 describe("activeDimensions", () => {
   it("preserva a ordem declarada pelo app (chips estáveis)", () => {
-    const active = activeDimensions([multi, single, bool], { is_published: true, stock: ["ok"] });
+    const active = activeDimensions([multi, single, bool], { is_published: ["true"], stock: ["ok"] });
     expect(active.map((d) => d.id)).toEqual(["stock", "is_published"]);
   });
 });
 
 describe("clearDimension", () => {
   it("remove só a dimensão pedida", () => {
-    expect(clearDimension({ stock: ["ok"], kind: "feed" }, "stock")).toEqual({ kind: "feed" });
+    expect(clearDimension({ stock: ["ok"], kind: ["feed"] }, "stock")).toEqual({ kind: ["feed"] });
   });
 });

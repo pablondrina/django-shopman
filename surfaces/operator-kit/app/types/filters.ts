@@ -20,6 +20,8 @@ export interface FilterDimension {
   options: FilterOption[];
 }
 
-// Valor por dimensão: string (single-select), string[] (multi-select) ou boolean.
-// Dimensão AUSENTE do registro = sem recorte (não existe "todos" como valor).
-export type ActiveFilters = Record<string, string | string[] | boolean>;
+// Valor por dimensão: SEMPRE lista de strings, qualquer que seja o tipo. Single-select
+// e boolean guardam um único elemento (boolean usa "true"/"false"), multi-select
+// guarda vários. A forma única sobrevive à querystring sem serializar/desserializar.
+// Dimensão AUSENTE (ou com lista vazia) = sem recorte — não existe "todos" como valor.
+export type ActiveFilters = Record<string, string[]>;

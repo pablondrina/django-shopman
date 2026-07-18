@@ -14,31 +14,21 @@ export function optionsFor(dimension: FilterDimension): FilterOption[] {
   return dimension.type === "boolean" ? BOOLEAN_OPTIONS : dimension.options;
 }
 
-// Uma dimensão só conta como ativa quando tem valor útil: multi-select com lista
-// vazia é o mesmo que não filtrar (e não deve virar chip).
+// Uma dimensão só conta como ativa quando tem valor útil: lista vazia é o mesmo que
+// não filtrar (e não deve virar chip).
 export function isActive(filters: ActiveFilters, id: string): boolean {
-  const value = filters[id];
-  if (value === undefined) return false;
-  if (Array.isArray(value)) return value.length > 0;
-  return true;
+  return (filters[id] ?? []).length > 0;
 }
 
 export function isSelected(filters: ActiveFilters, dimension: FilterDimension, value: string): boolean {
-  const current = filters[dimension.id];
-  if (current === undefined) return false;
-  if (dimension.type === "boolean") return String(current) === value;
-  if (Array.isArray(current)) return current.includes(value);
-  return current === value;
+  return (filters[dimension.id] ?? []).includes(value);
 }
 
 /** Rótulo do chip: "Estoque: baixo, esgotado" (multi) · "Publicado: sim" (boolean). */
 export function chipLabel(dimension: FilterDimension, filters: ActiveFilters): string {
-  const current = filters[dimension.id];
   const options = optionsFor(dimension);
   const labelOf = (value: string) => options.find((o) => o.value === value)?.label ?? value;
-  if (dimension.type === "boolean") return `${dimension.label}: ${labelOf(String(current))}`;
-  if (Array.isArray(current)) return `${dimension.label}: ${current.map(labelOf).join(", ")}`;
-  return `${dimension.label}: ${labelOf(String(current))}`;
+  return `${dimension.label}: ${(filters[dimension.id] ?? []).map(labelOf).join(", ")}`;
 }
 
 /** Dimensões com recorte ativo, na ordem em que o app as declarou (chips estáveis). */
@@ -48,8 +38,8 @@ export function activeDimensions(dimensions: FilterDimension[], filters: ActiveF
 
 /**
  * Clique numa opção → próximo estado. Multi-select acumula/remove; single-select e
- * boolean trocam o valor, e reclicar o valor já escolhido LIMPA a dimensão (o mesmo
- * gesto que ligou desliga — não há botão "todos").
+ * boolean trocam o valor (lista de um elemento só), e reclicar o valor já escolhido
+ * LIMPA a dimensão (o mesmo gesto que ligou desliga — não há botão "todos").
  */
 export function toggleOption(
   filters: ActiveFilters,
@@ -58,15 +48,14 @@ export function toggleOption(
 ): ActiveFilters {
   const next = { ...filters };
   if (dimension.type === "multi-select") {
-    const current = Array.isArray(next[dimension.id]) ? (next[dimension.id] as string[]) : [];
+    const current = next[dimension.id] ?? [];
     const picked = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
     if (picked.length) next[dimension.id] = picked;
     else delete next[dimension.id];
     return next;
   }
-  const parsed: string | boolean = dimension.type === "boolean" ? value === "true" : value;
   if (isSelected(filters, dimension, value)) delete next[dimension.id];
-  else next[dimension.id] = parsed;
+  else next[dimension.id] = [value];
   return next;
 }
 
