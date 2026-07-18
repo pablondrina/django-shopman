@@ -30,6 +30,7 @@ from .catalog import (
     get_channel_listing_ref,
 )
 from .checkout import CheckoutProjection, build_checkout
+from .fomo import FomoBadge, badges_for_product
 from .home import (
     AuthCopyProjection,
     CopyEntryProjection,
@@ -96,6 +97,7 @@ __all__ = [
     "CopyEntryProjection",
     "CustomerProfileProjection",
     "DiscountLineProjection",
+    "FomoBadge",
     "HomeHeroCopyProjection",
     "HomeProjection",
     "HomeSectionsCopyProjection",
@@ -124,6 +126,7 @@ __all__ = [
     "ShopStatusProjection",
     "SocialLinkProjection",
     "UpsellSuggestionProjection",
+    "badges_for_product",
     "build_account",
     "build_cart",
     "build_catalog",

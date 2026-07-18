@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from django.urls import path
+from django_eventstream.views import events as eventstream_view
 
 from . import views
 from .account import (
@@ -35,6 +36,7 @@ from .availability import AvailabilityView, StockAlertSubscribeView
 from .catalog import CollectionListView, ProductDetailView, ProductListView
 from .confirmation import OrderConfirmationView
 from .conversation import OrderConversationView
+from .fomo import FomoBadgesView
 from .geocode import ReverseGeocodeView
 from .payment import OrderPaymentMockConfirmView, OrderPaymentStatusView, OrderPaymentView
 from .surface import (
@@ -87,6 +89,17 @@ urlpatterns = [
     # Availability
     path("availability/<str:sku>/", AvailabilityView.as_view(), name="api-availability"),
     path("availability/<str:sku>/notify/", StockAlertSubscribeView.as_view(), name="api-availability-notify"),
+    # FOMO — badges de urgência real (últimas unidades, saiu do forno, D-1…).
+    # Fetch canônico do canal SSE ``fomo-<sku>``: o push só avisa que mudou.
+    path("fomo/<str:sku>/", FomoBadgesView.as_view(), name="api-fomo"),
+    # Stream público por SKU. Canal efêmero (sem histórico): o evento diz "mudou",
+    # o cliente refaz o GET acima. O app Nuxt conecta via BFF (same-origin).
+    path(
+        "fomo/<str:sku>/events/",
+        eventstream_view,
+        {"format-channels": ["fomo-{sku}"]},
+        name="api-fomo-events",
+    ),
     # Catalog
     path("catalog/products/", ProductListView.as_view(), name="api-catalog-products"),
     path("catalog/products/<str:sku>/", ProductDetailView.as_view(), name="api-catalog-product-detail"),

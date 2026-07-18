@@ -104,6 +104,40 @@ def _publish_for_sku(sku: str, *, event_type: str, payload: dict) -> None:
         logger.warning(
             "SSE emit failed sku=%s type=%s", sku, event_type, exc_info=True,
         )
+    # Estoque mexeu ⇒ "Últimas X unidades" pode ter mudado. Independente do
+    # bloco acima: uma falha no stream de estoque não deve calar o FOMO.
+    _publish_fomo(sku, reason=event_type)
+
+
+# ── FOMO badges ──────────────────────────────────────────────────────
+
+
+def emit_fomo_for_sku(sku: str, *, reason: str) -> None:
+    """Publica mudança de urgência (badges FOMO) para um SKU.
+
+    Mesmo contrato do estoque: o evento só diz que mudou, o cliente refaz o
+    fetch canônico (``/api/v1/fomo/<sku>/``). Ver ADR-016.
+    """
+    if not sku:
+        return
+    transaction.on_commit(lambda: _publish_fomo(sku, reason=reason))
+
+
+def _publish_fomo(sku: str, *, reason: str) -> None:
+    try:
+        from django_eventstream import send_event
+    except ImportError:
+        return
+    try:
+        from shopman.storefront.api.fomo import cache_key
+
+        for ref in [*_channels_for_sku(sku), None]:
+            cache.delete(cache_key(sku, ref))
+        payload = {"sku": sku, "reason": reason}
+        send_event(f"fomo-{sku}", "fomo-update", payload)
+        send_event("fomo-catalog", "fomo-update", payload)
+    except Exception:
+        logger.warning("FOMO SSE emit failed sku=%s reason=%s", sku, reason, exc_info=True)
 
 
 def emit_surface_changed(surface_ref: str) -> None:
@@ -291,6 +325,10 @@ def _on_production_changed(sender, product_ref, date, action, work_order, **kwar
         },
         scope=_default_backstage_scope(),
     )
+    if action == "finished":
+        # "Saiu do forno" nasce aqui e vale 60 min. O storefront precisa saber
+        # na hora — é o badge mais perecível do sistema.
+        emit_fomo_for_sku(work_order.output_sku, reason="production_finished")
 
 
 def _on_operator_alert_saved(sender, instance, created, **kwargs):

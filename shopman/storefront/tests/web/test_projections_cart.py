@@ -319,10 +319,10 @@ class TestAwaitingConfirmationIsNotUnavailable:
         from datetime import date, timedelta
         from decimal import Decimal
 
-        from shopman.shop.models import Shop
         from shopman.stockman import stock
         from shopman.stockman.models import Position, PositionKind
 
+        from shopman.shop.models import Shop
         from shopman.storefront.tests.web.conftest import _ensure_listing_item
 
         today = date.today()
