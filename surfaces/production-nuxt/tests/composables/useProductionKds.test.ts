@@ -63,7 +63,17 @@ describe("useProductionKds — per-WO writes", () => {
     await finish(7, "30", true);
     expect(env.fetchMock).toHaveBeenCalledWith(
       "/api/v1/backstage/production/7/finish/",
-      expect.objectContaining({ body: { quantity: "30", force: true } }),
+      expect.objectContaining({ body: { quantity: "30", force: true, quality: "" } }),
+    );
+
+    // Classificação da fornada segue junto no finish; vazio deixa o backend
+    // aplicar o default ("bom"), então o operador nunca fica travado.
+    await finish(8, "12", false, "excelente");
+    expect(env.fetchMock).toHaveBeenCalledWith(
+      "/api/v1/backstage/production/8/finish/",
+      expect.objectContaining({
+        body: { quantity: "12", force: false, quality: "excelente" },
+      }),
     );
 
     await voidOrder(7, "queimou");
