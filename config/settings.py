@@ -842,6 +842,14 @@ OFFERMAN = {
     "PROJECTION_BACKENDS": _CATALOG_PROJECTION_BACKENDS,
 }
 
+# ── Assist de IA no catálogo ─────────────────────────────────────────
+# Sugestão de texto POR CAMPO no painel de produto do Gestor (descrição, legenda
+# social, hashtags). Sem chave configurada o endpoint responde 503 e a superfície
+# mostra um aviso — nunca um erro: o assist é conveniência, não caminho crítico.
+AI_ASSIST_PROVIDER = os.environ.get("AI_ASSIST_PROVIDER", "anthropic")
+AI_ASSIST_API_KEY = os.environ.get("AI_ASSIST_API_KEY", "")
+AI_ASSIST_MODEL = os.environ.get("AI_ASSIST_MODEL", "claude-opus-4-8")
+
 # ── Craftsman (micro-MRP integration) ──────────────────────────────
 
 CRAFTSMAN = {

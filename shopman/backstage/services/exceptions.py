@@ -53,3 +53,15 @@ class ProductionError(BackstageServiceError):
 
 class CatalogError(BackstageServiceError):
     """Raised when a catalog mutation cannot be applied."""
+
+
+class AiAssistNotConfigured(BackstageServiceError):
+    """Assist de IA sem credencial.
+
+    A camada HTTP mapeia por TIPO para 503 (dependência indisponível), nunca 400 —
+    o pedido do operador estava certo; falta configuração no deployment.
+    """
+
+
+class AiAssistError(BackstageServiceError):
+    """Raised when the AI assist call fails (provider error, empty completion)."""

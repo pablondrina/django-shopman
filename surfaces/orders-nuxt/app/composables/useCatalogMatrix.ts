@@ -4,6 +4,8 @@
 //   - cell + bulk mutations POST through the django proxy (CSRF handled there),
 //     then reconcile via refresh (the backend owns the availability rules).
 import type {
+  AiAssistResponse,
+  AssistableField,
   CatalogMatrixProjection,
   CatalogMatrixResponse,
   ProductDetailPatch,
@@ -256,6 +258,44 @@ export function useCatalogMatrix(collectionRef?: Ref<string>) {
     }
   }
 
+  // ── assist de IA (sugestão por campo) ──────────────────────────────────────
+  // Pede uma sugestão para UM campo e devolve o texto — não grava nada: quem
+  // persiste é o salvar do painel, depois de o operador aceitar. Sem chave no
+  // deployment o backend responde 503; aqui isso vira um aviso informativo, não
+  // um erro: o assist é conveniência, e o operador segue escrevendo à mão.
+  const aiAssistKey = (sku: string, field: AssistableField) => `ai-assist-${sku}-${field}`;
+
+  async function aiAssist(
+    sku: string,
+    field: AssistableField,
+    currentValue: string,
+  ): Promise<string> {
+    const key = aiAssistKey(sku, field);
+    if (busy.value.has(key)) return "";
+    clearError();
+    busy.value = new Set(busy.value).add(key);
+    try {
+      const res = await $fetch<AiAssistResponse>("/api/v1/backstage/catalog/ai-assist/", {
+        method: "POST",
+        body: { sku, field, current_value: currentValue, context: {} },
+      });
+      return res?.suggestion ?? "";
+    } catch (error) {
+      const { status } = httpError(error);
+      if (status === 503) {
+        useSonner.info(httpErrorMessage(error, "Sugestão de IA não está configurada nesta loja."));
+      } else {
+        errorMsg.value = httpErrorMessage(error, "Não consegui sugerir agora. Tente de novo.");
+        useSonner.error(errorMsg.value);
+      }
+      return "";
+    } finally {
+      const next = new Set(busy.value);
+      next.delete(key);
+      busy.value = next;
+    }
+  }
+
   // ── reordenação (curadoria) ────────────────────────────────────────────────
   async function reorderCollections(orderedRefs: string[]): Promise<boolean> {
     clearError();
@@ -293,6 +333,6 @@ export function useCatalogMatrix(collectionRef?: Ref<string>) {
   return {
     matrix, pending, error, refresh, isBusy, cellKey, productKey, socialKey, detailKey, errorMsg, clearError,
     setCell, setProduct, bulkSet, bulkPrice, resync, saveSocial, fetchProductDetail, saveProductDetail,
-    reorderCollections, reorderItems, bulkBusy,
+    reorderCollections, reorderItems, bulkBusy, aiAssist, aiAssistKey,
   };
 }

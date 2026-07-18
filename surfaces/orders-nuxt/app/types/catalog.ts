@@ -124,3 +124,27 @@ export type ProductDetailPatch = Partial<Omit<ProductDetailProjection, "sku" | "
 export interface ProductDetailResponse {
   product: ProductDetailProjection;
 }
+
+// Assist de IA — sugestão de conteúdo para UM campo de texto de UM produto
+// (POST /api/v1/backstage/catalog/ai-assist/). É sempre por campo: o operador
+// aceita ou descarta cada sugestão sozinha, e nada é gravado até ele salvar.
+// Espelha `backstage.services.catalog.ASSISTABLE_FIELDS`.
+export type AssistableField =
+  | "short_description"
+  | "long_description"
+  | "ingredients_text"
+  | "social_caption"
+  | "hashtags";
+
+export interface AiAssistRequest {
+  sku: string;
+  field: AssistableField;
+  current_value: string;
+  context?: Record<string, unknown>;
+}
+
+// `hashtags` volta como texto separado por espaço — o painel já normaliza texto
+// livre em lista, então o contrato é uma string para todos os campos.
+export interface AiAssistResponse {
+  suggestion: string;
+}

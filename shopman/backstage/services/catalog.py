@@ -422,6 +422,171 @@ def _first_validation_message(exc) -> str:
     return "; ".join(exc.messages) if exc.messages else "Dados inválidos."
 
 
+# ── assist de IA (sugestão POR CAMPO) ─────────────────────────────────────────
+# O operador pede uma sugestão para UM campo e aceita ou descarta ela sozinha —
+# não existe "gerar tudo". Por isso cada campo tem seu próprio prompt: pedir
+# "descreva o produto" devolve o mesmo texto para a descrição curta, a longa e a
+# legenda social, que são peças diferentes. O contexto do produto (nome, coleção,
+# palavras-chave, campos já preenchidos) vai junto para a sugestão nascer coerente
+# com o que já existe, em vez de genérica.
+
+_AI_ASSIST_VOICE = (
+    "Você escreve para a Nelson Boulangerie, uma padaria artesanal brasileira. "
+    "Escreva em português do Brasil, na primeira pessoa do plural (\"nós\", \"conosco\"), "
+    "nunca \"a gente\". Tom acolhedor e concreto, sem superlativo vazio, sem emoji e "
+    "sem travessão (—). Responda APENAS com o texto do campo, sem aspas, sem rótulo "
+    "e sem comentário."
+)
+
+# Um spec por campo assistível: o que pedir e quanto texto cabe na resposta.
+_AI_ASSIST_FIELDS: dict[str, dict] = {
+    "short_description": {
+        "label": "descrição curta",
+        "instruction": (
+            "Escreva a descrição CURTA do produto: 1 a 2 frases, no máximo 200 caracteres, "
+            "para listagens e vitrine. Destaque o que o cliente percebe (sabor, textura, "
+            "método) em vez de repetir o nome do produto."
+        ),
+        "max_tokens": 300,
+    },
+    "long_description": {
+        "label": "descrição longa",
+        "instruction": (
+            "Escreva a descrição COMPLETA da página do produto: 2 a 4 frases envolventes. "
+            "Conte o método, os ingredientes que importam e quando esse produto cai bem. "
+            "Não invente prêmios, origens, certificações nem prazos que não estejam no contexto."
+        ),
+        "max_tokens": 600,
+    },
+    "ingredients_text": {
+        "label": "lista de ingredientes",
+        "instruction": (
+            "Escreva a lista de ingredientes em ordem decrescente de peso, como manda a "
+            "ANVISA: nomes separados por vírgula, terminando em ponto final, sem quantidades "
+            "e sem cabeçalho. Use apenas ingredientes plausíveis para este produto; se o "
+            "contexto não permitir inferir com segurança, devolva a lista mais enxuta possível."
+        ),
+        "max_tokens": 300,
+    },
+    "social_caption": {
+        "label": "legenda social",
+        "instruction": (
+            "Escreva a legenda para um post de Instagram/TikTok: 1 a 3 frases curtas, "
+            "convidativas, que funcionem embaixo de uma foto do produto. Sem hashtags "
+            "(elas têm campo próprio) e sem chamada para link na bio."
+        ),
+        "max_tokens": 400,
+    },
+    "hashtags": {
+        "label": "hashtags",
+        "instruction": (
+            "Sugira de 5 a 8 hashtags relevantes para este produto em redes sociais, "
+            "separadas por espaço, SEM o caractere '#' e sem vírgulas. Misture termos do "
+            "produto, do método e da categoria. Exemplo de formato: paoartesanal fermentacaonatural padaria"
+        ),
+        "max_tokens": 200,
+    },
+}
+
+ASSISTABLE_FIELDS: tuple[str, ...] = tuple(_AI_ASSIST_FIELDS)
+
+
+def _ai_assist_context(product) -> str:
+    """Contexto do produto para o prompt — só o que já está preenchido."""
+    from shopman.offerman.contrib.social.schema import get_social_attributes
+
+    social = get_social_attributes(product)
+    primary = next((ci for ci in product.collection_items.all() if ci.is_primary), None)
+    lines = [
+        f"Nome do produto: {product.name}",
+        f"SKU: {product.sku}",
+    ]
+    optional = (
+        ("Coleção", primary.collection.name if primary else ""),
+        ("Palavras-chave", ", ".join(sorted(product.keywords.names()))),
+        ("Unidade de venda", product.unit),
+        ("Peso por unidade (g)", product.unit_weight_g),
+        ("Descrição curta atual", product.short_description),
+        ("Descrição longa atual", product.long_description),
+        ("Ingredientes atuais", product.ingredients_text),
+        ("Dica de conservação", product.storage_tip),
+        ("Marca", social.brand),
+        ("Categoria Google", social.google_product_category),
+        ("Legenda social atual", social.social_caption),
+        ("Hashtags atuais", " ".join(social.hashtags)),
+    )
+    lines.extend(f"{label}: {value}" for label, value in optional if value)
+    return "\n".join(lines)
+
+
+def _ai_assist_prompt(product, field: str, current_value: str) -> str:
+    """Prompt do campo: contexto do produto + a tarefa específica daquele campo."""
+    spec = _AI_ASSIST_FIELDS[field]
+    parts = [
+        "Contexto do produto:",
+        _ai_assist_context(product),
+        "",
+        f"Tarefa — campo \"{spec['label']}\":",
+        spec["instruction"],
+    ]
+    if current_value.strip():
+        parts += [
+            "",
+            "O campo já tem este texto. Proponha uma versão melhor, mantendo os fatos:",
+            current_value.strip(),
+        ]
+    return "\n".join(parts)
+
+
+def ai_assist_field(sku: str, field: str, current_value: str = "") -> str:
+    """Sugestão de IA para UM campo de UM produto. Devolve o texto limpo.
+
+    Levanta ``CatalogError`` (campo inválido / produto inexistente),
+    ``AiAssistNotConfigured`` (sem ``AI_ASSIST_API_KEY`` → 503 na camada HTTP) ou
+    ``AiAssistError`` (falha do provedor). ``hashtags`` volta como string separada
+    por espaço — a superfície já normaliza texto livre em lista.
+    """
+    from django.conf import settings
+
+    from shopman.backstage.services.exceptions import AiAssistError, AiAssistNotConfigured
+
+    if field not in _AI_ASSIST_FIELDS:
+        raise CatalogError(
+            f"Campo '{field}' não aceita sugestão de IA. Assistíveis: {', '.join(ASSISTABLE_FIELDS)}."
+        )
+
+    api_key = (getattr(settings, "AI_ASSIST_API_KEY", "") or "").strip()
+    if not api_key:
+        raise AiAssistNotConfigured("AI assist não configurado. Defina AI_ASSIST_API_KEY.")
+
+    provider = getattr(settings, "AI_ASSIST_PROVIDER", "anthropic")
+    if provider != "anthropic":
+        raise AiAssistError(f"Provedor de IA '{provider}' não suportado.")
+
+    product = _get_product(sku)
+    prompt = _ai_assist_prompt(product, field, current_value or "")
+
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=api_key)
+    try:
+        message = client.messages.create(
+            model=getattr(settings, "AI_ASSIST_MODEL", "claude-opus-4-8"),
+            max_tokens=_AI_ASSIST_FIELDS[field]["max_tokens"],
+            system=_AI_ASSIST_VOICE,
+            messages=[{"role": "user", "content": prompt}],
+        )
+    except anthropic.APIError as exc:
+        raise AiAssistError(f"O assistente não respondeu: {exc}") from exc
+
+    suggestion = "\n".join(
+        block.text for block in message.content if getattr(block, "type", "") == "text"
+    ).strip()
+    if not suggestion:
+        raise AiAssistError("O assistente devolveu uma sugestão vazia.")
+    return suggestion
+
+
 # ── reordenação (curadoria da vitrine) ─────────────────────────────────────────
 # A ordem do cardápio vive em Collection.sort_order (seções) e CollectionItem.sort_order
 # (produtos dentro da coleção). Storefront, menuboard e feeds usam essa ordem.

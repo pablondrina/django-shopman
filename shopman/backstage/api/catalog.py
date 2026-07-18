@@ -16,7 +16,11 @@ from rest_framework.views import APIView
 from shopman.backstage.api.permissions import HasBackstagePermission
 from shopman.backstage.api.projections import projection_data
 from shopman.backstage.services import catalog as catalog_service
-from shopman.backstage.services.exceptions import CatalogError
+from shopman.backstage.services.exceptions import (
+    AiAssistError,
+    AiAssistNotConfigured,
+    CatalogError,
+)
 
 
 def _actor(request) -> str:
@@ -136,6 +140,37 @@ class CatalogProductDetailView(_CatalogBase):
         except CatalogError as exc:
             return Response({"detail": str(exc)}, status=400)
         return Response({"ok": True, "product": product})
+
+
+class CatalogAiAssistView(_CatalogBase):
+    """Sugere o conteúdo de UM campo de texto de um produto (assist de IA).
+
+    Por campo, nunca em lote: o operador pede a sugestão de um campo e aceita ou
+    descarta ela sozinha na superfície. Não grava nada — quem persiste é o PATCH
+    do produto (ou o POST social), depois do "Aceitar".
+
+    503 quando o deployment não tem ``AI_ASSIST_API_KEY``: a superfície mostra um
+    aviso, não um erro. O assist é conveniência, não caminho crítico.
+    """
+
+    def post(self, request):
+        sku = (request.data.get("sku") or "").strip()
+        field = (request.data.get("field") or "").strip()
+        if not sku or not field:
+            return Response({"detail": "sku e field são obrigatórios."}, status=400)
+
+        try:
+            suggestion = catalog_service.ai_assist_field(
+                sku, field, current_value=str(request.data.get("current_value") or "")
+            )
+        except AiAssistNotConfigured as exc:
+            return Response({"detail": str(exc)}, status=503)
+        except AiAssistError as exc:
+            return Response({"detail": str(exc)}, status=502)
+        except CatalogError as exc:
+            return Response({"detail": str(exc)}, status=400)
+
+        return Response({"suggestion": suggestion})
 
 
 class CatalogBulkView(_CatalogBase):

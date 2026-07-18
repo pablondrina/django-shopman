@@ -6,7 +6,7 @@
 // config · Ingredientes). Emitimos APENAS os campos alterados — o backend faz merge
 // parcial, então não tocar num campo é diferente de gravá-lo igual.
 // Fora do escopo (segue no Admin): tabela nutricional, bundles, coleções, listings.
-import type { ProductDetailPatch, ProductDetailProjection } from "~/types/catalog";
+import type { AssistableField, ProductDetailPatch, ProductDetailProjection } from "~/types/catalog";
 
 const props = defineProps<{
   open: boolean;
@@ -14,6 +14,10 @@ const props = defineProps<{
   detail: ProductDetailProjection | null;
   loading: boolean;
   busy: boolean;
+  // assist de IA por campo — o pai injeta (useCatalogMatrix); o painel segue
+  // presentacional e testável sem rede.
+  assist: (field: AssistableField, currentValue: string) => Promise<string>;
+  assistBusy: (field: AssistableField) => boolean;
 }>();
 
 const emit = defineEmits<{
@@ -208,24 +212,31 @@ const labelClass = "mb-1 block text-xs font-medium text-muted-foreground";
               <input v-model="draft.name" :class="fieldClass" type="text" placeholder="Ex.: Pão francês" />
             </label>
 
-            <label class="block">
-              <!-- a barra do rótulo abre espaço p/ o botão "sugerir" (assist de IA, Fase 2) -->
-              <span class="mb-1 flex items-center justify-between gap-2">
-                <span class="text-xs font-medium text-muted-foreground">Descrição curta</span>
-              </span>
+            <CatalogAiSuggest
+              field="short_description"
+              label="Descrição curta"
+              :current="draft.short_description"
+              :busy="assistBusy('short_description')"
+              :assist="assist"
+              @accept="(text) => (draft.short_description = text)"
+            >
               <input
                 v-model="draft.short_description" :class="fieldClass" type="text" maxlength="255"
                 placeholder="Uma linha para listagens e vitrine"
               />
               <span class="mt-1 block text-xs text-muted-foreground">{{ draft.short_description.length }}/255</span>
-            </label>
+            </CatalogAiSuggest>
 
-            <label class="block">
-              <span class="mb-1 flex items-center justify-between gap-2">
-                <span class="text-xs font-medium text-muted-foreground">Descrição longa</span>
-              </span>
+            <CatalogAiSuggest
+              field="long_description"
+              label="Descrição longa"
+              :current="draft.long_description"
+              :busy="assistBusy('long_description')"
+              :assist="assist"
+              @accept="(text) => (draft.long_description = text)"
+            >
               <textarea v-model="draft.long_description" rows="5" :class="areaClass" placeholder="Texto completo da página do produto."></textarea>
-            </label>
+            </CatalogAiSuggest>
 
             <label class="block">
               <span :class="labelClass">Palavras-chave</span>
@@ -309,18 +320,20 @@ const labelClass = "mb-1 block text-xs font-medium text-muted-foreground";
 
           <!-- Ingredientes -->
           <div v-show="tab === 'ingredientes'" class="space-y-4">
-            <label class="block">
-              <span class="mb-1 flex items-center justify-between gap-2">
-                <span class="text-xs font-medium text-muted-foreground">Ingredientes</span>
-              </span>
+            <CatalogAiSuggest
+              field="ingredients_text"
+              label="Ingredientes"
+              :current="draft.ingredients_text"
+              :busy="assistBusy('ingredients_text')"
+              :assist="assist"
+              hint="Em ordem decrescente de peso, como manda a ANVISA."
+              @accept="(text) => (draft.ingredients_text = text)"
+            >
               <textarea
                 v-model="draft.ingredients_text" rows="8" :class="areaClass"
                 placeholder="Farinha de trigo, água, fermento natural, sal marinho."
               ></textarea>
-              <span class="mt-1 block text-xs text-muted-foreground">
-                Em ordem decrescente de peso, como manda a ANVISA.
-              </span>
-            </label>
+            </CatalogAiSuggest>
             <p class="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
               A tabela nutricional continua no Admin, que tem o formulário com as validações da ANVISA.
             </p>

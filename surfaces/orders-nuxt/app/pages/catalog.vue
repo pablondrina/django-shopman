@@ -7,6 +7,7 @@
 import { cellPrice, cellSyncView, cellView, filterBySync, filterRows, rowStatus, surfaceDisplayIcon, surfaceKindLabel, syncBadge, syncErrorCount, SYNC_FILTERS } from "~/presentation/catalog";
 import type { SyncFilter } from "~/presentation/catalog";
 import type {
+  AssistableField,
   CatalogRowProjection,
   CollectionProjection,
   ProductDetailPatch,
@@ -18,6 +19,7 @@ const collectionRef = ref("");
 const {
   matrix, pending, error, refresh, isBusy, cellKey, productKey, socialKey, detailKey, setCell, setProduct, bulkSet, bulkPrice,
   resync, saveSocial, fetchProductDetail, saveProductDetail, reorderCollections, reorderItems, bulkBusy,
+  aiAssist, aiAssistKey,
 } = useCatalogMatrix(collectionRef);
 
 const surfaces = computed(() => matrix.value?.surfaces ?? []);
@@ -262,6 +264,19 @@ async function saveDetail(patch: ProductDetailPatch) {
   const ok = await saveProductDetail(detailSku.value, patch);
   if (ok) closeDetail();
 }
+
+// assist de IA — os painéis são presentacionais, então a página injeta a chamada
+// e o predicado de ocupado. O SKU vem do painel que estiver aberto: o de produto
+// e o PIM nunca abrem juntos (ambos saem do menu ⋯ da linha).
+function assistFor(sku: Ref<string | null>) {
+  return {
+    assist: (field: AssistableField, currentValue: string) =>
+      sku.value ? aiAssist(sku.value, field, currentValue) : Promise.resolve(""),
+    assistBusy: (field: AssistableField) => (sku.value ? isBusy(aiAssistKey(sku.value, field)) : false),
+  };
+}
+const detailAssist = assistFor(detailSku);
+const pimAssist = assistFor(pimSku);
 
 useHead({ title: "Catálogo · Gestor" });
 </script>
@@ -714,6 +729,8 @@ useHead({ title: "Catálogo · Gestor" });
       :detail="detail"
       :loading="detailLoading"
       :busy="detailSku !== null && isBusy(detailKey(detailSku))"
+      :assist="detailAssist.assist"
+      :assist-busy="detailAssist.assistBusy"
       @update:open="(v) => { if (!v) closeDetail(); }"
       @save="saveDetail"
     />
@@ -723,6 +740,8 @@ useHead({ title: "Catálogo · Gestor" });
       :open="pimSku !== null"
       :row="pimRow"
       :busy="pimSku !== null && isBusy(socialKey(pimSku))"
+      :assist="pimAssist.assist"
+      :assist-busy="pimAssist.assistBusy"
       @update:open="(v) => { if (!v) closePim(); }"
       @save="savePim"
     />

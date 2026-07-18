@@ -7,12 +7,15 @@
 // conteúdo social. A validação forte (GTIN mod-10, categoria) é do backend — aqui só
 // damos as dicas e desabilitamos o salvar sem mudanças.
 import { pimSummary } from "~/presentation/catalog";
-import type { CatalogRowProjection } from "~/types/catalog";
+import type { AssistableField, CatalogRowProjection } from "~/types/catalog";
 
 const props = defineProps<{
   open: boolean;
   row: CatalogRowProjection | null;
   busy: boolean;
+  // assist de IA por campo (legenda e hashtags) — injetado pelo pai.
+  assist: (field: AssistableField, currentValue: string) => Promise<string>;
+  assistBusy: (field: AssistableField) => boolean;
 }>();
 
 const emit = defineEmits<{
@@ -132,21 +135,33 @@ const fieldClass =
           <input v-model="draft.tiktok_category_id" :class="fieldClass" type="text" placeholder="ID da categoria (opcional)" />
         </label>
 
-        <label class="block">
-          <span class="mb-1 block text-xs font-medium text-muted-foreground">Hashtags</span>
+        <CatalogAiSuggest
+          field="hashtags"
+          label="Hashtags"
+          :current="draft.hashtagsText"
+          :busy="assistBusy('hashtags')"
+          :assist="assist"
+          hint="Separe por espaço ou vírgula. O &quot;#&quot; é opcional."
+          @accept="(text) => (draft.hashtagsText = text)"
+        >
           <input v-model="draft.hashtagsText" :class="fieldClass" type="text" placeholder="pão artesanal caseiro" />
-          <span class="mt-1 block text-xs text-muted-foreground">Separe por espaço ou vírgula. O "#" é opcional.</span>
-        </label>
+        </CatalogAiSuggest>
 
-        <label class="block">
-          <span class="mb-1 block text-xs font-medium text-muted-foreground">Legenda social</span>
+        <CatalogAiSuggest
+          field="social_caption"
+          label="Legenda social"
+          :current="draft.social_caption"
+          :busy="assistBusy('social_caption')"
+          :assist="assist"
+          @accept="(text) => (draft.social_caption = text)"
+        >
           <textarea
             v-model="draft.social_caption"
             rows="3"
             class="w-full rounded-md border border-border bg-background px-2.5 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
             placeholder="Texto sugerido para posts e feeds."
           ></textarea>
-        </label>
+        </CatalogAiSuggest>
       </div>
 
       <div class="flex justify-end gap-2 border-t border-border px-5 py-4">

@@ -6,6 +6,7 @@ from django.urls import path
 
 from .alerts import AlertAckView, AlertListView
 from .catalog import (
+    CatalogAiAssistView,
     CatalogBulkPriceView,
     CatalogBulkView,
     CatalogCellView,
@@ -144,6 +145,7 @@ urlpatterns = [
     path("catalog/sync-status/", CatalogSyncStatusView.as_view(), name="api-backstage-catalog-sync-status"),
     path("catalog/resync/", CatalogResyncView.as_view(), name="api-backstage-catalog-resync"),
     path("catalog/social/", CatalogSocialView.as_view(), name="api-backstage-catalog-social"),
+    path("catalog/ai-assist/", CatalogAiAssistView.as_view(), name="api-backstage-catalog-ai-assist"),
     # Feeds (menuboard/Google/Meta)
     path("showcases/", ShowcaseBoardView.as_view(), name="api-backstage-showcases"),
     path("showcases/active/", ShowcaseActiveView.as_view(), name="api-backstage-showcases-active"),
