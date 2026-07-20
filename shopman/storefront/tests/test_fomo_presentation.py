@@ -178,6 +178,67 @@ class TestHappyHour:
         assert badges == ()
 
 
+# ── Prova social (F16 + F17) ─────────────────────────────────────────
+
+
+class TestDemand:
+    """"X pessoas querem" — só faz sentido com a prateleira vazia."""
+
+    def test_shows_when_sold_out(self):
+        badges = badges_for_product(
+            SKU,
+            availability={"available_qty": 0},
+            social_proof={"demand_count": 4},
+            now=NOW,
+        )
+        assert _types(badges) == ["demand"]
+        assert badges[0].label == "4 pessoas querem"
+
+    def test_hidden_while_there_is_stock(self):
+        """Com estoque, o número é ruído: quem quer, compra."""
+        badges = badges_for_product(
+            SKU,
+            availability={"available_qty": 10},
+            social_proof={"demand_count": 4},
+            now=NOW,
+        )
+        assert _types(badges) == []
+
+    def test_one_person_is_not_a_crowd(self):
+        badges = badges_for_product(
+            SKU,
+            availability={"available_qty": 0},
+            social_proof={"demand_count": 1},
+            now=NOW,
+        )
+        assert _types(badges) == []
+
+
+class TestSoldToday:
+    def test_shows_above_the_threshold(self):
+        badges = badges_for_product(SKU, social_proof={"sold_today": 12}, now=NOW)
+        assert _types(badges) == ["sold_today"]
+        assert badges[0].label == "12 vendidos hoje"
+
+    def test_weak_numbers_stay_quiet(self):
+        badges = badges_for_product(SKU, social_proof={"sold_today": 2}, now=NOW)
+        assert _types(badges) == []
+
+    def test_yields_to_real_urgency(self):
+        """Prioridade mais baixa de todas: escassez e frescor passam na frente."""
+        badges = badges_for_product(
+            SKU,
+            availability={"available_qty": 2},
+            production={"finished_at": NOW - timedelta(minutes=5)},
+            social_proof={"sold_today": 30},
+            now=NOW,
+        )
+        assert "sold_today" not in _types(badges)
+
+    def test_absent_social_proof_is_fine(self):
+        assert badges_for_product(SKU, now=NOW) == ()
+
+
 # ── Prioridade e teto ────────────────────────────────────────────────
 
 

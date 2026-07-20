@@ -34,12 +34,13 @@ FRESH_WINDOW_MINUTES = 60
 
 
 def context_for_sku(sku: str, *, channel_ref: str) -> dict:
-    """Os quatro insumos de ``badges_for_product``, resolvidos do estado atual."""
+    """Os insumos de ``badges_for_product``, resolvidos do estado atual."""
     config = _channel_config(channel_ref)
     return {
         "availability": _availability(sku, channel_ref=channel_ref, config=config),
         "production": last_finished_bake(sku),
         "promotions": _promotions_for_sku(sku),
+        "social_proof": social_proof(sku),
         "channel_config": _stock_config(config),
     }
 
@@ -139,6 +140,64 @@ def last_finished_bake(sku: str) -> dict | None:
         "work_order_ref": work_order.ref,
         "quality": (work_order.meta or {}).get("quality", ""),
     }
+
+
+# ── Prova social ─────────────────────────────────────────────────────
+
+
+def social_proof(sku: str) -> dict:
+    """F16 + F17 — quanta gente está na fila e quanta gente já levou hoje.
+
+    Janelas diferentes de propósito: "vendidos" é do dia corrente (venda de
+    ontem não prova movimento hoje), enquanto a fila de "me avise" vale
+    enquanto ninguém foi avisado — ela É a espera, e zerá-la à meia-noite
+    apagaria gente que continua esperando.
+
+    Cada contagem falha para zero por conta própria: uma consulta ruim da fila
+    não pode apagar o "vendidos hoje" (e vice-versa).
+    """
+    return {"demand_count": demand_count(sku), "sold_today": sold_today(sku)}
+
+
+def demand_count(sku: str) -> int:
+    """F16 — quantas pessoas estão na fila de "me avise" deste SKU.
+
+    Conta a fila de ``StockAlertSubscription`` pendente, não demand holds: o
+    badge aparece ao lado do botão "Me avise", então o número precisa ser
+    exatamente a fila em que aquele botão faz entrar. Contar outra população
+    faria a copy prometer uma fila e exibir outra.
+
+    Conta gente, não unidades — o badge fala de pessoas. Passa pelo adapter
+    porque ``StockAlertSubscription`` é model do storefront e shop não importa
+    superfície direto (ADR-001).
+    """
+    try:
+        from shopman.shop.adapters import audience_sources
+
+        return max(int(audience_sources.pending_alert_count(sku)), 0)
+    except Exception:
+        logger.debug("fomo.demand_count_failed sku=%s", sku, exc_info=True)
+        return 0
+
+
+def sold_today(sku: str) -> int:
+    """F17 — unidades vendidas hoje, pedidos cancelados fora.
+
+    Soma quantidade (não linhas): "12 vendidos" é sobre pães que saíram, e um
+    pedido de 6 unidades pesa 6. Agrega no banco para não trazer as linhas.
+    """
+    try:
+        from django.db.models import Sum
+        from shopman.orderman.models import Order, OrderItem
+
+        total = OrderItem.objects.filter(
+            sku=sku,
+            order__created_at__date=timezone.localdate(),
+        ).exclude(order__status=Order.Status.CANCELLED).aggregate(total=Sum("qty"))["total"]
+        return max(int(total or 0), 0)
+    except Exception:
+        logger.debug("fomo.sold_today_failed sku=%s", sku, exc_info=True)
+        return 0
 
 
 # ── Promoções ────────────────────────────────────────────────────────

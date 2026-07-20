@@ -22,6 +22,28 @@ def favorite_customer_refs(sku: str) -> list[str]:
     )
 
 
+def pending_alert_count(sku: str) -> int:
+    """Quantas pessoas estão na fila de "me avise" deste SKU, ainda não avisadas.
+
+    É a contagem por trás do badge "X pessoas querem" (F16): o número conta
+    exatamente a fila em que o botão "Me avise" convida a entrar. Contar
+    intenção de outra fonte (ex.: demand holds) faria a copy prometer uma fila
+    e mostrar outra.
+
+    Dedupe por telefone: a mesma pessoa pode assinar os dois gatilhos
+    (``stock_back`` e ``production_ready``) do mesmo produto, e ela é UMA
+    pessoa querendo, não duas.
+    """
+    from shopman.storefront.models import StockAlertSubscription
+
+    return (
+        StockAlertSubscription.objects.filter(sku=sku, notified_at__isnull=True)
+        .values("contact_phone")
+        .distinct()
+        .count()
+    )
+
+
 def pending_alert_contacts(sku: str) -> list[tuple[str, str]]:
     """``(telefone, customer_ref)`` de cada assinatura pendente deste SKU.
 

@@ -9,7 +9,8 @@ não toca banco, não tem side effect. O relógio entra por ``now`` para o teste
 não depender do horário da máquina.
 
 Mecânicas cobertas (FOMO-BROADCAST-SPECS §1): F1 (últimas unidades), F3 (D-1),
-F5 (saiu do forno), F13 (promoção expirando), F14 (happy hour).
+F5 (saiu do forno), F13 (promoção expirando), F14 (happy hour), F16 (quanta
+gente quer) e F17 (quantos saíram hoje).
 """
 
 from __future__ import annotations
@@ -28,12 +29,19 @@ FRESH_WINDOW_MINUTES = 60
 # Promoção só vira contagem regressiva quando o prazo aperta.
 PROMO_COUNTDOWN_HOURS = 4
 
+# Prova social precisa de massa para ser prova. Uma pessoa querendo, ou uma
+# unidade vendida, não diz nada sobre o produto: diz sobre o acaso.
+MIN_DEMAND = 2
+MIN_SOLD_TODAY = 3
+
 # Prioridade: 1 = mais urgente. Empate mantém a ordem de derivação.
 PRIORITY_FRESH = 1
 PRIORITY_LOW_STOCK = 1
 PRIORITY_D1 = 2
+PRIORITY_DEMAND = 2
 PRIORITY_PROMO = 3
 PRIORITY_HAPPY_HOUR = 3
+PRIORITY_SOLD_TODAY = 4
 
 
 @dataclass(frozen=True)
@@ -57,6 +65,7 @@ def badges_for_product(
     availability: dict | None = None,
     production: dict | None = None,
     promotions: list | tuple = (),
+    social_proof: dict | None = None,
     channel_config: dict | None = None,
     now: datetime | None = None,
 ) -> tuple[FomoBadge, ...]:
@@ -69,6 +78,7 @@ def badges_for_product(
         production: última fornada concluída — ``finished_at`` (datetime ou ISO)
             e, opcionalmente, ``quantity``. ``None`` quando não houve fornada.
         promotions: promoções ativas do SKU, cada uma com ``valid_until`` e ``name``.
+        social_proof: prova social do dia — ``demand_count`` e ``sold_today``.
         channel_config: aspecto ``stock`` do canal — ``low_stock_threshold``.
         now: relógio injetável (default: agora, timezone-aware).
 
@@ -77,14 +87,17 @@ def badges_for_product(
     """
     now = now or timezone.now()
     availability = availability or {}
+    social_proof = social_proof or {}
     channel_config = channel_config or {}
 
     badges: list[FomoBadge] = []
     badges.extend(_fresh(sku, production, now))
     badges.extend(_low_stock(sku, availability, channel_config))
     badges.extend(_d1(sku, availability))
+    badges.extend(_demand(sku, availability, social_proof))
     badges.extend(_promo_countdown(sku, promotions, now))
     badges.extend(_happy_hour(sku, availability))
+    badges.extend(_sold_today(sku, social_proof))
 
     ordered = sorted(badges, key=lambda badge: badge.priority)
     return tuple(ordered[:MAX_BADGES])
@@ -156,6 +169,47 @@ def _fresh(sku: str, production: dict | None, now: datetime) -> list[FomoBadge]:
                 "minutes_ago": minutes_ago,
                 "finished_at": finished_at.isoformat(),
             },
+        )
+    ]
+
+
+def _demand(sku: str, availability: dict, social_proof: dict) -> list[FomoBadge]:
+    """F16 — "X pessoas querem", só quando o produto está esgotado.
+
+    Com estoque na prateleira, o número seria ruído: quem quer, compra. Sem
+    estoque, ele vira o argumento do "Me avise" (a fila já existe, entre nela)
+    e informa a produção sem prometer fornada que talvez não venha.
+    """
+    if _int(availability.get("available_qty")) > 0:
+        return []
+    count = _int(social_proof.get("demand_count"))
+    if count < MIN_DEMAND:
+        return []
+    return [
+        FomoBadge(
+            type="demand",
+            label=f"{count} pessoas querem",
+            priority=PRIORITY_DEMAND,
+            meta={"sku": sku, "count": count},
+        )
+    ]
+
+
+def _sold_today(sku: str, social_proof: dict) -> list[FomoBadge]:
+    """F17 — "X vendidos hoje". Prova social pura, sem urgência embutida.
+
+    Prioridade mais baixa de todas de propósito: é o badge que cede a vez
+    quando existe qualquer escassez ou frescor real para contar.
+    """
+    count = _int(social_proof.get("sold_today"))
+    if count < MIN_SOLD_TODAY:
+        return []
+    return [
+        FomoBadge(
+            type="sold_today",
+            label=f"{count} vendidos hoje",
+            priority=PRIORITY_SOLD_TODAY,
+            meta={"sku": sku, "count": count},
         )
     ]
 
