@@ -156,7 +156,13 @@ class BroadcastPostApproveView(_BroadcastBase):
         try:
             if edits:
                 broadcast_service.update_content(pk, **edits)
-            post = broadcast_service.approve(pk, request.user, publish_at=publish_at)
+            post = broadcast_service.approve(
+                pk, request.user,
+                publish_at=publish_at,
+                # "Publicar agora" vence a janela preferida da regra; sem ele,
+                # aprovar fora do horário aceita a hora que a regra sugeriu.
+                respect_schedule=not _as_bool(request.data.get("publish_now")),
+            )
         except broadcast_service.BroadcastError as exc:
             return Response({"detail": str(exc)}, status=400)
 
@@ -459,6 +465,13 @@ def _post_or_none(pk: int) -> BroadcastPost | None:
 
 def _rule_or_none(pk: int) -> BroadcastRule | None:
     return BroadcastRule.objects.select_related("template").filter(pk=pk).first()
+
+
+def _as_bool(value) -> bool:
+    """JSON manda ``true``; form-data manda ``"true"``. Os dois valem."""
+    if isinstance(value, str):
+        return value.strip().lower() in ("true", "1", "yes", "on")
+    return bool(value)
 
 
 def _as_int(value) -> int | None:

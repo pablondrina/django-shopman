@@ -248,11 +248,8 @@ class BroadcastNotifyHandler:
         }.get(wave, ())
 
         sent, failed = _send_to(recipients, post=post)
-        _record_result(
-            post, "whatsapp",
-            {"status": "sent", "wave": wave, "sent": sent, "failed": failed},
-            merge=True,
-        )
+        _record_wave(post, wave, sent=sent, failed=failed,
+                     expected=int(payload.get("waves_expected") or 1))
         _settle(post)
         logger.info(
             "broadcast.notified post=%s wave=%s sent=%d failed=%d", post.pk, wave, sent, failed
@@ -301,6 +298,42 @@ def _record_result(post, platform: str, result: dict, *, merge: bool = False) ->
     post.save(update_fields=["platform_results"])
 
 
+def _platform_settled(platform: str, entry) -> bool:
+    """Esta plataforma já respondeu por inteiro?
+
+    O WhatsApp é o único que responde em partes: com VIP-first, dar o post por
+    publicado na primeira onda marcaria como concluído um disparo que ainda tem
+    a metade geral por sair.
+    """
+    if not isinstance(entry, dict):
+        return False
+    if platform == "whatsapp":
+        expected = int(entry.get("waves_expected") or 1)
+        return len(entry.get("waves") or []) >= expected
+    return bool(entry.get("status"))
+
+
+def _record_wave(post, wave: str, *, sent: int, failed: int, expected: int) -> None:
+    """Acumular o resultado de uma onda de WhatsApp no mesmo registro.
+
+    Ondas são disparos independentes (o geral sai 15 min depois do VIP), então
+    os totais somam e as ondas concluídas ficam listadas: é o que permite ao
+    ``_settle`` saber que o WhatsApp ainda tem gente para receber.
+    """
+    entry = dict((post.platform_results or {}).get("whatsapp") or {})
+    waves = list(entry.get("waves") or [])
+    if wave not in waves:
+        waves.append(wave)
+
+    _record_result(post, "whatsapp", {
+        "status": "sent",
+        "waves": waves,
+        "waves_expected": expected,
+        "sent": int(entry.get("sent") or 0) + sent,
+        "failed": int(entry.get("failed") or 0) + failed,
+    })
+
+
 def _settle(post) -> None:
     """Fechar o post quando toda plataforma já respondeu.
 
@@ -313,7 +346,7 @@ def _settle(post) -> None:
     from shopman.shop.models import PostStatus
 
     results = post.platform_results or {}
-    if len(results) < len(post.platforms or []):
+    if not all(_platform_settled(name, results.get(name)) for name in post.platforms or []):
         return
 
     statuses = {entry.get("status") for entry in results.values() if isinstance(entry, dict)}

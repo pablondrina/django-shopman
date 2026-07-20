@@ -34,6 +34,7 @@ from shopman.shop.models import (
     PostStatus,
 )
 from shopman.shop.services import audience as audience_service
+from shopman.shop.services import broadcast_schedule
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,12 @@ def _create_post(rule: BroadcastRule, context: dict) -> BroadcastPost:
     content = resolve_content(rule.template, context)
     resolved = audience_service.resolve(sku, rule.audience_rules)
 
+    # Fora da janela preferida, o post nasce com hora marcada. Vale para os dois
+    # caminhos: no automático o ``dispatch_due`` abre a porta na hora; no que
+    # exige revisão a hora fica como sugestão da regra, e o gestor confirma ou
+    # atropela.
+    publish_at = broadcast_schedule.next_publish_at(rule.schedule)
+
     post = BroadcastPost.objects.create(
         rule=rule,
         template=rule.template,
@@ -93,12 +100,13 @@ def _create_post(rule: BroadcastRule, context: dict) -> BroadcastPost:
         platforms=list(rule.platforms or []),
         audience=resolved.summary(),
         trigger_context=context,
+        publish_at=publish_at,
         expires_at=_expiry(rule),
     )
 
     if rule.requires_approval:
         notify_reviewers(rule, post)
-    else:
+    elif publish_at is None:
         dispatch(post)
     return post
 
@@ -296,12 +304,17 @@ def _image_url(template, context: dict) -> str:
 # ── Aprovação e despacho ─────────────────────────────────────────────
 
 
-def approve(post_id: int, user, *, publish_at=None) -> BroadcastPost:
+def approve(post_id: int, user, *, publish_at=None, respect_schedule: bool = True) -> BroadcastPost:
     """Gestor aprova e o post sai. Idempotente para quem clica duas vezes.
 
     Com ``publish_at`` no futuro, o post fica APROVADO e agendado: quem
     despacha é ``dispatch_due`` no ciclo de manutenção. Reagendar um post que
     ainda não saiu é permitido (só muda a hora); um já despachado, não.
+
+    Sem ``publish_at``, a hora sugerida pela regra na criação (janela preferida)
+    é honrada — aprovar às 5h um post cuja regra pede 7h agenda para as 7h.
+    ``respect_schedule=False`` é o "Publicar agora" do gestor, que vence a
+    janela.
     """
     try:
         post = BroadcastPost.objects.get(pk=post_id)
@@ -309,6 +322,8 @@ def approve(post_id: int, user, *, publish_at=None) -> BroadcastPost:
         raise BroadcastError("Post não encontrado.") from exc
 
     now = timezone.now()
+    if publish_at is None and respect_schedule:
+        publish_at = post.publish_at
     scheduled = publish_at is not None and publish_at > now
 
     if post.status in (PostStatus.PUBLISHED, PostStatus.PUBLISHING):
@@ -410,18 +425,39 @@ def _queue_notify(post: BroadcastPost) -> int:
 
     A audiência é resolvida de novo no handler, não aqui: entre a criação do
     post e a aprovação, favoritos e alertas mudam.
+
+    O plano sai de ``AudienceResult.waves()``: o VIP abre, o geral espera
+    ``vip_first_minutes``, e quem tem hora habitual conhecida ganha onda própria
+    dentro da janela da regra (F11 + F12). Sem VIP na audiência a divisão por
+    privilégio é abandonada lá dentro, para ninguém esperar à toa.
+
+    A resolução aqui serve só para *planejar* as ondas; quem envia resolve de
+    novo com ``audience.select_wave(sku, rules, wave_key)``, porque entre a
+    aprovação e o disparo favoritos e alertas mudam. Por isso a onda-base sai
+    mesmo com audiência vazia agora: quem entrar na fila do "me avise" no
+    intervalo ainda é alcançado, e o envio no-op se ela seguir vazia.
     """
     rules = (post.rule.audience_rules or {}) if post.rule_id else {}
-    delay = int(rules.get("vip_first_minutes") or 0)
+    sku = (post.trigger_context or {}).get("sku", "")
+
+    waves = audience_service.resolve(sku, rules).waves()
 
     created = 0
-    waves = [("vip", 0), ("general", delay)] if delay > 0 else [("all", 0)]
-    for wave, minutes in waves:
+    for wave in waves:
         directive = create_deduped(
             BROADCAST_NOTIFY,
-            payload={"post_id": post.pk, "wave": wave},
-            dedupe_key=f"broadcast:{post.pk}:wa:{wave}",
-            available_at=timezone.now() + timedelta(minutes=minutes) if minutes else None,
+            payload={
+                "post_id": post.pk,
+                "wave": wave.key,
+                "sku": sku,
+                "waves_expected": len(waves),
+            },
+            dedupe_key=f"broadcast:{post.pk}:wa:{wave.key}",
+            available_at=(
+                timezone.now() + timedelta(minutes=wave.delay_minutes)
+                if wave.delay_minutes
+                else None
+            ),
         )
         created += 1 if directive else 0
     return created

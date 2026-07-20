@@ -244,6 +244,109 @@ class TestVipFirst:
         assert [r.phone for r in result.vip] == [customer.phone]
 
 
+# ── Ondas de envio (F11 + F12) ───────────────────────────────────────
+
+
+class TestWaves:
+    """``AudienceResult.waves()`` — estrutura vem da config, gente vem daqui."""
+
+    def _at(self, hour: int):
+        return timezone.localtime().replace(hour=hour, minute=0, second=0, microsecond=0)
+
+    def _favorite(self, phone: str, *, preferred_hour=None, vip=False) -> Customer:
+        customer = _customer(phone, first_name="Vip" if vip else "Ana")
+        if vip or preferred_hour is not None:
+            CustomerInsight.objects.create(
+                customer=customer,
+                rfm_segment="champion" if vip else "recent",
+                preferred_hour=preferred_hour,
+            )
+        CustomerFavorite.objects.create(customer_ref=customer.ref, sku=SKU)
+        return customer
+
+    def test_single_wave_without_vip_delay(self):
+        self._favorite("+5543999990020")
+        waves = audience.resolve(SKU, {"favorites": True}).waves(now=self._at(9))
+        assert [w.key for w in waves] == ["all"]
+        assert waves[0].delay_minutes == 0
+
+    def test_vip_opens_and_general_waits(self):
+        self._favorite("+5543999990021", vip=True)
+        self._favorite("+5543999990022")
+
+        waves = audience.resolve(
+            SKU, {"favorites": True, "vip_first_minutes": 15}
+        ).waves(now=self._at(9))
+
+        assert {w.key: w.delay_minutes for w in waves} == {"vip": 0, "general": 15}
+
+    def test_base_wave_survives_an_empty_audience(self):
+        """Ninguém agora não quer dizer ninguém no disparo: a fila ainda cresce."""
+        waves = audience.resolve(SKU, {"favorites": True}).waves(now=self._at(9))
+        assert [w.key for w in waves] == ["all"]
+        assert waves[0].recipients == ()
+
+    def test_vip_split_is_config_driven_not_audience_driven(self):
+        """Sem VIP na lista agora, a onda VIP continua de pé para quem chegar."""
+        self._favorite("+5543999990023")
+        waves = audience.resolve(
+            SKU, {"favorites": True, "vip_first_minutes": 15}
+        ).waves(now=self._at(9))
+        assert [w.key for w in waves] == ["vip", "general"]
+
+    def test_preferred_hour_earns_its_own_wave(self):
+        self._favorite("+5543999990024", preferred_hour=11)
+        self._favorite("+5543999990025")
+
+        waves = audience.resolve(
+            SKU, {"favorites": True, "preferred_hour_window_hours": 4}
+        ).waves(now=self._at(9))
+
+        assert {w.key: w.delay_minutes for w in waves} == {"all": 0, "all@11": 120}
+
+    def test_preferred_hour_is_ignored_without_the_window(self):
+        """Sem janela declarada, a otimização fica desligada."""
+        self._favorite("+5543999990026", preferred_hour=11)
+        waves = audience.resolve(SKU, {"favorites": True}).waves(now=self._at(9))
+        assert [w.key for w in waves] == ["all"]
+
+    def test_hour_already_past_sends_now(self):
+        """Adiar para amanhã envelheceria a novidade; melhor sair agora."""
+        self._favorite("+5543999990027", preferred_hour=7)
+        waves = audience.resolve(
+            SKU, {"favorites": True, "preferred_hour_window_hours": 4}
+        ).waves(now=self._at(9))
+        assert [w.key for w in waves] == ["all"]
+
+    def test_hour_beyond_the_window_sends_now(self):
+        self._favorite("+5543999990028", preferred_hour=20)
+        waves = audience.resolve(
+            SKU, {"favorites": True, "preferred_hour_window_hours": 4}
+        ).waves(now=self._at(9))
+        assert [w.key for w in waves] == ["all"]
+
+    def test_preferred_hour_never_undercuts_the_vip_delay(self):
+        """A hora habitual só adia; nunca antecipa o que o grupo já deve."""
+        self._favorite("+5543999990029", preferred_hour=9)  # hora corrente
+
+        waves = audience.resolve(
+            SKU,
+            {"favorites": True, "vip_first_minutes": 30, "preferred_hour_window_hours": 4},
+        ).waves(now=self._at(9))
+
+        general = next(w for w in waves if w.key == "general")
+        assert general.delay_minutes == 30
+
+    def test_select_wave_resolves_membership_fresh(self):
+        customer = self._favorite("+5543999990030")
+        recipients = audience.select_wave(SKU, {"favorites": True}, "all", now=self._at(9))
+        assert [r.phone for r in recipients] == [customer.phone]
+
+    def test_select_wave_of_an_unknown_key_is_empty(self):
+        self._favorite("+5543999990031")
+        assert audience.select_wave(SKU, {"favorites": True}, "nao-existe") == ()
+
+
 # ── Resumo ───────────────────────────────────────────────────────────
 
 

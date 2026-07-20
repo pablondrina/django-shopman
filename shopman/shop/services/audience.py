@@ -14,6 +14,11 @@ Três invariantes:
    telefone normalizado é a chave de dedupe, então ninguém recebe em dobro.
 3. **VIP primeiro é vantagem, não exclusão.** O atraso do grupo geral é uma
    janela de privilégio, e todo mundo acaba recebendo.
+
+O envio sai em **ondas** (``AudienceResult.waves()``): o VIP abre, o geral vem
+depois do atraso configurado, e quem tem hora habitual conhecida
+(``CustomerInsight.preferred_hour``) pode ser adiado até ela — nunca além da
+janela da regra, porque fornada quente não espera o dia inteiro.
 """
 
 from __future__ import annotations
@@ -42,6 +47,23 @@ class Recipient:
     customer_ref: str = ""
     reasons: frozenset = frozenset()  # favorites | alerts | recompra
     is_vip: bool = False
+    #: Hora habitual de compra (0-23), de ``CustomerInsight.preferred_hour``.
+    #: ``None`` para quem ainda não tem padrão — esse recebe na hora.
+    preferred_hour: int | None = None
+
+
+@dataclass(frozen=True)
+class Wave:
+    """Uma leva de envio: quem recebe, e daqui a quantos minutos.
+
+    ``key`` é o identificador estável que viaja na Directive. O handler de
+    despacho volta com ele em ``select_wave`` para reconstruir a lista, porque
+    entre a criação do post e o envio a audiência muda.
+    """
+
+    key: str
+    recipients: tuple[Recipient, ...] = ()
+    delay_minutes: int = 0
 
 
 @dataclass(frozen=True)
@@ -51,6 +73,7 @@ class AudienceResult:
     general: tuple[Recipient, ...] = ()
     vip: tuple[Recipient, ...] = ()
     vip_delay_minutes: int = 0
+    preferred_hour_window_hours: int = 0
     counts: dict = field(default_factory=dict)
 
     @property
@@ -60,6 +83,59 @@ class AudienceResult:
     def all_recipients(self) -> tuple[Recipient, ...]:
         return tuple(self.vip) + tuple(self.general)
 
+    def waves(self, *, now=None) -> tuple[Wave, ...]:
+        """Planejar as levas de envio. Determinístico para um dado ``now``.
+
+        Duas dimensões se combinam: o grupo (VIP abre, geral espera
+        ``vip_delay_minutes``) e a hora habitual de cada pessoa. Quem não tem
+        hora habitual utilizável fica na leva-base do seu grupo; quem tem sai
+        numa leva própria daquela hora.
+
+        A **estrutura** das ondas vem da config; a **participação**, da
+        resolução no envio. Por isso a onda-base de cada grupo sai sempre,
+        mesmo vazia agora: entre este planejamento e o disparo a fila do "me
+        avise" cresce, e um VIP que só se qualifica depois ainda encontra a
+        onda VIP esperando por ele. Colapsar o split porque a lista está vazia
+        neste instante jogaria fora justamente o privilégio que a regra pede.
+
+        Só as ondas de hora habitual dependem de gente existir, porque elas
+        nascem das pessoas que já estão na lista.
+        """
+        now = now or timezone.localtime()
+        groups = (
+            [("vip", self.vip, 0), ("general", self.general, self.vip_delay_minutes)]
+            if self.vip_delay_minutes > 0
+            else [("all", self.all_recipients(), 0)]
+        )
+
+        waves: list[Wave] = []
+        for name, recipients, base_delay in groups:
+            # A chave None (onda-base) existe sempre; as de hora, só com gente.
+            buckets: dict[int | None, list[Recipient]] = {None: []}
+            for recipient in recipients:
+                deferral = _defer_minutes(
+                    recipient.preferred_hour,
+                    now=now,
+                    window_hours=self.preferred_hour_window_hours,
+                )
+                # A hora habitual só adia; nunca antecipa o que o grupo já deve.
+                key = recipient.preferred_hour if deferral > base_delay else None
+                buckets.setdefault(key, []).append(recipient)
+
+            for hour, members in sorted(buckets.items(), key=lambda kv: (kv[0] is not None, kv[0])):
+                if hour is None:
+                    waves.append(Wave(key=name, recipients=tuple(members), delay_minutes=base_delay))
+                    continue
+                if not members:
+                    continue
+                delay = _defer_minutes(
+                    hour, now=now, window_hours=self.preferred_hour_window_hours
+                )
+                waves.append(
+                    Wave(key=f"{name}@{hour}", recipients=tuple(members), delay_minutes=delay)
+                )
+        return tuple(waves)
+
     def summary(self) -> dict:
         """Resumo persistível em ``BroadcastPost.audience`` (só números, sem PII)."""
         return {
@@ -67,6 +143,7 @@ class AudienceResult:
             "vip_count": len(self.vip),
             "general_count": len(self.general),
             "vip_delay_minutes": self.vip_delay_minutes,
+            "wave_count": len(self.waves()),
             "total": self.total,
         }
 
@@ -104,16 +181,61 @@ def resolve(sku: str, rules: dict | None = None) -> AudienceResult:
         _merge(by_phone, found, reason="recompra")
 
     recipients = _filter_opted_in(by_phone.values())
+    window = max(int(rules.get("preferred_hour_window_hours") or 0), 0)
 
     vip_delay = int(rules.get("vip_first_minutes") or 0)
     if vip_delay <= 0:
-        return AudienceResult(general=tuple(recipients), counts=counts)
+        return AudienceResult(
+            general=tuple(recipients), preferred_hour_window_hours=window, counts=counts
+        )
 
     vips = tuple(r for r in recipients if r.is_vip)
     general = tuple(r for r in recipients if not r.is_vip)
     return AudienceResult(
-        general=general, vip=vips, vip_delay_minutes=vip_delay, counts=counts
+        general=general,
+        vip=vips,
+        vip_delay_minutes=vip_delay,
+        preferred_hour_window_hours=window,
+        counts=counts,
     )
+
+
+def select_wave(sku: str, rules: dict | None, wave_key: str, *, now=None) -> tuple[Recipient, ...]:
+    """Os destinatários de uma onda, resolvidos agora.
+
+    Contrato de despacho: a Directive carrega só ``wave_key``, e quem envia
+    volta aqui. Onda que sumiu (ninguém mais se encaixa) devolve tupla vazia,
+    que é resposta normal, não erro.
+    """
+    result = resolve(sku, rules)
+    for wave in result.waves(now=now):
+        if wave.key == wave_key:
+            return wave.recipients
+    return ()
+
+
+def _defer_minutes(preferred_hour, *, now, window_hours: int) -> int:
+    """Minutos até a hora habitual do cliente, ou 0 para enviar já.
+
+    Adia só para frente e só dentro da janela: hora que já passou hoje não
+    empurra a mensagem para amanhã (a novidade teria envelhecido), e hora
+    distante demais também não. Fora desses limites, enviar agora é melhor
+    que enviar tarde.
+    """
+    if preferred_hour is None or window_hours <= 0:
+        return 0
+    try:
+        hour = int(preferred_hour)
+    except (TypeError, ValueError):
+        return 0
+    if not 0 <= hour <= 23:
+        return 0
+
+    target = now.replace(hour=hour, minute=0, second=0, microsecond=0)
+    minutes = int((target - now).total_seconds() // 60)
+    if minutes <= 0 or minutes > window_hours * 60:
+        return 0
+    return minutes
 
 
 # ── Regras de audiência ──────────────────────────────────────────────
@@ -151,11 +273,14 @@ def _pending_alerts(sku: str) -> list[Recipient]:
         phone = (phone or "").strip()
         if not phone:
             continue
+        customer_ref = (customer_ref or "").strip()
+        is_vip, preferred_hour = _profile(customer_ref)
         out.append(
             Recipient(
                 phone=phone,
-                customer_ref=(customer_ref or "").strip(),
-                is_vip=_is_vip(customer_ref),
+                customer_ref=customer_ref,
+                is_vip=is_vip,
+                preferred_hour=preferred_hour,
             )
         )
     return out
@@ -192,6 +317,7 @@ def _recompra(sku: str, days: int) -> list[Recipient]:
                 phone=phone,
                 customer_ref=getattr(customer, "ref", "") or "",
                 is_vip=bool(getattr(insight, "is_vip", False)),
+                preferred_hour=getattr(insight, "preferred_hour", None),
             )
         )
     return out
@@ -268,33 +394,49 @@ def _recipients_for_refs(customer_refs: list[str]) -> list[Recipient]:
         from shopman.guestman.models import Customer
 
         customers = list(
-            Customer.objects.filter(ref__in=refs, is_active=True).exclude(phone="")
+            Customer.objects.filter(ref__in=refs, is_active=True)
+            .exclude(phone="")
+            .select_related("insight")
         )
     except Exception:
         logger.warning("audience.customer_lookup_failed", exc_info=True)
         return []
 
-    return [
-        Recipient(phone=c.phone, customer_ref=c.ref, is_vip=_is_vip(c.ref, customer=c))
-        for c in customers
-    ]
+    out = []
+    for customer in customers:
+        is_vip, preferred_hour = _profile(customer.ref, customer=customer)
+        out.append(
+            Recipient(
+                phone=customer.phone,
+                customer_ref=customer.ref,
+                is_vip=is_vip,
+                preferred_hour=preferred_hour,
+            )
+        )
+    return out
 
 
-def _is_vip(customer_ref: str, *, customer=None) -> bool:
-    """VIP por segmento RFM ou por tier de fidelidade — qualquer um dos dois."""
+def _profile(customer_ref: str, *, customer=None) -> tuple[bool, int | None]:
+    """``(is_vip, preferred_hour)`` de um cliente, numa passada só.
+
+    As duas respostas saem do mesmo ``CustomerInsight``, então lê-las juntas
+    evita repetir a consulta para cada destinatário.
+    """
     if not customer_ref:
-        return False
+        return False, None
     try:
         if customer is None:
             from shopman.guestman.models import Customer
 
             customer = Customer.objects.filter(ref=customer_ref).first()
         if customer is None:
-            return False
+            return False, None
 
         insight = getattr(customer, "insight", None)
+        preferred_hour = getattr(insight, "preferred_hour", None) if insight else None
+
         if insight is not None and insight.rfm_segment in VIP_RFM_SEGMENTS:
-            return True
+            return True, preferred_hour
 
         from shopman.guestman.contrib.loyalty.models import LoyaltyAccount
 
@@ -303,10 +445,10 @@ def _is_vip(customer_ref: str, *, customer=None) -> bool:
             .values_list("tier", flat=True)
             .first()
         )
-        return tier in VIP_LOYALTY_TIERS
+        return tier in VIP_LOYALTY_TIERS, preferred_hour
     except Exception:
-        logger.debug("audience.vip_check_failed ref=%s", customer_ref, exc_info=True)
-        return False
+        logger.debug("audience.profile_failed ref=%s", customer_ref, exc_info=True)
+        return False, None
 
 
 def _merge(by_phone: dict, found: list, *, reason: str) -> None:
@@ -319,6 +461,7 @@ def _merge(by_phone: dict, found: list, *, reason: str) -> None:
                 customer_ref=recipient.customer_ref,
                 reasons=frozenset({reason}),
                 is_vip=recipient.is_vip,
+                preferred_hour=recipient.preferred_hour,
             )
             continue
         by_phone[recipient.phone] = Recipient(
@@ -327,6 +470,12 @@ def _merge(by_phone: dict, found: list, *, reason: str) -> None:
             customer_ref=existing.customer_ref or recipient.customer_ref,
             reasons=existing.reasons | {reason},
             is_vip=existing.is_vip or recipient.is_vip,
+            # Idem para a hora habitual: a primeira conhecida vale.
+            preferred_hour=(
+                existing.preferred_hour
+                if existing.preferred_hour is not None
+                else recipient.preferred_hour
+            ),
         )
 
 
