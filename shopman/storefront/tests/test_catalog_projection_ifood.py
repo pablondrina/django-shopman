@@ -340,7 +340,10 @@ def test_handler_skips_when_channel_inactive(db, ifood_directive):
     backend = MagicMock()
     handler = CatalogProjectHandler(backend=backend)
 
-    with patch("shopman.shop.handlers.catalog_projection._ifood_channel_active", return_value=False):
+    with patch(
+        "shopman.shop.handlers.catalog_projection._channel_or_showcase_active",
+        return_value=False,
+    ):
         handler.handle(message=ifood_directive, ctx={})
 
     backend.project.assert_not_called()
