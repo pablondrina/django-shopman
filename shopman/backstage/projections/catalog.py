@@ -178,7 +178,7 @@ def _social_view(product) -> tuple[dict, bool]:
     ``pim_complete`` = tem o mínimo p/ um feed comercial (Google/Meta/TikTok): marca
     e categoria Google. GTIN/condição são refinamentos, não bloqueiam o sinal verde.
     """
-    from shopman.offerman.contrib.social.schema import get_social_attributes
+    from shopman.offerman import get_social_attributes
 
     attrs = get_social_attributes(product)
     view = {

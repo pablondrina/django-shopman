@@ -312,7 +312,7 @@ class CatalogSocialView(_CatalogBase):
     """
 
     def get(self, request):
-        from shopman.offerman.contrib.social.schema import get_social_attributes
+        from shopman.offerman import get_social_attributes
         from shopman.offerman.models import Product
 
         sku = (request.query_params.get("sku") or "").strip()
@@ -324,7 +324,7 @@ class CatalogSocialView(_CatalogBase):
         return Response({"sku": sku, "social": _social_payload(get_social_attributes(product))})
 
     def post(self, request):
-        from shopman.offerman.contrib.social.schema import (
+        from shopman.offerman import (
             ProductSocialAttributes,
             get_social_attributes,
             set_social_attributes,

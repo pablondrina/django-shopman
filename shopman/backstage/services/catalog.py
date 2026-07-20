@@ -373,7 +373,7 @@ def _fiscal_profile_choices() -> list[dict]:
 def _social_attrs_payload(product) -> dict:
     from dataclasses import asdict
 
-    from shopman.offerman.contrib.social.schema import get_social_attributes
+    from shopman.offerman import get_social_attributes
 
     return asdict(get_social_attributes(product))
 
@@ -507,7 +507,7 @@ def _apply_labelling(product, data: dict) -> None:
 
 
 def _apply_social(product, raw) -> None:
-    from shopman.offerman.contrib.social.schema import (
+    from shopman.offerman import (
         ProductSocialAttributes,
         get_social_attributes,
         set_social_attributes,
@@ -704,7 +704,7 @@ ASSISTABLE_FIELDS: tuple[str, ...] = tuple(_AI_ASSIST_FIELDS)
 
 def _ai_assist_context(product) -> str:
     """Contexto do produto para o prompt — só o que já está preenchido."""
-    from shopman.offerman.contrib.social.schema import get_social_attributes
+    from shopman.offerman import get_social_attributes
 
     social = get_social_attributes(product)
     primary = next((ci for ci in product.collection_items.all() if ci.is_primary), None)
