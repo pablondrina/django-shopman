@@ -31,6 +31,7 @@ from decimal import Decimal
 from django.utils import timezone
 
 from shopman.shop.adapters import get_adapter
+from shopman.shop.services import lead_time as lead_time_service
 from shopman.shop.services.order_helpers import get_commitment_date
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,19 @@ def hold(order, *, require_all: bool = False) -> None:
     impede o oversell: o ``select_for_update`` de Quant no Stockman serializa os
     commits concorrentes do mesmo SKU, e quem chega sem estoque falha ANTES do
     pedido existir.
+
+    Dois gates de política de canal vivem aqui, no mesmo molde do
+    ``insufficient_stock`` (falha limpa no require_all: sem pedido, sem hold;
+    alerta de operador no caminho brando):
+
+    - ``unknown_sku``: SKU fora do CATÁLOGO em canal com
+      ``stock.allow_untracked=False`` — typo de SKU não pode virar pedido sem
+      reserva. Produto que existe no catálogo mas não é rastreado pelo
+      Stockman segue passando como untracked.
+    - ``lead_time``: registro de DEMANDA (encomenda para data sem fornada
+      planejada) para data mais cedo que ``lead_time.earliest_allowed_date``.
+      Encomenda com Quant planejado da data segue valendo (o hold ancora no
+      plano e o gate nem dispara); venda imediata de estoque de hoje idem.
     """
     if "hold_ids" in (order.data or {}):
         logger.info("stock.hold: skip (holds já criados) order=%s", order.ref)
@@ -87,6 +101,7 @@ def hold(order, *, require_all: bool = False) -> None:
         and target_date is not None
         and _channel_allows_preorder(order)
     )
+    allow_untracked = _channel_allows_untracked(order)
     session_key = getattr(order, "session_key", None)
     session_holds_by_sku = _load_session_holds(session_key) if session_key else {}
 
@@ -115,7 +130,15 @@ def hold(order, *, require_all: bool = False) -> None:
             comp_qty = Decimal(str(comp["qty"]))
 
             # SKUs not tracked by Stockman need no hold — skip silently.
+            # Exceção (canal gated): SKU fora do CATÁLOGO não pode virar
+            # pedido sem reserva quando stock.allow_untracked=False.
             if _is_untracked(comp_sku, prior_decisions, adapter):
+                if not allow_untracked and not _sku_known_to_catalog(comp_sku):
+                    if require_all:
+                        raise _unknown_sku_error(item, comp_sku)
+                    # Pedido já existe (caminho brando pós-commit, ex.: canal
+                    # externo) — não dá para recusar; alertar o operador.
+                    _alert_unknown_sku(order, comp_sku)
                 hold_ids.append({"sku": comp_sku, "hold_id": None, "qty": 0, "untracked": True})
                 continue
 
@@ -139,6 +162,19 @@ def hold(order, *, require_all: bool = False) -> None:
             if unmet_qty <= 0:
                 continue
 
+            # Lead time (política de encomenda): registrar DEMANDA só dentro
+            # da antecedência do produto/canal. O plano da data segue valendo:
+            # com Quant planejado o create_hold ancora nele e sucede — o gate
+            # só morde quando a reserva viraria demanda (quant=None).
+            comp_allow_demand = allow_demand
+            lead_time_earliest = None
+            if allow_demand and target_date is not None:
+                channel_ref = getattr(order, "channel_ref", None)
+                earliest = lead_time_service.earliest_allowed_date(comp_sku, channel_ref)
+                if target_date < earliest:
+                    comp_allow_demand = False
+                    lead_time_earliest = earliest
+
             # 2) Fallback: create a fresh hold via the adapter for the remainder.
             # channel_ref aplica o escopo de POSIÇÕES do canal (excluded_positions,
             # ex.: D-1 staff-only). apply_safety_margin=False: a margem é buffer
@@ -150,7 +186,7 @@ def hold(order, *, require_all: bool = False) -> None:
                 target_date=target_date,
                 channel_ref=getattr(order, "channel_ref", None),
                 apply_safety_margin=False,
-                allow_demand=allow_demand,
+                allow_demand=comp_allow_demand,
                 priority=_ORDER_HOLD_PRIORITY,
             )
             if not result.get("success"):
@@ -159,17 +195,28 @@ def hold(order, *, require_all: bool = False) -> None:
                     comp_sku, unmet_qty, result.get("error_code"),
                 )
                 if require_all:
+                    if lead_time_earliest is not None and _sku_known_to_catalog(comp_sku):
+                        # Sem plano para a data E demanda barrada por lead time:
+                        # recusa limpa com a primeira data possível.
+                        raise _lead_time_error(
+                            order, item, comp_sku, lead_time_earliest
+                        )
                     if _sku_known_to_catalog(comp_sku):
                         raise _insufficient_stock_error(
                             item, comp_sku, unmet_qty, result.get("error_code")
                         )
+                    if not allow_untracked:
+                        raise _unknown_sku_error(item, comp_sku)
                     # SKU fora do catálogo (sessão de integração/smoke): não há
                     # o que reservar — segue como untracked, sem travar o commit.
                     hold_ids.append(
                         {"sku": comp_sku, "hold_id": None, "qty": 0, "untracked": True}
                     )
                     continue
-                _alert_hold_gap(order, comp_sku, unmet_qty, result.get("error_code"))
+                _alert_hold_gap(
+                    order, comp_sku, unmet_qty,
+                    "lead_time" if lead_time_earliest is not None else result.get("error_code"),
+                )
                 continue
 
             hold_ids.append({
@@ -381,6 +428,68 @@ def _insufficient_stock_error(item: dict, comp_sku: str, qty, error_code):
     )
 
 
+def _unknown_sku_error(item: dict, comp_sku: str):
+    """ValidationError do gate ``allow_untracked=False`` — mesmo dialeto do
+    ``insufficient_stock``: o CommitService desfaz a transação (sem pedido,
+    sem hold) e a superfície mapeia via ``checkout.map_checkout_error``."""
+    from shopman.orderman.exceptions import ValidationError
+
+    display = item.get("name") or item.get("sku") or comp_sku
+    return ValidationError(
+        code="unknown_sku",
+        message=(
+            f"{display} não está no nosso catálogo. "
+            "Confira o item e tente novamente, por favor."
+        ),
+        context={
+            "sku": item.get("sku") or comp_sku,
+            "component_sku": comp_sku,
+        },
+    )
+
+
+def _lead_time_error(order, item: dict, comp_sku: str, earliest):
+    """ValidationError do gate de lead time — demanda para data mais cedo que a
+    antecedência do produto/canal. Mensagem omotenashi com a primeira data
+    possível; mesmo dialeto do ``insufficient_stock``."""
+    from shopman.orderman.exceptions import ValidationError
+
+    display = item.get("name") or item.get("sku") or comp_sku
+    hours = lead_time_service.effective_lead_time_hours(
+        comp_sku, getattr(order, "channel_ref", None)
+    )
+    return ValidationError(
+        code="lead_time",
+        message=(
+            f"{display} precisa de {hours}h de antecedência — "
+            f"primeira data possível: {earliest.strftime('%d/%m')}."
+        ),
+        context={
+            "sku": item.get("sku") or comp_sku,
+            "component_sku": comp_sku,
+            "lead_time_hours": hours,
+            "earliest_allowed_date": earliest.isoformat(),
+        },
+    )
+
+
+def _alert_unknown_sku(order, sku: str) -> None:
+    """Pedido já commitado (caminho brando) carregou SKU fora do catálogo em
+    canal gated — o operador precisa saber que não há reserva possível."""
+    from shopman.shop.services.observability import create_operator_alert
+
+    create_operator_alert(
+        type="stock_unknown_sku",
+        severity="warning",
+        message=(
+            f"Pedido {order.ref} contém SKU fora do catálogo ({sku}) em canal "
+            "que não permite item sem reserva. Conferir o pedido."
+        ),
+        order_ref=order.ref,
+        dedupe_key=f"stock_unknown_sku:{order.ref}:{sku}",
+    )
+
+
 def _alert_hold_gap(order, sku: str, qty, error_code) -> None:
     """Pedido commitado sem reserva para um item — operador precisa saber."""
     from shopman.shop.services.observability import create_operator_alert
@@ -512,6 +621,23 @@ def _channel_allows_preorder(order) -> bool:
             getattr(order, "channel_ref", None),
         )
         return bool(ChannelConfig().stock.preorder)
+
+
+def _channel_allows_untracked(order) -> bool:
+    """True quando o canal aceita SKU fora do catálogo sem reserva
+    (``ChannelConfig.stock.allow_untracked``)."""
+    from shopman.shop.config import ChannelConfig
+
+    try:
+        return bool(ChannelConfig.for_channel(order.channel_ref).stock.allow_untracked)
+    except Exception:
+        # Defaults permitem untracked; config ilegível não pode virar recusa
+        # de venda (mesma postura do _channel_allows_preorder).
+        logger.warning(
+            "stock._channel_allows_untracked: config lookup failed channel=%s",
+            getattr(order, "channel_ref", None),
+        )
+        return bool(ChannelConfig().stock.allow_untracked)
 
 
 def _is_untracked(sku: str, prior_decisions: dict[str, dict], adapter) -> bool:

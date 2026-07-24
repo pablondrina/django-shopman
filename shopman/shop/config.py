@@ -24,6 +24,14 @@ class ChannelConfig:
     editing       — itens podem ser editados? (open/locked)
     rules         — quais validators/modifiers ativar?
 
+    Lead time de encomenda: ``stock.default_lead_time_hours`` é a antecedência
+    mínima (em horas) exigida para REGISTRAR DEMANDA (encomenda para data sem
+    fornada planejada) quando o produto não declara o próprio lead time em
+    ``Product.metadata["lead_time_hours"]``. 0 (default) = sem exigência.
+    Encomenda para data COM Quant planejado não passa por esse gate (a fornada
+    já está planejada — o compromisso existe), e venda imediata de estoque
+    físico de hoje nunca é bloqueada por lead time.
+
     Um Channel é um canal de VENDA (transacional). Exibição/feed (menuboard, Google,
     Meta) NÃO são canais — vivem em ``shop.Showcase`` (Feed).
     """
@@ -100,6 +108,15 @@ class ChannelConfig:
         # (commit registra DEMANDA — hold quant=None — em vez de recusar; a
         # janela continua sendo orders.max_preorder_days no checkout). PDV e
         # marketplaces devem declarar False no Channel.config.
+        allow_untracked: bool = True
+        # SKU fora do CATÁLOGO pode entrar em pedido sem reserva (seam de
+        # integração/smoke)? Canais de CLIENTE devem declarar False — typo de
+        # SKU não pode virar pedido sem reserva. Não afeta produto que EXISTE
+        # no catálogo mas não é rastreado pelo Stockman (esse segue passando).
+        default_lead_time_hours: int = 0
+        # Antecedência mínima (horas) para registrar DEMANDA (encomenda sem
+        # fornada planejada) quando o produto não declara
+        # Product.metadata["lead_time_hours"]. 0 = sem exigência.
 
     # ── 5. Notificações ──
     @dataclass
@@ -276,6 +293,14 @@ class ChannelConfig:
             raise ValueError("stock.planned_hold_ttl_hours deve ser > 0")
         if self.stock.low_stock_threshold < 0:
             raise ValueError("stock.low_stock_threshold deve ser >= 0")
+        if not isinstance(self.stock.allow_untracked, bool):
+            raise ValueError("stock.allow_untracked deve ser true/false")
+        if (
+            isinstance(self.stock.default_lead_time_hours, bool)
+            or not isinstance(self.stock.default_lead_time_hours, int)
+            or self.stock.default_lead_time_hours < 0
+        ):
+            raise ValueError("stock.default_lead_time_hours deve ser um inteiro >= 0")
         if self.stock.allowed_positions is not None and not isinstance(self.stock.allowed_positions, list):
             raise ValueError("stock.allowed_positions deve ser uma lista ou null")
         if not isinstance(self.stock.excluded_positions, list):

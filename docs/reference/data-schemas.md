@@ -653,6 +653,8 @@ Lido por: `hooks._build_directive_payload`, `hooks._maybe_schedule_card_timeout`
 | `safety_margin` | `int` | `0` | Margem de segurança (unidades a subtrair do disponível) |
 | `planned_hold_ttl_hours` | `int` | `48` | TTL para holds planejados (fermata) |
 | `allowed_positions` | `list[str] \| None` | `None` | Posições de estoque aceitas. None = todas vendáveis |
+| `allow_untracked` | `bool` | `true` | SKU fora do CATÁLOGO pode entrar em pedido sem reserva (seam de integração/smoke). Canais de CLIENTE declaram `false` — typo de SKU falha limpo no gate de commit (`ValidationError(unknown_sku)`, sem pedido, sem hold). Produto que existe no catálogo mas não é rastreado pelo Stockman segue passando |
+| `default_lead_time_hours` | `int` | `0` | Antecedência mínima (horas) para registrar DEMANDA (encomenda sem fornada planejada) quando o produto não declara `Product.metadata.lead_time_hours`. `0` = sem exigência. Lido por `shop/services/lead_time.py` |
 
 Lido por: `StockHoldHandler`, `confirmation.py` helpers, `apps._validate_hold_ttl`.
 
@@ -895,6 +897,20 @@ proprios, nao aqui.
 | `birthday` | `string` | cadastro/importacao legado | atendimento, segmentacao | Data de aniversario em registros legados. Preferir campo `Customer.birthday` |
 | `seed_persona` | `string` | seed | QA/auditoria | Persona operacional deterministica. Ex: `"low_attention"` |
 | `qa_notes` | `list[string]` | seed | QA/auditoria | Observacoes de teste para simular baixa atencao, recuperacao e suporte |
+
+---
+
+## Product.metadata (chaves do orquestrador)
+
+Contexto de venda/operacao do produto fora do schema estrutural do Offerman
+(o proprio Offerman documenta `fiscal`, `allergens`, `dietary_info` etc.).
+
+**Campo**: `Product.metadata` (JSONField, `shopman/offerman/models/product.py`).
+
+| Chave | Tipo | Escrito por | Lido por | Descrição |
+|-------|------|-------------|----------|-----------|
+| `allows_next_day_sale` | `bool` | seed/admin | pricing D-1 | Produto elegível à venda D-1 com desconto. |
+| `lead_time_hours` | `int` | seed/admin (Offerman) | `shop/services/lead_time.py` (checkout do storefront + gate de demanda em `shop/services/stock.hold`) | Antecedência mínima (horas) para registrar DEMANDA (encomenda para data sem fornada planejada). Sobrescreve `ChannelConfig.stock.default_lead_time_hours`. Não bloqueia encomenda com Quant planejado da data nem venda imediata do estoque físico de hoje. |
 
 ---
 

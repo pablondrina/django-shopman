@@ -188,7 +188,12 @@ def interpret_checkout(request, channel_ref: str) -> IntentResult:
 
     # ── Step 10: Validate preorder ────────────────────────────────────────
     if delivery_date:
-        preorder_errors = _validate_preorder(delivery_date)
+        preorder_errors = _validate_preorder(
+            delivery_date,
+            cart_lines=cart.lines,
+            channel_ref=channel_ref,
+            session_key=session_key,
+        )
         errors.update(preorder_errors)
 
     # ── Step 11: Validate slot ────────────────────────────────────────────
@@ -412,7 +417,13 @@ def _validate_checkout_form(
     return errors
 
 
-def _validate_preorder(delivery_date: str) -> dict[str, str]:
+def _validate_preorder(
+    delivery_date: str,
+    *,
+    cart_lines=None,
+    channel_ref: str | None = None,
+    session_key: str = "",
+) -> dict[str, str]:
     from datetime import date as date_type
     errors: dict[str, str] = {}
     today = timezone.localdate()
@@ -436,7 +447,78 @@ def _validate_preorder(delivery_date: str) -> dict[str, str]:
     if is_closed:
         suffix = f": {closed_label}" if closed_label else ""
         errors["delivery_date"] = f"Fechado{suffix} — escolha outra data."
+        return errors
+
+    lead_time_error = _validate_lead_time(
+        chosen_date,
+        today=today,
+        cart_lines=cart_lines,
+        channel_ref=channel_ref,
+        session_key=session_key,
+    )
+    if lead_time_error:
+        errors["delivery_date"] = lead_time_error
     return errors
+
+
+def _validate_lead_time(
+    chosen_date,
+    *,
+    today,
+    cart_lines,
+    channel_ref: str | None,
+    session_key: str,
+) -> str | None:
+    """Encomenda dentro do lead time de cada produto do carrinho.
+
+    O gate vale só para DEMANDA: data futura sem cobertura (fornada planejada /
+    estoque válido na data) para a quantidade pedida. Encomenda com plano
+    existente e compra do estoque físico de hoje passam direto — a regra do
+    dono é sobre registrar demanda que a produção não alcança.
+    """
+    if not cart_lines or chosen_date <= today:
+        return None
+
+    from decimal import Decimal
+
+    from shopman.shop.services import availability, lead_time
+
+    session_held: dict[str, int] | None = None
+    for line in cart_lines:
+        sku = getattr(line, "sku", None)
+        if not sku:
+            continue
+        hours = lead_time.effective_lead_time_hours(sku, channel_ref)
+        if hours <= 0:
+            continue
+        earliest = lead_time.earliest_allowed_date(sku, channel_ref)
+        if chosen_date >= earliest:
+            continue
+
+        # A data está cedo demais para DEMANDA — mas fornada planejada (ou
+        # estoque válido na data) honra o compromisso e passa.
+        if session_held is None:
+            session_held = (
+                checkout_context.session_held_qty(session_key, target_date=chosen_date)
+                if session_key
+                else {}
+            )
+        qty = int(getattr(line, "qty", 0) or 0)
+        needed = max(qty - session_held.get(sku, 0), 0)
+        if needed == 0:
+            continue  # a própria sessão já reservou quants da data
+        decision = availability.check(
+            sku, Decimal(needed), channel_ref=channel_ref, target_date=chosen_date
+        )
+        if decision["ok"] and not decision.get("untracked"):
+            continue
+
+        name = getattr(line, "name", None) or sku
+        return (
+            f"{name} precisa de {hours}h de antecedência — "
+            f"primeira data possível: {earliest.strftime('%d/%m')}."
+        )
+    return None
 
 
 def _validate_slot(
