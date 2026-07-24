@@ -1543,6 +1543,21 @@ class Command(BaseCommand):
             p.metadata["allows_next_day_sale"] = True
             p.save(update_fields=["metadata"])
 
+        # Lead time de encomenda (Pablo, 2026-07-24): fermentação natural longa —
+        # registrar DEMANDA (encomenda sem fornada planejada) exige antecedência.
+        # Ver Product.metadata.lead_time_hours em docs/reference/data-schemas.md.
+        lead_time_hours_by_sku = {
+            "CAMPAGNE-OVAL": 24,
+            "CAMPAGNE-REDONDO": 24,
+            "CAMPAGNE-PASSAS": 24,
+            "ITALIANO-RUSTICO": 24,
+            "CHALLAH": 24,
+        }
+        for sku, hours in lead_time_hours_by_sku.items():
+            p = products[sku]
+            p.metadata["lead_time_hours"] = hours
+            p.save(update_fields=["metadata"])
+
         # Bundle components
         ProductComponent.objects.filter(parent=combo).delete()
         ProductComponent.objects.create(parent=combo, component=products["CROISSANT"], qty=Decimal("1"))
@@ -1729,58 +1744,63 @@ class Command(BaseCommand):
         self.stdout.write("  📊 Estoque inicial...")
 
         vitrine = positions["vitrine"]
+        # Quantidades calibradas com as médias diárias REAIS auferidas dos XMLs de
+        # NFC-e (acervo _MASTER: jun/2019 pré-pandemia ~816 un/dia; jun/2021 ~601
+        # un/dia; sábado +24% — coberto pelo multiplicador 1.25 de sex/sáb).
+        # Madeleine é ~11% do volume da casa; viennoiserie doce ~25%.
+        # Ver docs/reports/seed_calibration_2026-07-24.md.
         stock_data = {
-            "BAGUETE": 25,
-            "BAGUETE-CAMPAGNE": 12,
-            "BAGUETE-GERGELIM": 10,
-            "MINI-BAGUETE": 30,
-            "BATARD": 15,
-            "FENDU": 40,
-            "TABATIERE": 35,
+            "BAGUETE": 22,
+            "BAGUETE-CAMPAGNE": 16,
+            "BAGUETE-GERGELIM": 12,
+            "MINI-BAGUETE": 18,
+            "BATARD": 17,
+            "FENDU": 20,
+            "TABATIERE": 24,
             "ITALIANO-RUSTICO": 8,
-            "CAMPAGNE-OVAL": 10,
-            "CAMPAGNE-REDONDO": 10,
-            "CAMPAGNE-PASSAS": 6,
-            "CIABATTA": 20,
-            "PAO-FORMA": 12,
+            "CAMPAGNE-OVAL": 12,
+            "CAMPAGNE-REDONDO": 4,
+            "CAMPAGNE-PASSAS": 8,
+            "CIABATTA": 24,
+            "PAO-FORMA": 18,
             "CHALLAH": 8,
-            "PAO-HAMBURGER": 30,
-            "FOCACCIA-ALECRIM": 8,
-            "FOCACCIA-CEBOLA": 6,
-            "FOCACCIA-BACON": 6,
-            "MINI-FOCACCIA-ALECRIM": 15,
-            "MINI-FOCACCIA-CEBOLA": 12,
-            "MINI-FOCACCIA-BACON": 12,
-            "BRIOCHE": 12,
-            "BRIOCHE-BURGER": 15,
-            "PAO-HOTDOG": 10,
-            "CROISSANT": 40,
-            "PAIN-CHOCOLAT": 30,
+            "PAO-HAMBURGER": 20,
+            "FOCACCIA-ALECRIM": 6,
+            "FOCACCIA-CEBOLA": 4,
+            "FOCACCIA-BACON": 4,
+            "MINI-FOCACCIA-ALECRIM": 10,
+            "MINI-FOCACCIA-CEBOLA": 8,
+            "MINI-FOCACCIA-BACON": 8,
+            "BRIOCHE": 8,
+            "BRIOCHE-BURGER": 12,
+            "PAO-HOTDOG": 12,
+            "CROISSANT": 42,
+            "PAIN-CHOCOLAT": 36,
             "MINI-CROISSANT": 25,
-            "CHAUSSON": 12,
-            "BICHON": 10,
-            "CORNET-CHOCOLATE": 15,
-            "CORNET": 12,
-            "MELON-PAN": 10,
-            "PAIN-RAISINS": 12,
-            "BRIOCHE-CHOCOLAT": 12,
-            "MADELEINE": 20,
-            "DELI": 15,
-            "HOTDOG": 12,
+            "CHAUSSON": 24,
+            "BICHON": 7,
+            "CORNET-CHOCOLATE": 14,
+            "CORNET": 10,
+            "MELON-PAN": 11,
+            "PAIN-RAISINS": 14,
+            "BRIOCHE-CHOCOLAT": 18,
+            "MADELEINE": 68,
+            "DELI": 12,
+            "HOTDOG": 10,
             "QUICHE-LORRAINE": 8,
             "QUICHE-LEGUMES": 8,
-            "CROQUE-MONSIEUR": 12,
-            "CROQUE-MADAME": 10,
-            "TARTINE-SAUMON": 10,
-            "TARTINE-TOMATE": 10,
-            "COMBO-PETIT-DEJ": 10,
-            "ESPRESSO": 100,
-            "ESPRESSO-DUPLO": 80,
-            "CAPPUCCINO": 60,
-            "LATTE": 60,
-            "CHOCOLATE-QUENTE": 40,
-            "CHA-EARL-GREY": 40,
-            "SUCO-LARANJA": 30,
+            "CROQUE-MONSIEUR": 10,
+            "CROQUE-MADAME": 8,
+            "TARTINE-SAUMON": 8,
+            "TARTINE-TOMATE": 8,
+            "COMBO-PETIT-DEJ": 8,
+            "ESPRESSO": 30,
+            "ESPRESSO-DUPLO": 20,
+            "CAPPUCCINO": 12,
+            "LATTE": 10,
+            "CHOCOLATE-QUENTE": 8,
+            "CHA-EARL-GREY": 10,
+            "SUCO-LARANJA": 12,
         }
 
         for sku, qty in stock_data.items():
@@ -1794,13 +1814,18 @@ class Command(BaseCommand):
 
         # D-1 stock (yesterday's leftovers in "ontem" position)
         d1_position = positions["ontem"]
+        # Sobras D-1 realistas: ~5-8% da produção do dia; os XMLs mostram itens
+        # "metade preço" concentrados nos grandes volumes (madeleine, viennoiserie).
         d1_items = [
-            ("BAGUETE", 4),
+            ("BAGUETE", 2),
             ("BATARD", 2),
-            ("FENDU", 5),
-            ("TABATIERE", 4),
-            ("CIABATTA", 3),
-            ("PAO-HAMBURGER", 6),
+            ("FENDU", 2),
+            ("TABATIERE", 3),
+            ("CIABATTA", 2),
+            ("PAO-HAMBURGER", 3),
+            ("MADELEINE", 5),
+            ("CROISSANT", 3),
+            ("PAIN-CHOCOLAT", 2),
         ]
         for sku, qty in d1_items:
             if sku in products:
@@ -2176,22 +2201,26 @@ class Command(BaseCommand):
         today = timezone.localdate()
         tz_info = timezone.get_current_timezone()
 
+        # base_qty = média diária REAL dos XMLs de NFC-e (jun/2019 + jun/2021);
+        # sex/sáb ganham 1.25 abaixo (XMLs: sábado +24%). Madeleine é o campeão
+        # absoluto (~11% das unidades da casa). Ver
+        # docs/reports/seed_calibration_2026-07-24.md.
         production_plan = [
             # recipe_ref, base_qty, start, finish
-            ("baguete", Decimal("28"), (4, 0), (6, 0)),
-            ("baguete-campagne", Decimal("14"), (4, 10), (6, 30)),
-            ("campagne", Decimal("10"), (3, 40), (8, 0)),
-            ("italiano-rustico", Decimal("18"), (3, 50), (8, 30)),
-            ("ciabatta", Decimal("20"), (5, 0), (7, 0)),
-            ("pao-forma", Decimal("12"), (5, 10), (7, 30)),
+            ("baguete", Decimal("22"), (4, 0), (6, 0)),
+            ("baguete-campagne", Decimal("16"), (4, 10), (6, 30)),
+            ("campagne", Decimal("12"), (3, 40), (8, 0)),
+            ("italiano-rustico", Decimal("8"), (3, 50), (8, 30)),
+            ("ciabatta", Decimal("24"), (5, 0), (7, 0)),
+            ("pao-forma", Decimal("18"), (5, 10), (7, 30)),
             ("challah", Decimal("8"), (5, 20), (8, 0)),
-            ("croissant", Decimal("48"), (5, 0), (7, 30)),
+            ("croissant", Decimal("42"), (5, 0), (7, 30)),
             ("pain-chocolat", Decimal("36"), (5, 30), (8, 0)),
-            ("brioche", Decimal("12"), (5, 30), (8, 30)),
-            ("focaccia-alecrim", Decimal("8"), (7, 0), (10, 0)),
-            ("focaccia-cebola", Decimal("6"), (7, 30), (10, 30)),
-            ("chausson", Decimal("12"), (8, 0), (11, 0)),
-            ("madeleine", Decimal("24"), (9, 0), (13, 0)),
+            ("brioche", Decimal("8"), (5, 30), (8, 30)),
+            ("focaccia-alecrim", Decimal("6"), (7, 0), (10, 0)),
+            ("focaccia-cebola", Decimal("4"), (7, 30), (10, 30)),
+            ("chausson", Decimal("24"), (8, 0), (11, 0)),
+            ("madeleine", Decimal("68"), (9, 0), (13, 0)),
         ]
         recipes_by_ref = {r.ref: r for r in Recipe.objects.filter(ref__in=[row[0] for row in production_plan])}
 
@@ -2444,7 +2473,7 @@ class Command(BaseCommand):
 
         for offset in range(1, 8):
             target = today + timedelta(days=offset)
-            if target.weekday() == 0:
+            if target.weekday() == 6:  # domingo fechado (seg–sáb, 9h–18h)
                 continue
             day_multiplier = Decimal("1.25") if target.weekday() in (4, 5) else Decimal("1")
             for index, (ref, qty, _start_hm, _finish_hm) in enumerate(production_plan):
@@ -2499,7 +2528,7 @@ class Command(BaseCommand):
                 continue  # sem prateleira física hoje = não estocado para venda direta
             for offset in range(1, 8):
                 target = today + timedelta(days=offset)
-                if target.weekday() == 0:
+                if target.weekday() == 6:  # domingo fechado (seg–sáb, 9h–18h)
                     continue
                 day_multiplier = Decimal("1.25") if target.weekday() in (4, 5) else Decimal("1")
                 stock.receive(
@@ -2516,7 +2545,7 @@ class Command(BaseCommand):
         # pickup slots and waste patterns.
         for days_ago in range(1, 36):
             target = today - timedelta(days=days_ago)
-            if target.weekday() == 0:
+            if target.weekday() == 6:  # domingo fechado (seg–sáb, 9h–18h)
                 continue
             weekday_multiplier = Decimal("1.20") if target.weekday() in (4, 5) else Decimal("1")
             for index, (ref, qty, start_hm, finish_hm) in enumerate(production_plan):
@@ -2732,7 +2761,9 @@ class Command(BaseCommand):
             # auto-rejeitada por estoque (o kernel reserva o que der, best-effort,
             # e o estoque reconcilia). A review avisa; não bloqueia. Mesma semântica
             # do marketplace (check_on_commit=False).
-            "stock": {"check_on_commit": False},
+            # allow_untracked=False: canal de CLIENTE — typo de SKU não pode
+            # virar pedido sem reserva (SKU fora do catálogo é recusado/alertado).
+            "stock": {"check_on_commit": False, "allow_untracked": False},
             "handle_label": "Comanda",
             "handle_placeholder": "Ex: 42",
         }
@@ -2743,6 +2774,9 @@ class Command(BaseCommand):
         _remote_stock = {
             "excluded_positions": ["ontem"],
             "hold_ttl_minutes": 30,
+            # Canais de CLIENTE não aceitam SKU fora do catálogo como pedido
+            # sem reserva — typo de SKU falha limpo no gate de commit.
+            "allow_untracked": False,
         }
         _remote_config = {
             "confirmation": {"mode": "auto_confirm", "timeout_minutes": 5, "stale_new_alert_minutes": 10},
@@ -2889,8 +2923,9 @@ class Command(BaseCommand):
             day = now - timedelta(days=days_ago)
             weekday = day.weekday()  # 0=Mon, 4=Fri, 5=Sat, 6=Sun
 
-            # Skip Mondays (boulangerie típica)
-            if weekday == 0:
+            # Fechado aos domingos — Nelson opera seg–sáb, 9h–18h
+            # (espelha Shop.opening_hours; confirmado por Pablo em 2026-07-24).
+            if weekday == 6:
                 continue
 
             # Base order count
@@ -2899,8 +2934,8 @@ class Command(BaseCommand):
             # Weekday multiplier
             if weekday in (4, 5):    # Fri, Sat — alta demanda
                 day_mult = 1.3
-            elif weekday == 6:        # Sun — menor demanda e fecha mais cedo
-                day_mult = 0.7
+            elif weekday == 0:        # Mon — dia mais fraco (padrão dos XMLs NFC-e)
+                day_mult = 0.85
             else:
                 day_mult = 1.0
 
@@ -2912,19 +2947,19 @@ class Command(BaseCommand):
             for _ in range(num_orders):
                 channel = random.choice(channel_list)
                 customer = random.choice(customer_list)
-                # Sunday closes at 13:00; others close at 19:00
-                max_hour = 12 if weekday == 6 else 18
+                # Horário de operação: 9h–18h (último pedido até ~17h59)
+                max_hour = 17
 
                 if days_ago == 0:
                     # Only completed orders from earlier today (morning hours)
-                    morning_ceiling = max(7, now.hour - 2)
-                    if morning_ceiling <= 7:
-                        continue  # too early in the day — no completed history yet
-                    hour = random.randint(7, morning_ceiling)
+                    morning_ceiling = max(9, now.hour - 2)
+                    if morning_ceiling <= 9:
+                        continue  # loja abriu há pouco — sem histórico concluído ainda
+                    hour = random.randint(9, morning_ceiling)
                     minute = random.randint(0, 59)
                     status = "completed"
                 else:
-                    hour = random.randint(7, max_hour)
+                    hour = random.randint(9, max_hour)
                     minute = random.randint(0, 59)
                     status = "completed"
 
@@ -3573,21 +3608,23 @@ class Command(BaseCommand):
                 for factor in (1.05, 1.15, 0.9, 1.1)
             ]
 
+        # Espelha o production_plan calibrado com os XMLs de NFC-e (o Sugerido
+        # deve sair PRÓXIMO do planejado — ver comentário acima).
         history = {
-            "BAGUETE": weeks(28),
-            "BAGUETE-CAMPAGNE": weeks(14),
-            "CAMPAGNE-OVAL": weeks(10),
-            "ITALIANO-RUSTICO": weeks(18),
-            "CIABATTA": weeks(20),
-            "PAO-FORMA": weeks(12),
+            "BAGUETE": weeks(22),
+            "BAGUETE-CAMPAGNE": weeks(16),
+            "CAMPAGNE-OVAL": weeks(12),
+            "ITALIANO-RUSTICO": weeks(8),
+            "CIABATTA": weeks(24),
+            "PAO-FORMA": weeks(18),
             "CHALLAH": weeks(8),
-            "CROISSANT": weeks(48),
+            "CROISSANT": weeks(42),
             "PAIN-CHOCOLAT": weeks(36),
-            "BRIOCHE": weeks(12),
-            "FOCACCIA-ALECRIM": weeks(8),
-            "FOCACCIA-CEBOLA": weeks(6),
-            "CHAUSSON": weeks(12),
-            "MADELEINE": weeks(24),
+            "BRIOCHE": weeks(8),
+            "FOCACCIA-ALECRIM": weeks(6),
+            "FOCACCIA-CEBOLA": weeks(4),
+            "CHAUSSON": weeks(24),
+            "MADELEINE": weeks(68),
         }
         # Ancora no localdate (fuso da loja), não em now(): o backend de demanda
         # filtra o histórico por __week_day, que extrai o dia convertendo para
