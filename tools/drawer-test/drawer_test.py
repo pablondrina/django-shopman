@@ -65,7 +65,7 @@ def test_receipt() -> bytes:
         ESC + b"a\x01",                      # center
         ESC + b"E\x01" + b"NELSON BOULANGERIE\n" + ESC + b"E\x00",
         b"Teste de impressora + gaveta\n",
-        ("%s\n" % now).encode("cp850", "replace"),
+        f"{now}\n".encode("cp850", "replace"),
         b"------------------------------\n",
         ESC + b"a\x00",                      # left
         b"1x Croissant Tradicional\n",
