@@ -119,7 +119,7 @@ typing-inspection==0.4.4
 ujson==5.13.0
 uritemplate==4.2.0
 urllib3==2.7.0
-webauthn==2.8.0
+webauthn==3.0.0
 Werkzeug==3.1.8
 whitenoise==6.12.0
 zope.interface==8.5
