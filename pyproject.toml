@@ -14,7 +14,7 @@ requires-python = ">=3.12"
 dependencies = [
     "Django>=6.0,<6.1",
     "djangorestframework>=3.17,<4.0",
-    "django-filter>=25.2,<26.0",
+    "django-filter>=25.2,<27.0",
     "drf-spectacular>=0.29,<1.0",
     "shopman-utils>=0.3.0",
     "shopman-refs>=0.1.0",

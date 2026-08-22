@@ -57,7 +57,7 @@ distro==1.9.0
 Django==6.0.8
 django-csp==4.0
 django-eventstream==5.3.4
-django-filter==25.2
+django-filter==26.1
 django-grip==3.5.2
 django-import-export==4.4.1
 django-otp==1.7.0
