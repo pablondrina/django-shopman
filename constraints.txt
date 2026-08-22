@@ -99,7 +99,7 @@ pyOpenSSL==26.4.0
 pypng==0.20220715.0
 python-dotenv==1.2.3
 PyYAML==6.0.3
-qrcode==7.4.2
+qrcode==8.2
 RapidFuzz==3.14.5
 redis==7.4.1
 referencing==0.37.0
